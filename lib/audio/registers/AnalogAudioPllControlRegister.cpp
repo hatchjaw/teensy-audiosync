@@ -1,5 +1,5 @@
 #include "AnalogAudioPllControlRegister.h"
-#include <ClockConstants.h>
+#include "ClockConstants.h"
 
 AnalogAudioPllControlRegister AnalogAudioPllControlRegister::instance_;
 
@@ -15,7 +15,7 @@ bool AnalogAudioPllControlRegister::begin()
     return reset();
 }
 
-bool AnalogAudioPllControlRegister::setBypass(bool bypass)
+bool AnalogAudioPllControlRegister::setBypass(bool bypass) const
 {
     if (bypass) {
         set(CCM_ANALOG_PLL_AUDIO_BYPASS);
@@ -26,7 +26,7 @@ bool AnalogAudioPllControlRegister::setBypass(bool bypass)
     return true;
 }
 
-bool AnalogAudioPllControlRegister::setEnable(bool enable)
+bool AnalogAudioPllControlRegister::setEnable(bool enable) const
 {
     if (enable) {
         set(CCM_ANALOG_PLL_AUDIO_ENABLE);
@@ -37,7 +37,7 @@ bool AnalogAudioPllControlRegister::setEnable(bool enable)
     return true;
 }
 
-bool AnalogAudioPllControlRegister::setPowerDown(bool powerDown)
+bool AnalogAudioPllControlRegister::setPowerDown(bool powerDown) const
 {
     if (powerDown) {
         set(CCM_ANALOG_PLL_AUDIO_POWERDOWN);
@@ -49,7 +49,7 @@ bool AnalogAudioPllControlRegister::setPowerDown(bool powerDown)
     return true;
 }
 
-bool AnalogAudioPllControlRegister::setPostDivSelect(AnalogAudioPllControlRegister::PostDivSelect postDivSelect)
+bool AnalogAudioPllControlRegister::setPostDivSelect(PostDivSelect postDivSelect) const
 {
     switch (postDivSelect) {
         case PostDivSelect::kReserved:
@@ -64,7 +64,7 @@ bool AnalogAudioPllControlRegister::setPostDivSelect(AnalogAudioPllControlRegist
     }
 }
 
-bool AnalogAudioPllControlRegister::setDivSelect(int pll4Div)
+bool AnalogAudioPllControlRegister::setDivSelect(const int pll4Div) const
 {
     if (pll4Div < 27 || pll4Div > 54) {
         Serial.printf("Invalid value provided for "
@@ -77,7 +77,7 @@ bool AnalogAudioPllControlRegister::setDivSelect(int pll4Div)
     return true;
 }
 
-bool AnalogAudioPllControlRegister::setBypassClockSource(AnalogAudioPllControlRegister::BypassClockSource source)
+bool AnalogAudioPllControlRegister::setBypassClockSource(const BypassClockSource source) const
 {
     switch (source) {
         case BypassClockSource::kReserved1:
@@ -93,13 +93,13 @@ bool AnalogAudioPllControlRegister::setBypassClockSource(AnalogAudioPllControlRe
     }
 }
 
-bool AnalogAudioPllControlRegister::reset()
+bool AnalogAudioPllControlRegister::reset() const
 {
     write(CCM_ANALOG_PLL_AUDIO_POWERDOWN | CCM_ANALOG_PLL_AUDIO_BYPASS);
     return true;
 }
 
-void AnalogAudioPllControlRegister::awaitLock()
+void AnalogAudioPllControlRegister::awaitLock() const
 {
     auto cycles{ARM_DWT_CYCCNT};
     while (!(getValue() & CCM_ANALOG_PLL_AUDIO_LOCK)) {}

@@ -59,7 +59,9 @@ l3PTP ptp(master, slave, false);
 
 void setup()
 {
-//    while (!Serial) {}
+#ifdef WAIT_FOR_SERIAL
+    while (!Serial) {}
+#endif
 
     Serial.begin(2000000);
     pinMode(13, OUTPUT);
@@ -299,7 +301,7 @@ void audioISR(void)
 {
     ++counter;
 
-    if (counter == 1) {
+    if (counter >= 1 && counter < 10) {
         doImpulse = true;
     } else if (counter == 2 * static_cast<int>(AUDIO_SAMPLE_RATE_EXACT)) {
         counter = 0;
@@ -322,11 +324,13 @@ void audioISR(void)
         if (doImpulse) {
             doImpulse = false;
             i2s_tx_buffer[0] = (1 << 15) - 1;
+            i2s_tx_buffer[1] = (1 << 15) - 1;
         } else {
             i2s_tx_buffer[0] = 0;
+            i2s_tx_buffer[1] = 0;
         }
 
-        i2s_tx_buffer[1] = 0;
+
 
         // Flush buffer and clear interrupt
         arm_dcache_flush_delete(i2s_tx_buffer, sizeof(i2s_tx_buffer));

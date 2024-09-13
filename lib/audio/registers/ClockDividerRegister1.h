@@ -1,7 +1,7 @@
-#ifndef INC_1588_CLOCKDIVIDERREGISTER1_H
-#define INC_1588_CLOCKDIVIDERREGISTER1_H
+#ifndef CLOCKDIVIDERREGISTER1_H
+#define CLOCKDIVIDERREGISTER1_H
 
-#include <IMXRT1060Register.h>
+#include "IMXRT1060Register.h"
 
 /**
  * CCM Clock Divider Register (CCM_CS1CDR)
@@ -14,9 +14,9 @@ public:
 
     bool begin() override;
 
-    bool setSai1ClkPred(uint8_t divider);
+    bool setSai1ClkPred(uint8_t divider) const;
 
-    bool setSai1ClkPodf(uint8_t divider);
+    bool setSai1ClkPodf(uint8_t divider) const;
 
 private:
     ClockDividerRegister1()
@@ -26,4 +26,4 @@ private:
 };
 
 
-#endif //INC_1588_CLOCKDIVIDERREGISTER1_H
+#endif //CLOCKDIVIDERREGISTER1_H

@@ -1,7 +1,7 @@
-#ifndef INC_1588_SERIALCLOCKMULTIPLEXERREGISTER1_H
-#define INC_1588_SERIALCLOCKMULTIPLEXERREGISTER1_H
+#ifndef SERIALCLOCKMULTIPLEXERREGISTER1_H
+#define SERIALCLOCKMULTIPLEXERREGISTER1_H
 
-#include <IMXRT1060Register.h>
+#include "IMXRT1060Register.h"
 
 /**
  * CCM Serial Clock Multiplexer Register 1 (CCM_CSCMR1)
@@ -29,7 +29,7 @@ public:
 
     bool begin() override;
 
-    bool setSai1ClkSel(Sai1ClkSel selector);
+    bool setSai1ClkSel(Sai1ClkSel selector) const;
 
 private:
     SerialClockMultiplexerRegister1()
@@ -39,4 +39,4 @@ private:
 };
 
 
-#endif //INC_1588_SERIALCLOCKMULTIPLEXERREGISTER1_H
+#endif //SERIALCLOCKMULTIPLEXERREGISTER1_H

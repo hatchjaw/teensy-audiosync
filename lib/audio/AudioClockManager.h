@@ -1,9 +1,9 @@
-#ifndef INC_1588_AUDIOCLOCKMANAGER_H
-#define INC_1588_AUDIOCLOCKMANAGER_H
+#ifndef AUDIOCLOCKMANAGER_H
+#define AUDIOCLOCKMANAGER_H
 
-#include <ClockConstants.h>
-#include <MiscellaneousRegister2.h>
-#include <AnalogAudioPllControlRegister.h>
+#include "ClockConstants.h"
+#include "registers/MiscellaneousRegister2.h"
+#include "registers/AnalogAudioPllControlRegister.h"
 
 class AudioClockManager : public Printable
 {
@@ -49,4 +49,4 @@ private:
 };
 
 
-#endif //INC_1588_AUDIOCLOCKMANAGER_H
+#endif //AUDIOCLOCKMANAGER_H

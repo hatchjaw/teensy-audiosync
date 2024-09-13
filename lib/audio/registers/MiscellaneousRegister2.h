@@ -1,7 +1,7 @@
-#ifndef INC_1588_MISCELLANEOUSREGISTER2_H
-#define INC_1588_MISCELLANEOUSREGISTER2_H
+#ifndef MISCELLANEOUSREGISTER2_H
+#define MISCELLANEOUSREGISTER2_H
 
-#include <IMXRT1060Register.h>
+#include "IMXRT1060Register.h"
 
 /**
  * Miscellaneous Register 2 (CCM_ANALOG_MISC2n)
@@ -21,7 +21,7 @@ public:
 
     bool begin() override;
 
-    bool setAudioPostDiv(AudioPostDiv div);
+    bool setAudioPostDiv(AudioPostDiv div) const;
 
 private:
     MiscellaneousRegister2()
@@ -31,4 +31,4 @@ private:
 };
 
 
-#endif //INC_1588_MISCELLANEOUSREGISTER2_H
+#endif //MISCELLANEOUSREGISTER2_H

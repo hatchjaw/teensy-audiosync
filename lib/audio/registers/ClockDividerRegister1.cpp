@@ -1,5 +1,5 @@
 #include "ClockDividerRegister1.h"
-#include <ClockConstants.h>
+#include "ClockConstants.h"
 
 ClockDividerRegister1 ClockDividerRegister1::instance_;
 
@@ -17,7 +17,7 @@ bool ClockDividerRegister1::begin()
     return true;
 }
 
-bool ClockDividerRegister1::setSai1ClkPred(uint8_t divider)
+bool ClockDividerRegister1::setSai1ClkPred(uint8_t divider) const
 {
     if (divider == 0 || divider > ClockConstants::k_sai1PreMax) {
         Serial.printf("Invalid value provided for SAI1_CLK_PRED: "
@@ -30,7 +30,7 @@ bool ClockDividerRegister1::setSai1ClkPred(uint8_t divider)
     return true;
 }
 
-bool ClockDividerRegister1::setSai1ClkPodf(uint8_t divider)
+bool ClockDividerRegister1::setSai1ClkPodf(uint8_t divider) const
 {
     if (divider == 0 || divider > ClockConstants::k_sai1PostMax) {
         Serial.printf("Invalid value provided for SAI1_CLK_PODF: "

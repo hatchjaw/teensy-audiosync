@@ -1,5 +1,5 @@
-#ifndef INC_1588_IMXRT1060REGISTER_H
-#define INC_1588_IMXRT1060REGISTER_H
+#ifndef IMXRT1060REGISTER_H
+#define IMXRT1060REGISTER_H
 
 #include <Arduino.h>
 
@@ -50,7 +50,7 @@ protected:
      * `value`.
      * @param value
      */
-    void write(uint32_t value) { *m_Address = value; }
+    void write(uint32_t value) const { *m_Address = value; }
 
 private:
     /**
@@ -84,21 +84,21 @@ protected:
      * will not be modified.
      * @param mask
      */
-    void set(uint32_t mask) { *m_AddressSet = mask; }
+    void set(uint32_t mask) const { *m_AddressSet = mask; }
 
     /**
      * Assign to the CLR register. The bits of `mask` will be cleared; other
      * bits will not be modified.
      * @param mask
      */
-    void clear(uint32_t mask) { *m_AddressClr = mask; }
+    void clear(uint32_t mask) const { *m_AddressClr = mask; }
 
     /**
      * Assign to the TOG register. The bits of `mask` will be toggled; other
      * bits will not be modified.
      * @param mask
      */
-    void toggle(uint32_t mask) { *m_AddressTog = mask; }
+    void toggle(uint32_t mask) const { *m_AddressTog = mask; }
 
 private:
     /**
@@ -115,4 +115,4 @@ private:
     volatile uint32_t *m_AddressTog;
 };
 
-#endif //INC_1588_IMXRT1060REGISTER_H
+#endif //IMXRT1060REGISTER_H

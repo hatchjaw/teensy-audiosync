@@ -9,11 +9,13 @@ if ! command -v tycmd &>/dev/null; then
   exit 1
 fi
 
+flags=${*:1}
+
 # Build
 cd "$(dirname "$(realpath "$0")")"/.. || exit 1
 # Run
-pio run -e clock-authority
-pio run -e clock-subscriber
+pio run -e clock-authority $flags
+pio run -e clock-subscriber $flags
 # GTFO if pio exited unhappily
 if [ $? -eq 1 ]; then
     exit 1

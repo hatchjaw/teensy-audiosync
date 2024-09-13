@@ -1,6 +1,6 @@
 #include "AudioClockManager.h"
-#include <ClockDividerRegister1.h>
-#include <SerialClockMultiplexerRegister1.h>
+#include "registers/ClockDividerRegister1.h"
+#include "registers/SerialClockMultiplexerRegister1.h"
 
 extern AnalogAudioPllControlRegister &AnalogAudioPllControlRegister;
 extern AudioPllNumeratorRegister &AudioPllNumeratorRegister;
@@ -37,20 +37,19 @@ void AudioClockManager::setClock(uint32_t targetSampleRate)
 
     Serial.println(ClockDividerRegister1);
 
-//    AnalogAudioPllControlRegister.setBypass(true);
-//    AnalogAudioPllControlRegister.setEnable(true);
-
     AnalogAudioPllControlRegister.setBypassClockSource(AnalogAudioPllControlRegister::BypassClockSource::kRefClk24M);
     AnalogAudioPllControlRegister.setPostDivSelect(k_pll4PostDiv);
     AnalogAudioPllControlRegister.setDivSelect(m_pll4Div);
     AudioPllNumeratorRegister.set(m_pll4Num);
     AudioPllDenominatorRegister.set(m_pll4Denom);
 
+    // These have to be present. Not necessarily in this order, but if not here
+    // the audio subsystem appears not to work.
+    AnalogAudioPllControlRegister.setEnable(true);
     AnalogAudioPllControlRegister.setPowerDown(false);
+    AnalogAudioPllControlRegister.setBypass(false);
 
     Serial.println(AnalogAudioPllControlRegister);
-
-//    AnalogAudioPllControlRegister.setBypass(false);
 }
 
 FLASHMEM
@@ -58,26 +57,24 @@ void AudioClockManager::setClock(double targetSampleRate)
 {
     calculatePll4Numerator(targetSampleRate);
     AudioPllNumeratorRegister.set(m_pll4Num);
-//    Serial.println(AudioPllNumeratorRegister);
-//    Serial.println(AudioPllDenominatorRegister);
 }
 
 void AudioClockManager::startClock()
 {
     AnalogAudioPllControlRegister.setEnable(true);
-//    AnalogPllControlRegister.powerDown(false);
-    AnalogAudioPllControlRegister.setBypass(false);
+//    AnalogAudioPllControlRegister.setPowerDown(false);
+//    AnalogAudioPllControlRegister.setBypass(false);
 
-//    Serial.println(AnalogAudioPllControlRegister);
+    Serial.println(AnalogAudioPllControlRegister);
 }
 
 void AudioClockManager::stopClock()
 {
-//    AnalogPllControlRegister.powerDown(true);
-    AnalogAudioPllControlRegister.setBypass(true);
+//    AnalogAudioPllControlRegister.setBypass(true);
+//    AnalogAudioPllControlRegister.setPowerDown(false);
     AnalogAudioPllControlRegister.setEnable(false);
 
-//    Serial.println(AnalogAudioPllControlRegister);
+    Serial.println(AnalogAudioPllControlRegister);
 }
 
 FLASHMEM
@@ -130,7 +127,7 @@ void AudioClockManager::calculateDividers(uint32_t targetSampleRate)
 
             // TODO: prefer high precision denom, i.e. where num < (1 << 29) - 1
             if (isPll4FreqValid()
-                && getPll4Freq() > (ClockConstants::k_pll4FreqMin + ClockConstants::k_pll4FreqMax) / 2
+//                && getPll4Freq() > (ClockConstants::k_pll4FreqMin + ClockConstants::k_pll4FreqMax) / 2
                 && m_pll4Denom == 1'000'000'000) {
                 return;
                 printTo(Serial);

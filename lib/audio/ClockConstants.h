@@ -1,5 +1,5 @@
-#ifndef INC_1588_CLOCKCONSTANTS_H
-#define INC_1588_CLOCKCONSTANTS_H
+#ifndef CLOCKCONSTANTS_H
+#define CLOCKCONSTANTS_H
 
 #include <Arduino.h>
 
@@ -80,4 +80,4 @@ struct ClockConstants
     static constexpr uint32_t k_sai1PostMaxFreq{300 * k_MHz};
 };
 
-#endif //INC_1588_CLOCKCONSTANTS_H
+#endif //CLOCKCONSTANTS_H

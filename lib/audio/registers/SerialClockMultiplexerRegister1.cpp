@@ -12,11 +12,11 @@ SerialClockMultiplexerRegister1 &SerialClockMultiplexerRegister1 = SerialClockMu
 bool SerialClockMultiplexerRegister1::begin()
 {
     // Unset SAI1 clock select
-    write(CCM_CSCMR1 & ~CCM_CSCMR1_SAI1_CLK_SEL_MASK);
+    write(getValue() & ~CCM_CSCMR1_SAI1_CLK_SEL_MASK);
     return true;
 }
 
-bool SerialClockMultiplexerRegister1::setSai1ClkSel(const SerialClockMultiplexerRegister1::Sai1ClkSel selector)
+bool SerialClockMultiplexerRegister1::setSai1ClkSel(const Sai1ClkSel selector) const
 {
     switch (selector) {
         case Sai1ClkSel::kReserved:

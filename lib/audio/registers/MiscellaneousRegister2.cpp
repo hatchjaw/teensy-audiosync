@@ -15,7 +15,7 @@ bool MiscellaneousRegister2::begin()
     return false;
 }
 
-bool MiscellaneousRegister2::setAudioPostDiv(const AudioPostDiv div)
+bool MiscellaneousRegister2::setAudioPostDiv(const AudioPostDiv div) const
 {
     switch (div) {
         case AudioPostDiv::kDivideBy2:

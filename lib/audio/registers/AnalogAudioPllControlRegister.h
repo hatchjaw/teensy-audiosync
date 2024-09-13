@@ -1,7 +1,7 @@
-#ifndef INC_1588_ANALOGAUDIOPLLCONTROLREGISTER_H
-#define INC_1588_ANALOGAUDIOPLLCONTROLREGISTER_H
+#ifndef ANALOGAUDIOPLLCONTROLREGISTER_H
+#define ANALOGAUDIOPLLCONTROLREGISTER_H
 
-#include <IMXRT1060Register.h>
+#include "IMXRT1060Register.h"
 
 /**
  * Analog Audio PLL control Register (CCM_ANALOG_PLL_AUDIOn)
@@ -30,27 +30,27 @@ public:
 
     bool begin() override;
 
-    bool setBypass(bool bypass);
+    bool setBypass(bool bypass) const;
 
-    bool setEnable(bool enable);
+    bool setEnable(bool enable) const;
 
-    bool setPowerDown(bool powerDown);
+    bool setPowerDown(bool powerDown) const;
 
-    bool setBypassClockSource(AnalogAudioPllControlRegister::BypassClockSource source);
+    bool setBypassClockSource(BypassClockSource source) const;
 
-    bool setPostDivSelect(PostDivSelect postDivSelect);
+    bool setPostDivSelect(PostDivSelect postDivSelect) const;
 
-    bool setDivSelect(int pll4Div);
+    bool setDivSelect(int pll4Div) const;
 
 private:
     AnalogAudioPllControlRegister()
             : IMXRT1060BitbandRegister("CCM_ANALOG_PLL_AUDIO", &CCM_ANALOG_PLL_AUDIO) {}
 
-    bool reset();
+    bool reset() const;
+
+    void awaitLock() const;
 
     static AnalogAudioPllControlRegister instance_;
-
-    void awaitLock();
 };
 
 //==============================================================================
@@ -99,4 +99,4 @@ private:
     static AudioPllDenominatorRegister instance_;
 };
 
-#endif //INC_1588_ANALOGAUDIOPLLCONTROLREGISTER_H
+#endif //ANALOGAUDIOPLLCONTROLREGISTER_H
