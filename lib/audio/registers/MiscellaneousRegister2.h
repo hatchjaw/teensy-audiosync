@@ -5,7 +5,8 @@
 
 /**
  * Miscellaneous Register 2 (CCM_ANALOG_MISC2n)
- * i.MX RT1060 Processor Reference Manual, §14.8.19, p. 1126
+ * i.MX RT1060 Processor Reference Manual v3, §14.8.19, p. 1126
+ * Implementation of audio-related fields
  */
 class MiscellaneousRegister2 final : public IMXRT1060BitbandRegister
 {

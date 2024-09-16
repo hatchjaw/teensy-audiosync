@@ -5,7 +5,8 @@
 
 /**
  * CCM Clock Divider Register (CCM_CS1CDR)
- * i.MX RT1060 Processor Reference Manual, §14.7.10, p. 1056
+ * i.MX RT1060 Processor Reference Manual v3, §14.7.10, p. 1056
+ * Implementation of audio-related fields
  */
 class ClockDividerRegister1 final : public IMXRT1060Register
 {

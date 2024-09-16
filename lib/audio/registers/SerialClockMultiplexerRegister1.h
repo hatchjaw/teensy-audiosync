@@ -5,7 +5,8 @@
 
 /**
  * CCM Serial Clock Multiplexer Register 1 (CCM_CSCMR1)
- * i.MX RT1060 Processor Reference Manual, §14.7.7, p. 1051
+ * i.MX RT1060 Processor Reference Manual v3, §14.7.7, p. 1051
+ * Implementation of audio-related fields
  *
  * "NOTE
  * Any change on the above multiplexer will have to be done

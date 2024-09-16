@@ -257,15 +257,8 @@ void initDAC()
 
 void initI2S()
 {
-    CCM_CCGR5 |= CCM_CCGR5_SAI1(CCM_CCGR_ON); //enables SAI1 clock in CCM_CCGR5 register
-
     uint32_t fs{AUDIO_SAMPLE_RATE_EXACT};
     audioClockManager.setClock(fs);
-
-    // Select MCLK
-    IOMUXC_GPR_GPR1 = (IOMUXC_GPR_GPR1 // master clock is an output and something else?
-                       & ~(IOMUXC_GPR_GPR1_SAI1_MCLK1_SEL_MASK))
-                      | (IOMUXC_GPR_GPR1_SAI1_MCLK_DIR | IOMUXC_GPR_GPR1_SAI1_MCLK1_SEL(0));
 
     CORE_PIN23_CONFIG = 3;  //1:MCLK
     CORE_PIN21_CONFIG = 3;  //1:RX_BCLK

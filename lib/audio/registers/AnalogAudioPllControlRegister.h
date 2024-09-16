@@ -5,7 +5,7 @@
 
 /**
  * Analog Audio PLL control Register (CCM_ANALOG_PLL_AUDIOn)
- * i.MX RT1060 Processor Reference Manual, §14.8.8, p. 1104
+ * i.MX RT1060 Processor Reference Manual v3, §14.8.8, p. 1104
  */
 class AnalogAudioPllControlRegister final : public IMXRT1060BitbandRegister
 {
@@ -58,7 +58,7 @@ private:
 /**
  * Numerator of Audio PLL Fractional Loop Divider Register
  * (CCM_ANALOG_PLL_AUDIO_NUM)
- * i.MX RT1060 Processor Reference Manual, §14.8.9, p. 1106
+ * i.MX RT1060 Processor Reference Manual v3, §14.8.9, p. 1106
  */
 class AudioPllNumeratorRegister final : public IMXRT1060Register
 {
@@ -81,7 +81,7 @@ private:
 /**
  * Denominator of Audio PLL Fractional Loop Divider Register
  * (CCM_ANALOG_PLL_AUDIO_DENOM)
- * i.MX RT1060 Processor Reference Manual, §14.8.10, p. 1106
+ * i.MX RT1060 Processor Reference Manual v3, §14.8.10, p. 1106
  */
 class AudioPllDenominatorRegister final : public IMXRT1060Register
 {

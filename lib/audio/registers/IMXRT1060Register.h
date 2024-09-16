@@ -63,6 +63,8 @@ private:
     volatile uint32_t *m_Address;
 };
 
+//==============================================================================
+
 /**
  * Description of a 32-bit register for the i.MX RT1060 MCU, with adjacent set,
  * clear, and toggle registers.

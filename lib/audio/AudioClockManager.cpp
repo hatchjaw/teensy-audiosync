@@ -1,6 +1,8 @@
 #include "AudioClockManager.h"
 #include "registers/ClockDividerRegister1.h"
 #include "registers/SerialClockMultiplexerRegister1.h"
+#include "registers/ClockGatingRegister5.h"
+#include "registers/GeneralPurposeRegister1.h"
 
 extern AnalogAudioPllControlRegister &AnalogAudioPllControlRegister;
 extern AudioPllNumeratorRegister &AudioPllNumeratorRegister;
@@ -8,6 +10,8 @@ extern AudioPllDenominatorRegister &AudioPllDenominatorRegister;
 extern ClockDividerRegister1 &ClockDividerRegister1;
 extern SerialClockMultiplexerRegister1 &SerialClockMultiplexerRegister1;
 extern MiscellaneousRegister2 &MiscellaneousRegister2;
+extern ClockGatingRegister5 &ClockGatingRegister5;
+extern GeneralPurposeRegister1 &GeneralPurposeRegister1;
 
 FLASHMEM
 bool AudioClockManager::begin()
@@ -18,6 +22,8 @@ bool AudioClockManager::begin()
     MiscellaneousRegister2.begin();
     SerialClockMultiplexerRegister1.begin();
     ClockDividerRegister1.begin();
+    ClockGatingRegister5.begin();
+    GeneralPurposeRegister1.begin();
     return true;
 }
 
@@ -28,6 +34,8 @@ void AudioClockManager::setClock(uint32_t targetSampleRate)
 
     printTo(Serial);
 
+    ClockGatingRegister5.enableSai1Clock();
+
     MiscellaneousRegister2.setAudioPostDiv(k_audioPostDiv);
 
     SerialClockMultiplexerRegister1.setSai1ClkSel(SerialClockMultiplexerRegister1::Sai1ClkSel::kDeriveClockFromPll4);
@@ -35,7 +43,8 @@ void AudioClockManager::setClock(uint32_t targetSampleRate)
     ClockDividerRegister1.setSai1ClkPred(m_sai1Pre);
     ClockDividerRegister1.setSai1ClkPodf(m_sai1Post);
 
-    Serial.println(ClockDividerRegister1);
+    GeneralPurposeRegister1.setSai1MclkDirection(GeneralPurposeRegister1::SignalDirection::kOutput);
+    GeneralPurposeRegister1.setSai1MclkSource(GeneralPurposeRegister1::Sai1MclkSource::kCcmSsi1ClkRoot);
 
     AnalogAudioPllControlRegister.setBypassClockSource(AnalogAudioPllControlRegister::BypassClockSource::kRefClk24M);
     AnalogAudioPllControlRegister.setPostDivSelect(k_pll4PostDiv);
