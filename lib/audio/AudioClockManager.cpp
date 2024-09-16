@@ -3,6 +3,7 @@
 #include "registers/SerialClockMultiplexerRegister1.h"
 #include "registers/ClockGatingRegister5.h"
 #include "registers/GeneralPurposeRegister1.h"
+#include "registers/SwMuxControlRegister.h"
 
 extern AnalogAudioPllControlRegister &AnalogAudioPllControlRegister;
 extern AudioPllNumeratorRegister &AudioPllNumeratorRegister;
@@ -12,6 +13,10 @@ extern SerialClockMultiplexerRegister1 &SerialClockMultiplexerRegister1;
 extern MiscellaneousRegister2 &MiscellaneousRegister2;
 extern ClockGatingRegister5 &ClockGatingRegister5;
 extern GeneralPurposeRegister1 &GeneralPurposeRegister1;
+extern Pin7SwMuxControlRegister &Pin7SwMuxControlRegister;
+extern Pin20SwMuxControlRegister &Pin20SwMuxControlRegister;
+extern Pin21SwMuxControlRegister &Pin21SwMuxControlRegister;
+extern Pin23SwMuxControlRegister &Pin23SwMuxControlRegister;
 
 FLASHMEM
 bool AudioClockManager::begin()
@@ -24,6 +29,10 @@ bool AudioClockManager::begin()
     ClockDividerRegister1.begin();
     ClockGatingRegister5.begin();
     GeneralPurposeRegister1.begin();
+//    Pin7SwMuxControlRegister.begin();
+//    Pin20SwMuxControlRegister.begin();
+//    Pin21SwMuxControlRegister.begin();
+//    Pin23SwMuxControlRegister.begin();
     return true;
 }
 
@@ -59,6 +68,40 @@ void AudioClockManager::setClock(uint32_t targetSampleRate)
     AnalogAudioPllControlRegister.setBypass(false);
 
     Serial.println(AnalogAudioPllControlRegister);
+
+    Pin20SwMuxControlRegister.setMuxMode(Pin20SwMuxControlRegister::MuxMode::kSai1RxSync);
+    Pin21SwMuxControlRegister.setMuxMode(Pin21SwMuxControlRegister::MuxMode::kSai1RxBclk);
+    Pin23SwMuxControlRegister.setMuxMode(Pin23SwMuxControlRegister::MuxMode::kSai1Mclk);
+
+    int rsync = 0;
+    int tsync = 1;
+
+    I2S1_TMR = 0; // no masking
+    //I2S1_TCSR = (1<<25); //Reset
+    I2S1_TCR1 = I2S_TCR1_RFW(1);
+    I2S1_TCR2 = I2S_TCR2_SYNC(tsync) | I2S_TCR2_BCP // sync=0; tx is async;
+                | (I2S_TCR2_BCD | I2S_TCR2_DIV((1)) | I2S_TCR2_MSEL(1));
+    I2S1_TCR3 = I2S_TCR3_TCE;
+    I2S1_TCR4 = I2S_TCR4_FRSZ((2 - 1)) | I2S_TCR4_SYWD((32 - 1)) | I2S_TCR4_MF
+                | I2S_TCR4_FSD | I2S_TCR4_FSE | I2S_TCR4_FSP;
+    I2S1_TCR5 = I2S_TCR5_WNW((32 - 1)) | I2S_TCR5_W0W((32 - 1)) | I2S_TCR5_FBT((32 - 1));
+
+    I2S1_RMR = 0;
+    //I2S1_RCSR = (1<<25); //Reset
+    I2S1_RCR1 = I2S_RCR1_RFW(1);
+    I2S1_RCR2 = I2S_RCR2_SYNC(rsync) | I2S_RCR2_BCP  // sync=0; rx is async;
+                | (I2S_RCR2_BCD | I2S_RCR2_DIV((1)) | I2S_RCR2_MSEL(1));
+    I2S1_RCR3 = I2S_RCR3_RCE;
+    I2S1_RCR4 = I2S_RCR4_FRSZ((2 - 1)) | I2S_RCR4_SYWD((32 - 1)) | I2S_RCR4_MF
+                | I2S_RCR4_FSE | I2S_RCR4_FSP | I2S_RCR4_FSD;
+    I2S1_RCR5 = I2S_RCR5_WNW((32 - 1)) | I2S_RCR5_W0W((32 - 1)) | I2S_RCR5_FBT((32 - 1));
+
+    Pin7SwMuxControlRegister.setMuxMode(Pin7SwMuxControlRegister::MuxMode::kSai1TxData00);
+
+    Serial.println(Pin20SwMuxControlRegister);
+    Serial.println(Pin21SwMuxControlRegister);
+    Serial.println(Pin23SwMuxControlRegister);
+    Serial.println(Pin7SwMuxControlRegister);
 }
 
 FLASHMEM

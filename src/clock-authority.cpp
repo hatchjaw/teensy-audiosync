@@ -12,8 +12,6 @@ static void interrupt_1588_timer();
 
 void initDAC();
 
-void initI2S();
-
 void audioISR();
 
 void displayTime(const NanoTime t)
@@ -235,8 +233,10 @@ static void interrupt_1588_timer()
 void initDAC()
 {
     dma.begin(true); // Allocate the DMA channel first
-    initI2S();
-    CORE_PIN7_CONFIG = 3;  //1:TX_DATA0 pin 7 on uP
+
+    uint32_t fs{AUDIO_SAMPLE_RATE_EXACT};
+    audioClockManager.setClock(fs);
+
     dma.TCD->SADDR = i2s_tx_buffer; //source address
     dma.TCD->SOFF = 2; // source buffer address increment per transfer in bytes
     dma.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1); // specifies 16 bit source and destination
@@ -253,39 +253,6 @@ void initDAC()
     I2S1_RCSR |= I2S_RCSR_RE | I2S_RCSR_BCE;
     I2S1_TCSR = I2S_TCSR_TE | I2S_TCSR_BCE | I2S_TCSR_FRDE;
     dma.attachInterrupt(audioISR);
-}
-
-void initI2S()
-{
-    uint32_t fs{AUDIO_SAMPLE_RATE_EXACT};
-    audioClockManager.setClock(fs);
-
-    CORE_PIN23_CONFIG = 3;  //1:MCLK
-    CORE_PIN21_CONFIG = 3;  //1:RX_BCLK
-    CORE_PIN20_CONFIG = 3;  //1:RX_SYNC
-
-    int rsync = 0;
-    int tsync = 1;
-
-    I2S1_TMR = 0; // no masking
-    //I2S1_TCSR = (1<<25); //Reset
-    I2S1_TCR1 = I2S_TCR1_RFW(1);
-    I2S1_TCR2 = I2S_TCR2_SYNC(tsync) | I2S_TCR2_BCP // sync=0; tx is async;
-                | (I2S_TCR2_BCD | I2S_TCR2_DIV((1)) | I2S_TCR2_MSEL(1));
-    I2S1_TCR3 = I2S_TCR3_TCE;
-    I2S1_TCR4 = I2S_TCR4_FRSZ((2 - 1)) | I2S_TCR4_SYWD((32 - 1)) | I2S_TCR4_MF
-                | I2S_TCR4_FSD | I2S_TCR4_FSE | I2S_TCR4_FSP;
-    I2S1_TCR5 = I2S_TCR5_WNW((32 - 1)) | I2S_TCR5_W0W((32 - 1)) | I2S_TCR5_FBT((32 - 1));
-
-    I2S1_RMR = 0;
-    //I2S1_RCSR = (1<<25); //Reset
-    I2S1_RCR1 = I2S_RCR1_RFW(1);
-    I2S1_RCR2 = I2S_RCR2_SYNC(rsync) | I2S_RCR2_BCP  // sync=0; rx is async;
-                | (I2S_RCR2_BCD | I2S_RCR2_DIV((1)) | I2S_RCR2_MSEL(1));
-    I2S1_RCR3 = I2S_RCR3_RCE;
-    I2S1_RCR4 = I2S_RCR4_FRSZ((2 - 1)) | I2S_RCR4_SYWD((32 - 1)) | I2S_RCR4_MF
-                | I2S_RCR4_FSE | I2S_RCR4_FSP | I2S_RCR4_FSD;
-    I2S1_RCR5 = I2S_RCR5_WNW((32 - 1)) | I2S_RCR5_W0W((32 - 1)) | I2S_RCR5_FBT((32 - 1));
 }
 
 // DMA interrupt, called twice per sample (buffer?)

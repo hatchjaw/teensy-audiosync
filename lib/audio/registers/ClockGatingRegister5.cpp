@@ -16,7 +16,7 @@ bool ClockGatingRegister5::begin()
 
 bool ClockGatingRegister5::enableSai1Clock()
 {
-    write(getValue() | setSai1ClockActivityCondition(ClockActivityCondition::kOn));
+    setSai1ClockActivityCondition(ClockActivityCondition::kOn);
     return true;
 }
 
