@@ -46,15 +46,10 @@ public:
         FlexIo3FlexIo17 = 9
     };
 
-    static Pin7SwMuxControlRegister &instance();
+    Pin7SwMuxControlRegister()
+        : SwMuxControlRegister("PIN7: IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_01", &CORE_PIN7_CONFIG) {}
 
     bool setMuxMode(MuxMode mode) const;
-
-private:
-    Pin7SwMuxControlRegister()
-            : SwMuxControlRegister("PIN7: IOMUXC_SW_MUX_CTL_PAD_GPIO_B1_01", &CORE_PIN7_CONFIG) {}
-
-    static Pin7SwMuxControlRegister s_Instance;
 };
 
 //==============================================================================
@@ -76,15 +71,10 @@ public:
         FlexIo3FlexIo10 = 9
     };
 
-    static Pin20SwMuxControlRegister &instance();
+    Pin20SwMuxControlRegister()
+        : SwMuxControlRegister("PIN20: IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_10", &CORE_PIN20_CONFIG) {}
 
     bool setMuxMode(MuxMode mode) const;
-
-private:
-    Pin20SwMuxControlRegister()
-            : SwMuxControlRegister("PIN20: IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_10", &CORE_PIN20_CONFIG) {}
-
-    static Pin20SwMuxControlRegister s_Instance;
 };
 
 //==============================================================================
@@ -106,15 +96,10 @@ public:
         FlexIo3FlexIo11 = 9
     };
 
-    static Pin21SwMuxControlRegister &instance();
+    Pin21SwMuxControlRegister()
+        : SwMuxControlRegister("PIN21: IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_11", &CORE_PIN21_CONFIG) {}
 
     bool setMuxMode(MuxMode mode) const;
-
-private:
-    Pin21SwMuxControlRegister()
-            : SwMuxControlRegister("PIN21: IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_11", &CORE_PIN21_CONFIG) {}
-
-    static Pin21SwMuxControlRegister s_Instance;
 };
 
 //==============================================================================
@@ -135,15 +120,10 @@ public:
         FlexIo3FlexIo09 = 9
     };
 
-    static Pin23SwMuxControlRegister &instance();
+    Pin23SwMuxControlRegister()
+        : SwMuxControlRegister("PIN23: IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_09", &CORE_PIN23_CONFIG) {}
 
     bool setMuxMode(MuxMode mode) const;
-
-private:
-    Pin23SwMuxControlRegister()
-            : SwMuxControlRegister("PIN23: IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_09", &CORE_PIN23_CONFIG) {}
-
-    static Pin23SwMuxControlRegister s_Instance;
 };
 
 #endif //SWMUXCONTROLREGISTER_H

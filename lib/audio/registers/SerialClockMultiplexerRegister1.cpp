@@ -1,14 +1,5 @@
 #include "SerialClockMultiplexerRegister1.h"
 
-SerialClockMultiplexerRegister1 SerialClockMultiplexerRegister1::s_Instance;
-
-SerialClockMultiplexerRegister1 &SerialClockMultiplexerRegister1::instance()
-{
-    return s_Instance;
-}
-
-SerialClockMultiplexerRegister1 &SerialClockMultiplexerRegister1 = SerialClockMultiplexerRegister1::instance();
-
 bool SerialClockMultiplexerRegister1::begin()
 {
     // Unset SAI1 clock select

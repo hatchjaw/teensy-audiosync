@@ -1,14 +1,5 @@
 #include "MiscellaneousRegister2.h"
 
-MiscellaneousRegister2 MiscellaneousRegister2::s_Instance;
-
-MiscellaneousRegister2 &MiscellaneousRegister2::instance()
-{
-    return s_Instance;
-}
-
-MiscellaneousRegister2 &MiscellaneousRegister2 = MiscellaneousRegister2::instance();
-
 bool MiscellaneousRegister2::begin()
 {
     setAudioPostDiv(AudioPostDiv::DivideBy1);

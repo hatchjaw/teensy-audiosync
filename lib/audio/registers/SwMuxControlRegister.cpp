@@ -36,30 +36,12 @@ bool SwMuxControlRegister::setMuxMode(const uint32_t mode) const
 
 //==============================================================================
 
-Pin7SwMuxControlRegister Pin7SwMuxControlRegister::s_Instance;
-
-Pin7SwMuxControlRegister &Pin7SwMuxControlRegister::instance()
-{
-    return s_Instance;
-}
-
-Pin7SwMuxControlRegister &Pin7SwMuxControlRegister = Pin7SwMuxControlRegister::instance();
-
 bool Pin7SwMuxControlRegister::setMuxMode(const MuxMode mode) const
 {
     return SwMuxControlRegister::setMuxMode((uint32_t) mode);
 }
 
 //==============================================================================
-
-Pin20SwMuxControlRegister Pin20SwMuxControlRegister::s_Instance;
-
-Pin20SwMuxControlRegister &Pin20SwMuxControlRegister::instance()
-{
-    return s_Instance;
-}
-
-Pin20SwMuxControlRegister &Pin20SwMuxControlRegister = Pin20SwMuxControlRegister::instance();
 
 bool Pin20SwMuxControlRegister::setMuxMode(const MuxMode mode) const
 {
@@ -68,30 +50,12 @@ bool Pin20SwMuxControlRegister::setMuxMode(const MuxMode mode) const
 
 //==============================================================================
 
-Pin21SwMuxControlRegister Pin21SwMuxControlRegister::s_Instance;
-
-Pin21SwMuxControlRegister &Pin21SwMuxControlRegister::instance()
-{
-    return s_Instance;
-}
-
-Pin21SwMuxControlRegister &Pin21SwMuxControlRegister = Pin21SwMuxControlRegister::instance();
-
 bool Pin21SwMuxControlRegister::setMuxMode(const MuxMode mode) const
 {
     return SwMuxControlRegister::setMuxMode((uint32_t) mode);
 }
 
 //==============================================================================
-
-Pin23SwMuxControlRegister Pin23SwMuxControlRegister::s_Instance;
-
-Pin23SwMuxControlRegister &Pin23SwMuxControlRegister::instance()
-{
-    return s_Instance;
-}
-
-Pin23SwMuxControlRegister &Pin23SwMuxControlRegister = Pin23SwMuxControlRegister::instance();
 
 bool Pin23SwMuxControlRegister::setMuxMode(const MuxMode mode) const
 {

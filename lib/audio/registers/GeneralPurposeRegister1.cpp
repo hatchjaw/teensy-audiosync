@@ -1,14 +1,5 @@
 #include "GeneralPurposeRegister1.h"
 
-GeneralPurposeRegister1 GeneralPurposeRegister1::s_Instance;
-
-GeneralPurposeRegister1 &GeneralPurposeRegister1::instance()
-{
-    return s_Instance;
-}
-
-GeneralPurposeRegister1 &GeneralPurposeRegister1 = GeneralPurposeRegister1::instance();
-
 bool GeneralPurposeRegister1::begin()
 {
     write(getValue() & ~IOMUXC_GPR_GPR1_SAI1_MCLK1_SEL_MASK & ~IOMUXC_GPR_GPR1_SAI1_MCLK_DIR);

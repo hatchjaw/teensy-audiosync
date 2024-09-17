@@ -4,6 +4,11 @@
 #include "ClockConstants.h"
 #include "registers/MiscellaneousRegister2.h"
 #include "registers/AnalogAudioPllControlRegister.h"
+#include "registers/ClockDividerRegister1.h"
+#include "registers/SerialClockMultiplexerRegister1.h"
+#include "registers/ClockGatingRegister5.h"
+#include "registers/GeneralPurposeRegister1.h"
+#include "registers/SwMuxControlRegister.h"
 
 class AudioSystemManager : public Printable
 {
@@ -63,6 +68,19 @@ private:
     double m_SampleRateExact;
     uint16_t m_BlockSize;
     ClockDividers m_ClockDividers;
+
+    AnalogAudioPllControlRegister m_AnalogAudioPllControlRegister;
+    AudioPllNumeratorRegister m_AudioPllNumeratorRegister;
+    AudioPllDenominatorRegister m_AudioPllDenominatorRegister;
+    ClockDividerRegister1 m_ClockDividerRegister1;
+    SerialClockMultiplexerRegister1 m_SerialClockMultiplexerRegister1;
+    MiscellaneousRegister2 m_MiscellaneousRegister2;
+    ClockGatingRegister5 m_ClockGatingRegister5;
+    GeneralPurposeRegister1 m_GeneralPurposeRegister1;
+    Pin7SwMuxControlRegister m_Pin7SwMuxControlRegister;
+    Pin20SwMuxControlRegister m_Pin20SwMuxControlRegister;
+    Pin21SwMuxControlRegister m_Pin21SwMuxControlRegister;
+    Pin23SwMuxControlRegister m_Pin23SwMuxControlRegister;
 };
 
 

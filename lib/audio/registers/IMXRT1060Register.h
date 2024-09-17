@@ -9,10 +9,12 @@
 class IMXRT1060Register : public Printable
 {
 public:
+    virtual ~IMXRT1060Register() = default;
+
     /**
-         * Set up the register with a sensible default value.
-         * @return true on success; false otherwise.
-         */
+      * Set up the register with a sensible default value.
+      * @return true on success; false otherwise.
+      */
     virtual bool begin() = 0;
 
     /**

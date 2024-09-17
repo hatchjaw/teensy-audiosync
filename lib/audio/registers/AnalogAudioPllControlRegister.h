@@ -6,6 +6,8 @@
 /**
  * Analog Audio PLL control Register (CCM_ANALOG_PLL_AUDIOn)
  * i.MX RT1060 Processor Reference Manual rev. 3, §14.8.8, p. 1104
+ * For testability, this class is not implemented as a singleton, but only one
+ * instance of it should exist.
  */
 class AnalogAudioPllControlRegister final : public IMXRT1060BitbandRegister
 {
@@ -26,7 +28,10 @@ public:
         Reserved2 = 3
     };
 
-    static AnalogAudioPllControlRegister &instance();
+    AnalogAudioPllControlRegister()
+        : IMXRT1060BitbandRegister("CCM_ANALOG_PLL_AUDIO", &CCM_ANALOG_PLL_AUDIO)
+    {
+    }
 
     bool begin() override;
 
@@ -84,11 +89,6 @@ public:
     bool setDivSelect(int pll4Div) const;
 
 private:
-    AnalogAudioPllControlRegister()
-        : IMXRT1060BitbandRegister("CCM_ANALOG_PLL_AUDIO", &CCM_ANALOG_PLL_AUDIO)
-    {
-    }
-
     /**
      * Reset the CCM_ANALOG_PLL_AUDIO register; powers down PLL4 and bypasses it.
      * @return
@@ -99,8 +99,6 @@ private:
      * Wait for PLL4 to lock. Important when powering up.
      */
     void awaitLock() const;
-
-    static AnalogAudioPllControlRegister s_Instance;
 };
 
 //==============================================================================
@@ -113,7 +111,10 @@ private:
 class AudioPllNumeratorRegister final : public IMXRT1060Register
 {
 public:
-    static AudioPllNumeratorRegister &instance();
+    AudioPllNumeratorRegister()
+        : IMXRT1060Register("CCM_ANALOG_PLL_AUDIO_NUM", &CCM_ANALOG_PLL_AUDIO_NUM)
+    {
+    }
 
     bool begin() override;
 
@@ -129,14 +130,6 @@ public:
      * @return true on success; false otherwise.
      */
     bool set(int32_t num) const;
-
-private:
-    AudioPllNumeratorRegister()
-        : IMXRT1060Register("CCM_ANALOG_PLL_AUDIO_NUM", &CCM_ANALOG_PLL_AUDIO_NUM)
-    {
-    }
-
-    static AudioPllNumeratorRegister s_Instance;
 };
 
 //==============================================================================
@@ -149,7 +142,10 @@ private:
 class AudioPllDenominatorRegister final : public IMXRT1060Register
 {
 public:
-    static AudioPllDenominatorRegister &instance();
+    AudioPllDenominatorRegister()
+        : IMXRT1060Register("CCM_ANALOG_PLL_AUDIO_DENOM", &CCM_ANALOG_PLL_AUDIO_DENOM)
+    {
+    }
 
     bool begin() override;
 
@@ -161,14 +157,6 @@ public:
      * @return true on success; false otherwise.
      */
     bool set(uint32_t denom) const;
-
-private:
-    AudioPllDenominatorRegister()
-        : IMXRT1060Register("CCM_ANALOG_PLL_AUDIO_DENOM", &CCM_ANALOG_PLL_AUDIO_DENOM)
-    {
-    }
-
-    static AudioPllDenominatorRegister s_Instance;
 };
 
 #endif //ANALOGAUDIOPLLCONTROLREGISTER_H

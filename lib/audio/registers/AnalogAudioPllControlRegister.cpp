@@ -1,15 +1,6 @@
 #include "AnalogAudioPllControlRegister.h"
 #include "ClockConstants.h"
 
-AnalogAudioPllControlRegister AnalogAudioPllControlRegister::s_Instance;
-
-AnalogAudioPllControlRegister &AnalogAudioPllControlRegister::instance()
-{
-    return s_Instance;
-}
-
-AnalogAudioPllControlRegister &AnalogAudioPllControlRegister = AnalogAudioPllControlRegister::instance();
-
 bool AnalogAudioPllControlRegister::begin()
 {
     return reset();
@@ -108,15 +99,6 @@ void AnalogAudioPllControlRegister::awaitLock() const
 
 //==============================================================================
 
-AudioPllNumeratorRegister AudioPllNumeratorRegister::s_Instance;
-
-AudioPllNumeratorRegister &AudioPllNumeratorRegister::instance()
-{
-    return s_Instance;
-}
-
-AudioPllNumeratorRegister &AudioPllNumeratorRegister = AudioPllNumeratorRegister::instance();
-
 bool AudioPllNumeratorRegister::begin()
 {
     return set(0);
@@ -136,15 +118,6 @@ bool AudioPllNumeratorRegister::set(const int32_t num) const
 }
 
 //==============================================================================
-
-AudioPllDenominatorRegister AudioPllDenominatorRegister::s_Instance;
-
-AudioPllDenominatorRegister &AudioPllDenominatorRegister::instance()
-{
-    return s_Instance;
-}
-
-AudioPllDenominatorRegister &AudioPllDenominatorRegister = AudioPllDenominatorRegister::instance();
 
 bool AudioPllDenominatorRegister::begin()
 {

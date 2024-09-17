@@ -6,7 +6,9 @@
 /**
  * CCM Serial Clock Multiplexer Register 1 (CCM_CSCMR1)
  * i.MX RT1060 Processor Reference Manual rev. 3, §14.7.7, p. 1051
- * Implementation of audio-related fields
+ * Implementation of audio-related fields.
+ * For testability, this class is not implemented as a singleton, but only one
+ * instance of it should exist.
  *
  * "NOTE
  * Any change on the above multiplexer will have to be done
@@ -26,17 +28,12 @@ public:
         Reserved = 3
     };
 
-    static SerialClockMultiplexerRegister1 &instance();
+    SerialClockMultiplexerRegister1()
+        : IMXRT1060Register("CCM_CSCMR1", &CCM_CSCMR1) {}
 
     bool begin() override;
 
     bool setSai1ClkSel(Sai1ClkSel selector) const;
-
-private:
-    SerialClockMultiplexerRegister1()
-            : IMXRT1060Register("CCM_CSCMR1", &CCM_CSCMR1) {}
-
-    static SerialClockMultiplexerRegister1 s_Instance;
 };
 
 

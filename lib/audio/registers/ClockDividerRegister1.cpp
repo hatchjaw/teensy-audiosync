@@ -1,15 +1,6 @@
 #include "ClockDividerRegister1.h"
 #include "ClockConstants.h"
 
-ClockDividerRegister1 ClockDividerRegister1::s_Instance;
-
-ClockDividerRegister1 &ClockDividerRegister1::instance()
-{
-    return s_Instance;
-}
-
-ClockDividerRegister1 &ClockDividerRegister1 = ClockDividerRegister1::instance();
-
 bool ClockDividerRegister1::begin()
 {
     // Clear SAI1 dividers.

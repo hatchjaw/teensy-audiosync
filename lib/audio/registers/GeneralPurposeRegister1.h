@@ -7,6 +7,8 @@
  * GPR1 General Purpose Register (IOMUXC_GPR_GPR1), 0x4008C004
  * i.MX RT1060 Processor Reference Manual rev. 3, §11.3.2, p. 325
  * Implementation of audio-related fields
+ * For testability, this class is not implemented as a singleton, but only one
+ * instance of it should exist.
  */
 class GeneralPurposeRegister1 final : public IMXRT1060Register
 {
@@ -36,19 +38,14 @@ public:
         Reserved2 = 7
     };
 
-    static GeneralPurposeRegister1 &instance();
+    GeneralPurposeRegister1() :
+        IMXRT1060Register("IOMUXC_GPR_GPR1", &IOMUXC_GPR_GPR1) {}
 
     bool begin() override;
 
     bool setSai1MclkDirection(SignalDirection direction) const;
 
     bool setSai1MclkSource(Sai1MclkSource source) const;
-
-private:
-    GeneralPurposeRegister1() :
-            IMXRT1060Register("IOMUXC_GPR_GPR1", &IOMUXC_GPR_GPR1) {}
-
-    static GeneralPurposeRegister1 s_Instance;
 };
 
 
