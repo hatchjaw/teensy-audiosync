@@ -1,27 +1,27 @@
 #include "MiscellaneousRegister2.h"
 
-MiscellaneousRegister2 MiscellaneousRegister2::instance_;
+MiscellaneousRegister2 MiscellaneousRegister2::s_Instance;
 
 MiscellaneousRegister2 &MiscellaneousRegister2::instance()
 {
-    return instance_;
+    return s_Instance;
 }
 
 MiscellaneousRegister2 &MiscellaneousRegister2 = MiscellaneousRegister2::instance();
 
 bool MiscellaneousRegister2::begin()
 {
-    setAudioPostDiv(AudioPostDiv::kDivideBy1);
+    setAudioPostDiv(AudioPostDiv::DivideBy1);
     return false;
 }
 
 bool MiscellaneousRegister2::setAudioPostDiv(const AudioPostDiv div) const
 {
     switch (div) {
-        case AudioPostDiv::kDivideBy2:
+        case AudioPostDiv::DivideBy2:
             set(CCM_ANALOG_MISC2_AUDIO_DIV_LSB);
             break;
-        case AudioPostDiv::kDivideBy4:
+        case AudioPostDiv::DivideBy4:
             set(CCM_ANALOG_MISC2_AUDIO_DIV_LSB | CCM_ANALOG_MISC2_AUDIO_DIV_MSB);
             break;
         default:

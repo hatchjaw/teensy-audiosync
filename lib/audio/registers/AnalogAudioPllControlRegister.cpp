@@ -1,11 +1,11 @@
 #include "AnalogAudioPllControlRegister.h"
 #include "ClockConstants.h"
 
-AnalogAudioPllControlRegister AnalogAudioPllControlRegister::instance_;
+AnalogAudioPllControlRegister AnalogAudioPllControlRegister::s_Instance;
 
 AnalogAudioPllControlRegister &AnalogAudioPllControlRegister::instance()
 {
-    return instance_;
+    return s_Instance;
 }
 
 AnalogAudioPllControlRegister &AnalogAudioPllControlRegister = AnalogAudioPllControlRegister::instance();
@@ -52,7 +52,7 @@ bool AnalogAudioPllControlRegister::setPowerDown(bool powerDown) const
 bool AnalogAudioPllControlRegister::setPostDivSelect(PostDivSelect postDivSelect) const
 {
     switch (postDivSelect) {
-        case PostDivSelect::kReserved:
+        case PostDivSelect::Reserved:
             Serial.printf("Reserved value provided for "
                           "CCM_ANALOG_PLL_AUDIO_POST_DIV_SELECT: %d\n",
                           postDivSelect);
@@ -80,8 +80,8 @@ bool AnalogAudioPllControlRegister::setDivSelect(const int pll4Div) const
 bool AnalogAudioPllControlRegister::setBypassClockSource(const BypassClockSource source) const
 {
     switch (source) {
-        case BypassClockSource::kReserved1:
-        case BypassClockSource::kReserved2:
+        case BypassClockSource::Reserved1:
+        case BypassClockSource::Reserved2:
             Serial.printf("Reserved value provided for "
                           "CCM_ANALOG_PLL_AUDIO_BYPASS_CLK_SRC: %d\n",
                           source);
@@ -101,18 +101,18 @@ bool AnalogAudioPllControlRegister::reset() const
 
 void AnalogAudioPllControlRegister::awaitLock() const
 {
-    auto cycles{ARM_DWT_CYCCNT};
+    const auto cycles{ARM_DWT_CYCCNT};
     while (!(getValue() & CCM_ANALOG_PLL_AUDIO_LOCK)) {}
     Serial.printf("PLL4 lock took %" PRIu32 " cycles.\n", ARM_DWT_CYCCNT - cycles);
 }
 
 //==============================================================================
 
-AudioPllNumeratorRegister AudioPllNumeratorRegister::instance_;
+AudioPllNumeratorRegister AudioPllNumeratorRegister::s_Instance;
 
 AudioPllNumeratorRegister &AudioPllNumeratorRegister::instance()
 {
-    return instance_;
+    return s_Instance;
 }
 
 AudioPllNumeratorRegister &AudioPllNumeratorRegister = AudioPllNumeratorRegister::instance();
@@ -122,9 +122,9 @@ bool AudioPllNumeratorRegister::begin()
     return set(0);
 }
 
-bool AudioPllNumeratorRegister::set(int32_t num)
+bool AudioPllNumeratorRegister::set(const int32_t num) const
 {
-    if (num < 0 || num > ClockConstants::k_pll4NumMax) {
+    if (num < 0 || num > ClockConstants::k_Pll4NumMax) {
         Serial.printf("Invalid value provided for "
                       "CCM_ANALOG_PLL_AUDIO_NUM: %" PRId32 "\n",
                       num);
@@ -137,11 +137,11 @@ bool AudioPllNumeratorRegister::set(int32_t num)
 
 //==============================================================================
 
-AudioPllDenominatorRegister AudioPllDenominatorRegister::instance_;
+AudioPllDenominatorRegister AudioPllDenominatorRegister::s_Instance;
 
 AudioPllDenominatorRegister &AudioPllDenominatorRegister::instance()
 {
-    return instance_;
+    return s_Instance;
 }
 
 AudioPllDenominatorRegister &AudioPllDenominatorRegister = AudioPllDenominatorRegister::instance();
@@ -151,9 +151,9 @@ bool AudioPllDenominatorRegister::begin()
     return set(1);
 }
 
-bool AudioPllDenominatorRegister::set(uint32_t denom)
+bool AudioPllDenominatorRegister::set(const uint32_t denom) const
 {
-    if (denom == 0 || denom > ClockConstants::k_pll4DenomMax) {
+    if (denom == 0 || denom > ClockConstants::k_Pll4DenomMax) {
         Serial.printf("Invalid value provided for "
                       "CCM_ANALOG_PLL_AUDIO_DENOM: %" PRId32 "\n",
                       denom);

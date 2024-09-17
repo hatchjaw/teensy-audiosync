@@ -2,7 +2,7 @@
 #include <t41-ptp.h>
 #include <QNEthernet.h>
 #include <TimeLib.h>
-#include <AudioClockManager.h>
+#include <AudioSystemManager.h>
 
 static void interrupt_1588_timer();
 
@@ -34,7 +34,7 @@ bool audioEnabled{false};
 boolean readyForNewSample = true; // Push new data on every second call to the ISR
 bool doImpulse{false};
 uint32_t counter{0};
-AudioClockManager audioClockManager;
+AudioSystemManager audioSystemManager{AUDIO_SAMPLE_RATE_EXACT, AUDIO_BLOCK_SAMPLES};
 
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
@@ -67,13 +67,13 @@ void setup()
     qindesign::network::EthernetIEEE1588.begin();
 
     qindesign::network::Ethernet.onLinkState([](bool state)
-                                             {
-                                                 Serial.printf("[Ethernet] Link %dMbps %s\n", qindesign::network::Ethernet.linkSpeed(), state ? "ON" : "OFF");
-                                                 connected = state;
-                                                 if (state) {
-                                                     ptp.begin();
-                                                 }
-                                             });
+    {
+        Serial.printf("[Ethernet] Link %dMbps %s\n", qindesign::network::Ethernet.linkSpeed(), state ? "ON" : "OFF");
+        connected = state;
+        if (state) {
+            ptp.begin();
+        }
+    });
 
     Serial.println("Clock subscriber");
     Serial.printf("Mac address:   %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -95,7 +95,7 @@ void setup()
     NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
 
     // Set up audio
-    audioClockManager.begin();
+    audioSystemManager.begin();
     initDAC();
     audioShield.enable();
     audioShield.volume(0.5);
@@ -143,7 +143,7 @@ static void interrupt_1588_timer()
     interrupt_ns = t;
     pps_ns = 0;
 
-//    if (audioEnabled) {
+    //    if (audioEnabled) {
     auto adjust{ptp.getAdjust()};
 
     Serial.printf("Adjust (nsps): %f\n", adjust);
@@ -154,35 +154,35 @@ static void interrupt_1588_timer()
 
     double targetFs{AUDIO_SAMPLE_RATE_EXACT * proportionalAdjustment};
 
-    Serial.printf("Target sample rate: %.*f\n", 10, targetFs);
+    // Serial.printf("Target sample rate: %.*f\n", 10, targetFs);
 
-    audioClockManager.setClock(targetFs);
-//    }
+    audioSystemManager.setSampleRate(targetFs);
+    //    }
 
-//    auto offset{ptp.getOffset()};
-//    shouldEnableAudio = offset != 0 && !(offset > 100 || offset < -100);
-//
-//    if (shouldEnableAudio && !audioEnabled) {
-//        displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
-//        Serial.println("Follower: Starting Audio");
-//        audioClockManager.start();
-//        counter = 0;
-//        audioEnabled = true;
-//    }
+    //    auto offset{ptp.getOffset()};
+    //    shouldEnableAudio = offset != 0 && !(offset > 100 || offset < -100);
+    //
+    //    if (shouldEnableAudio && !audioEnabled) {
+    //        displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
+    //        Serial.println("Follower: Starting Audio");
+    //        audioSystemManager.start();
+    //        counter = 0;
+    //        audioEnabled = true;
+    //    }
 
     shouldEnableAudio = ts.tv_sec % 10 != 9;
 
     if (shouldEnableAudio && !audioEnabled) {
         displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
         Serial.println("Follower: Starting Audio");
-        audioClockManager.startClock();
+        audioSystemManager.startClock();
         counter = 0;
         audioEnabled = true;
     } else if (!shouldEnableAudio && audioEnabled) {
         displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
         Serial.println("Follower: Stopping Audio");
-        audioClockManager.stopClock();
-//        counter = 0;
+        audioSystemManager.stopClock();
+        //        counter = 0;
         audioEnabled = false;
     }
 
@@ -193,8 +193,6 @@ void initDAC()
 {
     dma.begin(true); // Allocate the DMA channel first
 
-    uint32_t fs{AUDIO_SAMPLE_RATE_EXACT};
-    audioClockManager.setClock(fs);
 
     dma.TCD->SADDR = i2s_tx_buffer; //source address
     dma.TCD->SOFF = 2; // source buffer address increment per transfer in bytes
@@ -219,28 +217,28 @@ void initDAC()
 void audioISR(void)
 {
     ++counter;
-//    if (counter > 2 * static_cast<int>(AUDIO_SAMPLE_RATE_EXACT) - 10) {
-//        doImpulse = true;
-//    }
-    if (counter >= 1 && counter < 10) {
+    //    if (counter > 2 * static_cast<int>(AUDIO_SAMPLE_RATE_EXACT) - 10) {
+    //        doImpulse = true;
+    //    }
+    if (counter >= 1 && counter < 5) {
         doImpulse = true;
-    } else if (counter == 2 * static_cast<int>(AUDIO_SAMPLE_RATE_EXACT)) {
+    } else if (counter == 2 * AUDIO_SAMPLE_RATE_EXACT) {
         counter = 0;
     }
 
     if (readyForNewSample) {
-//        if (doImpulse) {
-//            doImpulse = false;
-//
-//            int16_t impulse = 32767;
-//
-//            // Pass current sample to L+R audio buffers
-//            i2s_tx_buffer[0] = impulse; // Left Channel
-//            i2s_tx_buffer[1] = 0; // Right Channel
-//        } else {
-//            i2s_tx_buffer[0] = 0; // Left Channel
-//            i2s_tx_buffer[1] = 0; // Right Channel
-//        }
+        //        if (doImpulse) {
+        //            doImpulse = false;
+        //
+        //            int16_t impulse = 32767;
+        //
+        //            // Pass current sample to L+R audio buffers
+        //            i2s_tx_buffer[0] = impulse; // Left Channel
+        //            i2s_tx_buffer[1] = 0; // Right Channel
+        //        } else {
+        //            i2s_tx_buffer[0] = 0; // Left Channel
+        //            i2s_tx_buffer[1] = 0; // Right Channel
+        //        }
 
         if (doImpulse) {
             doImpulse = false;
@@ -248,19 +246,19 @@ void audioISR(void)
         } else {
             i2s_tx_buffer[0] = 0;
         }
-//        else if (counter > 1.666 * AUDIO_SAMPLE_RATE_EXACT) {
-//            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 2) - 1) << 7);
-//        } else if (counter > 1.333 * AUDIO_SAMPLE_RATE_EXACT) {
-//            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 4) - 1) << 6);
-//        } else if (counter > AUDIO_SAMPLE_RATE_EXACT) {
-//            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 6) - 1) << 5);
-//        } else if (counter > .666 * AUDIO_SAMPLE_RATE_EXACT) {
-//            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 8) - 1) << 4);
-//        } else if (counter > .333 * AUDIO_SAMPLE_RATE_EXACT) {
-//            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 10) - 1) << 3);
-//        } else {
-//            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 12) - 1) << 2);
-//        }
+        //        else if (counter > 1.666 * AUDIO_SAMPLE_RATE_EXACT) {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 2) - 1) << 7);
+        //        } else if (counter > 1.333 * AUDIO_SAMPLE_RATE_EXACT) {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 4) - 1) << 6);
+        //        } else if (counter > AUDIO_SAMPLE_RATE_EXACT) {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 6) - 1) << 5);
+        //        } else if (counter > .666 * AUDIO_SAMPLE_RATE_EXACT) {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 8) - 1) << 4);
+        //        } else if (counter > .333 * AUDIO_SAMPLE_RATE_EXACT) {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 10) - 1) << 3);
+        //        } else {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 12) - 1) << 2);
+        //        }
 
         i2s_tx_buffer[1] = 0;
 

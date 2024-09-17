@@ -1,10 +1,10 @@
 #include "SerialClockMultiplexerRegister1.h"
 
-SerialClockMultiplexerRegister1 SerialClockMultiplexerRegister1::instance_;
+SerialClockMultiplexerRegister1 SerialClockMultiplexerRegister1::s_Instance;
 
 SerialClockMultiplexerRegister1 &SerialClockMultiplexerRegister1::instance()
 {
-    return instance_;
+    return s_Instance;
 }
 
 SerialClockMultiplexerRegister1 &SerialClockMultiplexerRegister1 = SerialClockMultiplexerRegister1::instance();
@@ -19,7 +19,7 @@ bool SerialClockMultiplexerRegister1::begin()
 bool SerialClockMultiplexerRegister1::setSai1ClkSel(const Sai1ClkSel selector) const
 {
     switch (selector) {
-        case Sai1ClkSel::kReserved:
+        case Sai1ClkSel::Reserved:
             Serial.printf("Reserved value provided for "
                           "CCM_CSCMR1_SAI1_CLK_SEL: %d\n",
                           selector);

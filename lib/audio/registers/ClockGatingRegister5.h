@@ -5,7 +5,7 @@
 
 /**
  * CCM Clock Gating Register 5 (CCM_CCGR5)
- * i.MX RT1060 Processor Reference Manual v3, §14.7.26, p. 1084
+ * i.MX RT1060 Processor Reference Manual rev. 3, §14.7.26, p. 1084
  * Implementation of audio-related fields
  */
 class ClockGatingRegister5 final : public IMXRT1060Register
@@ -24,30 +24,30 @@ public:
         /**
          * Clock is off during all modes. Stop enter hardware handshake is disabled.
          */
-        kOff = 0,
+        Off = 0,
         /**
          * Clock is on in run mode, but off in WAIT and STOP modes.
          */
-        kOnRunOnly = 1,
+        OnRunOnly = 1,
         /**
          * Clock is on during all modes, except STOP mode.
          */
-        kOn = 3
+        On = 3
     };
 
     static ClockGatingRegister5 &instance();
 
     bool begin() override;
 
-    bool setSai1ClockActivityCondition(ClockActivityCondition condition);
+    bool enableSai1Clock() const;
 
-    bool enableSai1Clock();
+    bool setSai1ClockActivityCondition(ClockActivityCondition condition) const;
 
-private:
+   private:
     ClockGatingRegister5() :
             IMXRT1060Register("CCM_CCGR5", &CCM_CCGR5) {}
 
-    static ClockGatingRegister5 instance_;
+    static ClockGatingRegister5 s_Instance;
 };
 
 

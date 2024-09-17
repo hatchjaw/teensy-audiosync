@@ -10,9 +10,9 @@ class IMXRT1060Register : public Printable
 {
 public:
     /**
-     * Set up the register with a sensible default value.
-     * @return true on success; false otherwise.
-     */
+         * Set up the register with a sensible default value.
+         * @return true on success; false otherwise.
+         */
     virtual bool begin() = 0;
 
     /**
@@ -43,7 +43,9 @@ protected:
      * instance of IMXRT_REGISTER32_t.
      */
     IMXRT1060Register(const char *name, volatile uint32_t *address)
-            : m_Name(name), m_Address(address) {}
+        : m_Name(name), m_Address(address)
+    {
+    }
 
     /**
      * Write to the register. The value of the register will be replaced with
@@ -76,10 +78,12 @@ protected:
      * @inherit
      */
     IMXRT1060BitbandRegister(const char *name, volatile uint32_t *address)
-            : IMXRT1060Register(name, address),
-              m_AddressSet(address + 1),
-              m_AddressClr(address + 2),
-              m_AddressTog(address + 3) {}
+        : IMXRT1060Register(name, address),
+          m_AddressSet(address + 1),
+          m_AddressClr(address + 2),
+          m_AddressTog(address + 3)
+    {
+    }
 
     /**
      * Assign to the SET register. The bits of `mask` will be set; other bits

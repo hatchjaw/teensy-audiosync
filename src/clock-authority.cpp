@@ -2,7 +2,7 @@
 #include <t41-ptp.h>
 #include <QNEthernet.h>
 #include <TimeLib.h>
-#include <AudioClockManager.h>
+#include <AudioSystemManager.h>
 
 void syncInterrupt();
 
@@ -38,7 +38,7 @@ bool audioEnabled{false};
 boolean readyForNewSample = true; // Push new data on every second call to the ISR
 bool doImpulse{false};
 uint32_t counter{0};
-AudioClockManager audioClockManager;
+AudioSystemManager audioSystemManager{AUDIO_SAMPLE_RATE_EXACT,AUDIO_BLOCK_SAMPLES};
 
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
@@ -113,7 +113,7 @@ void setup()
 //    qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(2, true); //Configure Interrupt generation
 
     // Set up audio
-    audioClockManager.begin();
+    audioSystemManager.begin();
     initDAC();
     audioShield.enable();
     audioShield.volume(0.5);
@@ -206,7 +206,7 @@ static void interrupt_1588_timer()
 //    if (shouldEnableAudio && !audioEnabled) {
 //        displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
 //        Serial.println("Leader: Starting Audio");
-//        audioClockManager.start();
+//        audioSystemManager.start();
 //        counter = 0;
 //        audioEnabled = true;
 //    }
@@ -216,13 +216,13 @@ static void interrupt_1588_timer()
     if (shouldEnableAudio && !audioEnabled) {
         displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
         Serial.println("Leader: Starting Audio");
-        audioClockManager.startClock();
+        audioSystemManager.startClock();
         counter = 0;
         audioEnabled = true;
     } else if (!shouldEnableAudio && audioEnabled) {
         displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
         Serial.println("Leader: Stopping Audio");
-        audioClockManager.stopClock();
+        audioSystemManager.stopClock();
 //        counter = 0;
         audioEnabled = false;
     }
@@ -234,8 +234,7 @@ void initDAC()
 {
     dma.begin(true); // Allocate the DMA channel first
 
-    uint32_t fs{AUDIO_SAMPLE_RATE_EXACT};
-    audioClockManager.setClock(fs);
+
 
     dma.TCD->SADDR = i2s_tx_buffer; //source address
     dma.TCD->SOFF = 2; // source buffer address increment per transfer in bytes
@@ -261,9 +260,9 @@ void audioISR(void)
 {
     ++counter;
 
-    if (counter >= 1 && counter < 10) {
+    if (counter >= 1 && counter < 5) {
         doImpulse = true;
-    } else if (counter == 2 * static_cast<int>(AUDIO_SAMPLE_RATE_EXACT)) {
+    } else if (counter == 2 * AUDIO_SAMPLE_RATE_EXACT) {
         counter = 0;
     }
 

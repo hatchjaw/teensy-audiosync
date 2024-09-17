@@ -5,7 +5,7 @@
 
 /**
  * Miscellaneous Register 2 (CCM_ANALOG_MISC2n)
- * i.MX RT1060 Processor Reference Manual v3, §14.8.19, p. 1126
+ * i.MX RT1060 Processor Reference Manual rev. 3, §14.8.19, p. 1126
  * Implementation of audio-related fields
  */
 class MiscellaneousRegister2 final : public IMXRT1060BitbandRegister
@@ -13,9 +13,9 @@ class MiscellaneousRegister2 final : public IMXRT1060BitbandRegister
 public:
     enum class AudioPostDiv : int
     {
-        kDivideBy1 = 1,
-        kDivideBy2 = 2,
-        kDivideBy4 = 4
+        DivideBy1 = 1,
+        DivideBy2 = 2,
+        DivideBy4 = 4
     };
 
     static MiscellaneousRegister2 &instance();
@@ -28,7 +28,7 @@ private:
     MiscellaneousRegister2()
             : IMXRT1060BitbandRegister("CCM_ANALOG_MISC2", &CCM_ANALOG_MISC2) {}
 
-    static MiscellaneousRegister2 instance_;
+    static MiscellaneousRegister2 s_Instance;
 };
 
 
