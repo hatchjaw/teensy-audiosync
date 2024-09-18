@@ -88,6 +88,8 @@ public:
      */
     bool setDivSelect(int pll4Div) const;
 
+    volatile bool isClockRunning() const;
+
 private:
     /**
      * Reset the CCM_ANALOG_PLL_AUDIO register; powers down PLL4 and bypasses it.

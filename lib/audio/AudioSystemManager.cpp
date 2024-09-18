@@ -1,21 +1,21 @@
 #include "AudioSystemManager.h"
 
-AudioSystemManager::AudioSystemManager(uint32_t sampleRate, uint16_t blockSize)
-    : m_SampleRate(sampleRate),
-      m_SampleRateExact(sampleRate),
-      m_BlockSize(blockSize)
-{
-}
+DMAChannel AudioSystemManager::s_DMA{false};
+bool AudioSystemManager::s_ReadyForNewSample{false};
+bool AudioSystemManager::s_DoImpulse{false};
+uint32_t AudioSystemManager::s_Counter{0};
+DMAMEM __attribute__((aligned(32))) static uint16_t i2sTxBuffer[2];
 
-size_t AudioSystemManager::printTo(Print &p) const
+AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
+    : m_Config(config)
 {
-    return p.printf("Frames/Fs: %" PRIu16 "/%" PRIu32 " (%.16f)\n",
-                    m_BlockSize, m_SampleRate, m_SampleRateExact);
 }
 
 FLASHMEM
 bool AudioSystemManager::begin()
 {
+    Serial.println(m_Config);
+
     m_AnalogAudioPllControlRegister.begin();
     m_AudioPllNumeratorRegister.begin();
     m_AudioPllDenominatorRegister.begin();
@@ -35,9 +35,15 @@ bool AudioSystemManager::begin()
 
     setupI2S();
 
+    setupDMA();
+
+    m_AudioShield.enable();
+    m_AudioShield.volume(m_Config.k_Volume);
+
     return true;
 }
 
+FLASHMEM
 void AudioSystemManager::setupPins() const
 {
     // LRCLK1 on pin 20
@@ -50,10 +56,18 @@ void AudioSystemManager::setupPins() const
     m_Pin7SwMuxControlRegister.setMuxMode(Pin7SwMuxControlRegister::MuxMode::Sai1TxData00);
 }
 
+FLASHMEM
 void AudioSystemManager::setupI2S() const
 {
     int rsync = 0;
     int tsync = 1;
+
+    // if either transmitter or receiver is enabled, do nothing
+    if (I2S1_TCSR & I2S_TCSR_TE || I2S1_RCSR & I2S_RCSR_RE) {
+        Serial.println("I2S transmitter/receiver already enabled. "
+            "Aborting I2S setup.");
+        return;
+    }
 
     I2S1_TMR = 0; // no masking
     //I2S1_TCSR = (1<<25); //Reset
@@ -76,11 +90,130 @@ void AudioSystemManager::setupI2S() const
     I2S1_RCR5 = I2S_RCR5_WNW((32 - 1)) | I2S_RCR5_W0W((32 - 1)) | I2S_RCR5_FBT((32 - 1));
 }
 
+void AudioSystemManager::setupDMA() const
+{
+    s_DMA.begin(true);
+
+    s_DMA.TCD->SADDR = i2sTxBuffer; //source address
+    s_DMA.TCD->SOFF = 2; // source buffer address increment per transfer in bytes
+    s_DMA.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1); // specifies 16 bit source and destination
+    s_DMA.TCD->NBYTES_MLNO = 2; // bytes to transfer for each service request///////////////////////////////////////////////////////////////////
+    s_DMA.TCD->SLAST = -sizeof(i2sTxBuffer); // last source address adjustment
+    s_DMA.TCD->DOFF = 0; // increments at destination
+    s_DMA.TCD->CITER_ELINKNO = sizeof(i2sTxBuffer) / 2;
+    s_DMA.TCD->DLASTSGA = 0; // destination address offset
+    s_DMA.TCD->BITER_ELINKNO = sizeof(i2sTxBuffer) / 2;
+    s_DMA.TCD->CSR = DMA_TCD_CSR_INTHALF; //| DMA_TCD_CSR_INTMAJOR; // enables interrupt when transfers half complete. SET TO 0 to disable DMA interrupts
+    s_DMA.TCD->DADDR = (void *) ((uint32_t) &I2S1_TDR0 + 2); // I2S1 register DMA writes to
+    s_DMA.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI1_TX); // i2s channel that will trigger the DMA transfer when ready for data
+    s_DMA.enable();
+    I2S1_RCSR |= I2S_RCSR_RE | I2S_RCSR_BCE;
+    I2S1_TCSR = I2S_TCSR_TE | I2S_TCSR_BCE | I2S_TCSR_FRDE;
+    s_DMA.attachInterrupt(
+        m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? clockAuthorityISR : clockSubscriberISR
+    );
+}
+
+void AudioSystemManager::clockAuthorityISR()
+{
+    ++s_Counter;
+
+    if (s_Counter >= 1 && s_Counter < 5) {
+        s_DoImpulse = true;
+    } else if (s_Counter == 2 * AUDIO_SAMPLE_RATE_EXACT) {
+        s_Counter = 0;
+    }
+
+    if (s_ReadyForNewSample) {
+        //        if (s_DoImpulse) {
+        //            s_DoImpulse = false;
+        //
+        //            uint16_t impulse = (1 << 15) - 1;
+        //
+        //            // Pass current sample to L+R audio buffers
+        //            i2s_tx_buffer[0] = impulse; // Left Channel
+        //            i2s_tx_buffer[1] = 0; // Right Channel
+        //        } else {
+        //            i2s_tx_buffer[0] = 0; // Left Channel
+        //            i2s_tx_buffer[1] = 0; // Right Channel
+        //        }
+
+        if (s_DoImpulse) {
+            s_DoImpulse = false;
+            i2sTxBuffer[0] = (1 << 15) - 1;
+            i2sTxBuffer[1] = (1 << 15) - 1;
+        } else {
+            i2sTxBuffer[0] = 0;
+            i2sTxBuffer[1] = 0;
+        }
+
+
+        // Flush buffer and clear interrupt
+        arm_dcache_flush_delete(i2sTxBuffer, sizeof(i2sTxBuffer));
+        s_DMA.clearInterrupt();
+    }
+    s_ReadyForNewSample = 1 - s_ReadyForNewSample;
+}
+
+void AudioSystemManager::clockSubscriberISR()
+{
+    ++s_Counter;
+    //    if (s_Counter > 2 * static_cast<int>(AUDIO_SAMPLE_RATE_EXACT) - 10) {
+    //        s_DoImpulse = true;
+    //    }
+    if (s_Counter >= 1 && s_Counter < 5) {
+        s_DoImpulse = true;
+    } else if (s_Counter == 2 * AUDIO_SAMPLE_RATE_EXACT) {
+        s_Counter = 0;
+    }
+
+    if (s_ReadyForNewSample) {
+        //        if (s_DoImpulse) {
+        //            s_DoImpulse = false;
+        //
+        //            int16_t impulse = 32767;
+        //
+        //            // Pass current sample to L+R audio buffers
+        //            i2s_tx_buffer[0] = impulse; // Left Channel
+        //            i2s_tx_buffer[1] = 0; // Right Channel
+        //        } else {
+        //            i2s_tx_buffer[0] = 0; // Left Channel
+        //            i2s_tx_buffer[1] = 0; // Right Channel
+        //        }
+
+        if (s_DoImpulse) {
+            s_DoImpulse = false;
+            i2sTxBuffer[0] = (1 << 15) - 1;
+        } else {
+            i2sTxBuffer[0] = 0;
+        }
+        //        else if (s_Counter > 1.666 * AUDIO_SAMPLE_RATE_EXACT) {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 2) - 1) << 7);
+        //        } else if (s_Counter > 1.333 * AUDIO_SAMPLE_RATE_EXACT) {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 4) - 1) << 6);
+        //        } else if (s_Counter > AUDIO_SAMPLE_RATE_EXACT) {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 6) - 1) << 5);
+        //        } else if (s_Counter > .666 * AUDIO_SAMPLE_RATE_EXACT) {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 8) - 1) << 4);
+        //        } else if (s_Counter > .333 * AUDIO_SAMPLE_RATE_EXACT) {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 10) - 1) << 3);
+        //        } else {
+        //            i2s_tx_buffer[0] = ((1 << 16) - 1) ^ (((1 << 12) - 1) << 2);
+        //        }
+
+        i2sTxBuffer[1] = 0;
+
+        // Flush buffer and clear interrupt
+        arm_dcache_flush_delete(i2sTxBuffer, sizeof(i2sTxBuffer));
+        s_DMA.clearInterrupt();
+    }
+    s_ReadyForNewSample = 1 - s_ReadyForNewSample;
+}
+
 FLASHMEM
 void AudioSystemManager::setClock()
 {
-    printTo(Serial);
-    m_ClockDividers.calculateCoarse(m_SampleRate);
+    m_ClockDividers.calculateCoarse(m_Config.k_SampleRate);
     Serial.print(m_ClockDividers);
 
     m_ClockGatingRegister5.enableSai1Clock();
@@ -110,30 +243,41 @@ void AudioSystemManager::setClock()
     Serial.println(m_AnalogAudioPllControlRegister);
 }
 
-void AudioSystemManager::setSampleRate(double targetSampleRate)
+void AudioSystemManager::setSampleRate(const double targetSampleRate)
 {
-    m_SampleRateExact = targetSampleRate;
-    printTo(Serial);
-    m_ClockDividers.calculateFine(m_SampleRateExact);
+    m_Config.m_SampleRateExact = targetSampleRate;
+    Serial.println(m_Config);
+    m_ClockDividers.calculateFine(m_Config.m_SampleRateExact);
     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
 }
 
-void AudioSystemManager::startClock()
+void AudioSystemManager::startClock() const
 {
     m_AnalogAudioPllControlRegister.setEnable(true);
     //    AnalogAudioPllControlRegister.setPowerDown(false);
-    //    AnalogAudioPllControlRegister.setBypass(false);
+    //    AnalogAudioPllControlRegister.setBypass(false)
 
+    Serial.printf("Clock %s starting audio clock\n",
+                  m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? "authority" : "subscriber");
     Serial.println(m_AnalogAudioPllControlRegister);
+
+    s_Counter = 0;
 }
 
-void AudioSystemManager::stopClock()
+void AudioSystemManager::stopClock() const
 {
     //    AnalogAudioPllControlRegister.setBypass(true);
     //    AnalogAudioPllControlRegister.setPowerDown(false);
     m_AnalogAudioPllControlRegister.setEnable(false);
 
+    Serial.printf("Clock %s stopping audio clock\n",
+                  m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? "authority" : "subscriber");
     Serial.println(m_AnalogAudioPllControlRegister);
+}
+
+volatile bool AudioSystemManager::isClockRunning() const
+{
+    return m_AnalogAudioPllControlRegister.isClockRunning();
 }
 
 FLASHMEM
@@ -281,6 +425,6 @@ uint32_t AudioSystemManager::ClockDividers::getCurrentMaxPossibleSampleRate() co
 FLASHMEM
 uint32_t AudioSystemManager::ClockDividers::getCurrentSai1ClkRootFreq() const
 {
-    auto result{(ClockConstants::k_OscHz * getPLL4FractionalDivider() / (m_Sai1Pre * m_Sai1Post))};
+    const auto result{(ClockConstants::k_OscHz * getPLL4FractionalDivider() / (m_Sai1Pre * m_Sai1Post))};
     return (uint32_t) result;
 }

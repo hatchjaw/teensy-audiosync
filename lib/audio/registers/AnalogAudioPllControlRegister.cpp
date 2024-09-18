@@ -1,5 +1,5 @@
 #include "AnalogAudioPllControlRegister.h"
-#include "ClockConstants.h"
+#include "Config.h"
 
 bool AnalogAudioPllControlRegister::begin()
 {
@@ -66,6 +66,11 @@ bool AnalogAudioPllControlRegister::setDivSelect(const int pll4Div) const
     set(CCM_ANALOG_PLL_AUDIO_DIV_SELECT(pll4Div));
 //    Serial.printf("setDivSelect: CCM_ANALOG_PLL_AUDIO: %X\n", getValue());
     return true;
+}
+
+volatile bool AnalogAudioPllControlRegister::isClockRunning() const
+{
+    return getValue() & ~CCM_ANALOG_PLL_AUDIO_BYPASS & CCM_ANALOG_PLL_AUDIO_ENABLE & ~CCM_ANALOG_PLL_AUDIO_POWERDOWN;
 }
 
 bool AnalogAudioPllControlRegister::setBypassClockSource(const BypassClockSource source) const

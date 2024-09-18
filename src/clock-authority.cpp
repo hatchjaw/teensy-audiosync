@@ -10,10 +10,6 @@ void announceInterrupt();
 
 static void interrupt_1588_timer();
 
-void initDAC();
-
-void audioISR();
-
 void displayTime(const NanoTime t)
 {
     NanoTime x = t;
@@ -30,15 +26,14 @@ void displayTime(const NanoTime t)
     Serial.printf("TIME: %02d.%02d.%04d %02d:%02d:%02d::%03d:%03d:%03d\n", tme.Day, tme.Month, 1970 + tme.Year, tme.Hour, tme.Minute, tme.Second, ms, us, ns);
 }
 
-DMAMEM __attribute__((aligned(32))) static uint16_t i2s_tx_buffer[2] = {0, 0};
-static DMAChannel dma;
-AudioControlSGTL5000 audioShield;
 bool shouldEnableAudio{false};
-bool audioEnabled{false};
-boolean readyForNewSample = true; // Push new data on every second call to the ISR
-bool doImpulse{false};
-uint32_t counter{0};
-AudioSystemManager audioSystemManager{AUDIO_SAMPLE_RATE_EXACT,AUDIO_BLOCK_SAMPLES};
+
+AudioSystemConfig config{
+    AUDIO_BLOCK_SAMPLES,
+    AUDIO_SAMPLE_RATE_EXACT,
+    AudioSystemConfig::ClockRole::Authority
+};
+AudioSystemManager audioSystemManager{config};
 
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
@@ -49,10 +44,12 @@ IntervalTimer syncTimer;
 IntervalTimer announceTimer;
 
 bool connected{false};
-bool master = true;
-bool slave = false;
 
-l3PTP ptp(master, slave, false);
+l3PTP ptp(
+    config.k_ClockRole == AudioSystemConfig::ClockRole::Authority,
+    config.k_ClockRole == AudioSystemConfig::ClockRole::Subscriber,
+    false
+);
 //l2PTP ptp(master, slave, false);
 
 void setup()
@@ -73,15 +70,15 @@ void setup()
     qindesign::network::EthernetIEEE1588.begin();
 
     qindesign::network::Ethernet.onLinkState([](bool state)
-                                             {
-                                                 Serial.printf("[Ethernet] Link %dMbps %s\n", qindesign::network::Ethernet.linkSpeed(), state ? "ON" : "OFF");
-                                                 connected = state;
-                                                 if (state) {
-                                                     ptp.begin();
-                                                     syncTimer.begin(syncInterrupt, 1000000);
-                                                     announceTimer.begin(announceInterrupt, 1000000);
-                                                 }
-                                             });
+    {
+        Serial.printf("[Ethernet] Link %dMbps %s\n", qindesign::network::Ethernet.linkSpeed(), state ? "ON" : "OFF");
+        connected = state;
+        if (state) {
+            ptp.begin();
+            syncTimer.begin(syncInterrupt, 1000000);
+            announceTimer.begin(announceInterrupt, 1000000);
+        }
+    });
 
     Serial.println("Clock authority");
     Serial.printf("Mac address:   %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
@@ -107,16 +104,13 @@ void setup()
     // teensy pin: 15
     attachInterruptVector(IRQ_ENET_TIMER, interrupt_1588_timer); //Configure Interrupt Handler
     NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
-//    IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_03 = 4;
-//    qindesign::network::EthernetIEEE1588.setChannelMode(2, qindesign::network::EthernetIEEE1588Class::TimerChannelModes::kCaptureOnRising); //enable Channel2
-//    // rising edge trigger
-//    qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(2, true); //Configure Interrupt generation
+    //    IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_03 = 4;
+    //    qindesign::network::EthernetIEEE1588.setChannelMode(2, qindesign::network::EthernetIEEE1588Class::TimerChannelModes::kCaptureOnRising); //enable Channel2
+    //    // rising edge trigger
+    //    qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(2, true); //Configure Interrupt generation
 
     // Set up audio
     audioSystemManager.begin();
-    initDAC();
-    audioShield.enable();
-    audioShield.volume(0.5);
 }
 
 bool sync = false;
@@ -153,7 +147,6 @@ void loop()
 
 void syncInterrupt()
 {
-
     if (noPPSCount > 5) {
         sync = true;
     } else {
@@ -168,7 +161,7 @@ void announceInterrupt()
 
 static void interrupt_1588_timer()
 {
-//    Serial.println("IRQ_ENET_TIMER!");
+    //    Serial.println("IRQ_ENET_TIMER!");
 
     uint32_t t;
     if (!qindesign::network::EthernetIEEE1588.getAndClearChannelStatus(1)) {
@@ -197,103 +190,29 @@ static void interrupt_1588_timer()
     interrupt_ns = t;
     pps_ns = 0;
 
-    // Only needed if running with GPS
-//    pps = true;
-//    noPPSCount = 0;
+    // Only needed if running with GPS input
+    //    pps = true;
+    //    noPPSCount = 0;
 
-//    shouldEnableAudio = ts.tv_sec == 5;
-//
-//    if (shouldEnableAudio && !audioEnabled) {
-//        displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
-//        Serial.println("Leader: Starting Audio");
-//        audioSystemManager.start();
-//        counter = 0;
-//        audioEnabled = true;
-//    }
+    //    shouldEnableAudio = ts.tv_sec == 5;
+    //
+    //    if (shouldEnableAudio && !audioEnabled) {
+    //        displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
+    //        Serial.println("Leader: Starting Audio");
+    //        audioSystemManager.start();
+    //        counter = 0;
+    //        audioEnabled = true;
+    //    }
 
     shouldEnableAudio = ts.tv_sec % 10 != 9;
 
-    if (shouldEnableAudio && !audioEnabled) {
+    if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
         displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
-        Serial.println("Leader: Starting Audio");
         audioSystemManager.startClock();
-        counter = 0;
-        audioEnabled = true;
-    } else if (!shouldEnableAudio && audioEnabled) {
+    } else if (!shouldEnableAudio && audioSystemManager.isClockRunning()) {
         displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
-        Serial.println("Leader: Stopping Audio");
         audioSystemManager.stopClock();
-//        counter = 0;
-        audioEnabled = false;
     }
 
     asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
-}
-
-void initDAC()
-{
-    dma.begin(true); // Allocate the DMA channel first
-
-
-
-    dma.TCD->SADDR = i2s_tx_buffer; //source address
-    dma.TCD->SOFF = 2; // source buffer address increment per transfer in bytes
-    dma.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1); // specifies 16 bit source and destination
-    dma.TCD->NBYTES_MLNO = 2; // bytes to transfer for each service request///////////////////////////////////////////////////////////////////
-    dma.TCD->SLAST = -sizeof(i2s_tx_buffer); // last source address adjustment
-    dma.TCD->DOFF = 0; // increments at destination
-    dma.TCD->CITER_ELINKNO = sizeof(i2s_tx_buffer) / 2;
-    dma.TCD->DLASTSGA = 0; // destination address offset
-    dma.TCD->BITER_ELINKNO = sizeof(i2s_tx_buffer) / 2;
-    dma.TCD->CSR = DMA_TCD_CSR_INTHALF; //| DMA_TCD_CSR_INTMAJOR; // enables interrupt when transfers half complete. SET TO 0 to disable DMA interrupts
-    dma.TCD->DADDR = (void *) ((uint32_t) &I2S1_TDR0 + 2); // I2S1 register DMA writes to
-    dma.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI1_TX); // i2s channel that will trigger the DMA transfer when ready for data
-    dma.enable();
-    I2S1_RCSR |= I2S_RCSR_RE | I2S_RCSR_BCE;
-    I2S1_TCSR = I2S_TCSR_TE | I2S_TCSR_BCE | I2S_TCSR_FRDE;
-    dma.attachInterrupt(audioISR);
-}
-
-// DMA interrupt, called twice per sample (buffer?)
-// Audio data is pushed into the DMA channel source array on every second call.
-void audioISR(void)
-{
-    ++counter;
-
-    if (counter >= 1 && counter < 5) {
-        doImpulse = true;
-    } else if (counter == 2 * AUDIO_SAMPLE_RATE_EXACT) {
-        counter = 0;
-    }
-
-    if (readyForNewSample) {
-//        if (doImpulse) {
-//            doImpulse = false;
-//
-//            uint16_t impulse = (1 << 15) - 1;
-//
-//            // Pass current sample to L+R audio buffers
-//            i2s_tx_buffer[0] = impulse; // Left Channel
-//            i2s_tx_buffer[1] = 0; // Right Channel
-//        } else {
-//            i2s_tx_buffer[0] = 0; // Left Channel
-//            i2s_tx_buffer[1] = 0; // Right Channel
-//        }
-
-        if (doImpulse) {
-            doImpulse = false;
-            i2s_tx_buffer[0] = (1 << 15) - 1;
-            i2s_tx_buffer[1] = (1 << 15) - 1;
-        } else {
-            i2s_tx_buffer[0] = 0;
-            i2s_tx_buffer[1] = 0;
-        }
-
-
-
-        // Flush buffer and clear interrupt
-        arm_dcache_flush_delete(i2s_tx_buffer, sizeof(i2s_tx_buffer));
-        dma.clearInterrupt();
-    }
-    readyForNewSample = 1 - readyForNewSample;
 }

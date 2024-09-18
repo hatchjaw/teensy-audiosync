@@ -1,7 +1,10 @@
 #ifndef AUDIOCLOCKMANAGER_H
 #define AUDIOCLOCKMANAGER_H
 
-#include "ClockConstants.h"
+#include <Arduino.h>
+#include <control_sgtl5000.h>
+#include <DMAChannel.h>
+#include "Config.h"
 #include "registers/MiscellaneousRegister2.h"
 #include "registers/AnalogAudioPllControlRegister.h"
 #include "registers/ClockDividerRegister1.h"
@@ -10,20 +13,20 @@
 #include "registers/GeneralPurposeRegister1.h"
 #include "registers/SwMuxControlRegister.h"
 
-class AudioSystemManager : public Printable
+class AudioSystemManager
 {
 public:
-    AudioSystemManager(uint32_t sampleRate, uint16_t blockSize);
-
-    size_t printTo(Print &p) const override;
+    explicit AudioSystemManager(AudioSystemConfig config);
 
     bool begin();
 
     void setSampleRate(double targetSampleRate);
 
-    void startClock();
+    void startClock() const;
 
-    void stopClock();
+    void stopClock() const;
+
+    volatile bool isClockRunning() const;
 
 private:
     struct ClockDividers : Printable
@@ -64,9 +67,12 @@ private:
 
     void setupI2S() const;
 
-    uint32_t m_SampleRate;
-    double m_SampleRateExact;
-    uint16_t m_BlockSize;
+    void setupDMA() const;
+
+    static void clockAuthorityISR();
+    static void clockSubscriberISR();
+
+    AudioSystemConfig m_Config;
     ClockDividers m_ClockDividers;
 
     AnalogAudioPllControlRegister m_AnalogAudioPllControlRegister;
@@ -81,6 +87,14 @@ private:
     Pin20SwMuxControlRegister m_Pin20SwMuxControlRegister;
     Pin21SwMuxControlRegister m_Pin21SwMuxControlRegister;
     Pin23SwMuxControlRegister m_Pin23SwMuxControlRegister;
+
+    AudioControlSGTL5000 m_AudioShield;
+
+    static DMAChannel s_DMA;
+    static bool s_ReadyForNewSample;
+    static bool s_DoImpulse;
+    static uint32_t s_Counter;
+    // DMAMEM __attribute__((aligned(32))) static uint32_t i2sTxBuffer[2];
 };
 
 

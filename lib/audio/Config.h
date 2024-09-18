@@ -1,7 +1,38 @@
-#ifndef CLOCKCONSTANTS_H
-#define CLOCKCONSTANTS_H
+#ifndef TEENSY_AUDIOSYNC_CONFIG_H
+#define TEENSY_AUDIOSYNC_CONFIG_H
 
 #include <Arduino.h>
+
+struct AudioSystemConfig : Printable
+{
+    enum class ClockRole
+    {
+        Authority,
+        Subscriber
+    };
+
+    AudioSystemConfig(const uint16_t bufferSize, const uint32_t sampleRate, const ClockRole clockRole, const float volume = .5f)
+        : k_SampleRate(sampleRate),
+          k_BufferSize(bufferSize),
+          k_ClockRole(clockRole),
+          k_Volume(volume),
+          m_SampleRateExact(sampleRate)
+    {
+    }
+
+    size_t printTo(Print &p) const override
+    {
+        return p.printf("%s - Frames/Fs: %" PRIu16 "/%" PRIu32 " (%.16f)",
+                        k_ClockRole == ClockRole::Authority ? "Clock Authority" : "Clock Subscriber",
+                        k_BufferSize, k_SampleRate, m_SampleRateExact);
+    }
+
+    const uint32_t k_SampleRate;
+    const uint16_t k_BufferSize;
+    const ClockRole k_ClockRole;
+    float k_Volume;
+    double m_SampleRateExact;
+};
 
 struct ClockConstants
 {
@@ -80,4 +111,4 @@ struct ClockConstants
     static constexpr uint32_t k_Sai1PostMaxFreq{300 * k_MHz};
 };
 
-#endif //CLOCKCONSTANTS_H
+#endif //TEENSY_AUDIOSYNC_CONFIG_H

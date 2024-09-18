@@ -1,5 +1,5 @@
 #include "ClockDividerRegister1.h"
-#include "ClockConstants.h"
+#include "Config.h"
 
 bool ClockDividerRegister1::begin()
 {
