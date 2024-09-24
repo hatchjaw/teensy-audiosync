@@ -1,5 +1,5 @@
-#ifndef AUDIOCLOCKMANAGER_H
-#define AUDIOCLOCKMANAGER_H
+#ifndef AUDIOSYSTEMMANGER_H
+#define AUDIOSYSTEMMANGER_H
 
 #include <Arduino.h>
 #include <control_sgtl5000.h>
@@ -21,6 +21,8 @@ public:
     bool begin();
 
     void setSampleRate(double targetSampleRate);
+
+    void adjustClock(double nspsDiscrepancy);
 
     void startClock() const;
 
@@ -97,5 +99,4 @@ private:
     // DMAMEM __attribute__((aligned(32))) static uint32_t i2sTxBuffer[2];
 };
 
-
-#endif //AUDIOCLOCKMANAGER_H
+#endif //AUDIOSYSTEMMANGER_H

@@ -81,7 +81,7 @@ void setup()
     // peripherial: ENET_1588_EVENT1_OUT
     // IOMUX: ALT6
     // teensy pin: 24
-    IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_12 = 6;
+    CORE_PIN24_CONFIG = 6;
     qindesign::network::EthernetIEEE1588.setChannelCompareValue(1, NS_PER_S - 60);
     qindesign::network::EthernetIEEE1588.setChannelMode(1, qindesign::network::EthernetIEEE1588Class::TimerChannelModes::kPulseHighOnCompare);
     qindesign::network::EthernetIEEE1588.setChannelOutputPulseWidth(1, 25);
@@ -136,17 +136,7 @@ static void interrupt_1588_timer()
     interrupt_ns = t;
     pps_ns = 0;
 
-    auto adjust{ptp.getAdjust()};
-
-    Serial.printf("Adjust (nsps): %f\n", adjust);
-
-    double proportionalAdjustment{1. + (adjust / NS_PER_S)};
-
-    Serial.printf("Proportional adjustment: %.*f\n", 10, proportionalAdjustment);
-
-    double targetFs{AUDIO_SAMPLE_RATE_EXACT * proportionalAdjustment};
-
-    audioSystemManager.setSampleRate(targetFs);
+    audioSystemManager.adjustClock(ptp.getAdjust());
 
     shouldEnableAudio = ts.tv_sec % 10 != 9;
 

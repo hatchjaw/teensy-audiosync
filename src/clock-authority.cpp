@@ -90,20 +90,18 @@ void setup()
     // peripherial: ENET_1588_EVENT1_OUT
     // IOMUX: ALT6
     // teensy pin: 24
-    IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B0_12 = 6;
+    CORE_PIN24_CONFIG = 6;
     qindesign::network::EthernetIEEE1588.setChannelCompareValue(1, NS_PER_S - 60);
     qindesign::network::EthernetIEEE1588.setChannelMode(1, qindesign::network::EthernetIEEE1588Class::TimerChannelModes::kPulseHighOnCompare);
     qindesign::network::EthernetIEEE1588.setChannelOutputPulseWidth(1, 25);
 
     qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(1, true);
-
-
+    attachInterruptVector(IRQ_ENET_TIMER, interrupt_1588_timer); //Configure Interrupt Handler
+    NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
     // PPS-IN
     // peripherial: ENET_1588_EVENT2_IN
     // IOMUX: ALT4
     // teensy pin: 15
-    attachInterruptVector(IRQ_ENET_TIMER, interrupt_1588_timer); //Configure Interrupt Handler
-    NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
     //    IOMUXC_SW_MUX_CTL_PAD_GPIO_AD_B1_03 = 4;
     //    qindesign::network::EthernetIEEE1588.setChannelMode(2, qindesign::network::EthernetIEEE1588Class::TimerChannelModes::kCaptureOnRising); //enable Channel2
     //    // rising edge trigger

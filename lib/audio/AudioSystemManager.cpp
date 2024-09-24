@@ -107,8 +107,10 @@ void AudioSystemManager::setupDMA() const
     s_DMA.TCD->DADDR = (void *) ((uint32_t) &I2S1_TDR0 + 2); // I2S1 register DMA writes to
     s_DMA.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI1_TX); // i2s channel that will trigger the DMA transfer when ready for data
     s_DMA.enable();
+
     I2S1_RCSR |= I2S_RCSR_RE | I2S_RCSR_BCE;
     I2S1_TCSR = I2S_TCSR_TE | I2S_TCSR_BCE | I2S_TCSR_FRDE;
+
     s_DMA.attachInterrupt(
         m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? clockAuthorityISR : clockSubscriberISR
     );
@@ -245,9 +247,9 @@ void AudioSystemManager::setClock()
 
 void AudioSystemManager::setSampleRate(const double targetSampleRate)
 {
-    m_Config.m_SampleRateExact = targetSampleRate;
+    m_Config.setExactSampleRate(targetSampleRate);
     Serial.println(m_Config);
-    m_ClockDividers.calculateFine(m_Config.m_SampleRateExact);
+    m_ClockDividers.calculateFine(m_Config.getExactSampleRate());
     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
 }
 
@@ -278,6 +280,20 @@ void AudioSystemManager::stopClock() const
 volatile bool AudioSystemManager::isClockRunning() const
 {
     return m_AnalogAudioPllControlRegister.isClockRunning();
+}
+
+void AudioSystemManager::adjustClock(const double nspsDiscrepancy)
+{
+    Serial.printf("Skew (nsps):                 %.*f\n", 8, nspsDiscrepancy);
+
+    const double proportionalAdjustment{1. + (nspsDiscrepancy / ClockConstants::k_NanosecondsPerSecond)};
+
+    Serial.printf("Proportional adjustment:     %.*f\n", 8, proportionalAdjustment);
+
+    m_Config.setExactSampleRate(proportionalAdjustment);
+    Serial.println(m_Config);
+    m_ClockDividers.calculateFine(m_Config.getExactSampleRate());
+    m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
 }
 
 FLASHMEM
@@ -360,8 +376,8 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
         return;
     }
 
-    Serial.printf("PLL4 numerator:   %16" PRId32 "\n"
-                  "PLL4 denominator: %16" PRIu32 "\n",
+    Serial.printf("PLL4 numerator: %23" PRId32 "\n"
+                  "PLL4 denominator: %21" PRIu32 "\n",
                   numInt, m_Pll4Denom);
 
     m_Pll4Num = numInt;
