@@ -93,10 +93,11 @@ private:
     AudioControlSGTL5000 m_AudioShield;
 
     static DMAChannel s_DMA;
-    static bool s_ReadyForNewSample;
     static bool s_DoImpulse;
     static uint32_t s_Counter;
-    // DMAMEM __attribute__((aligned(32))) static uint32_t i2sTxBuffer[2];
+
+    static constexpr uint16_t k_BufferSize{16}; // AUDIO_BLOCK_SAMPLES
+    DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_BufferSize];
 };
 
 #endif //AUDIOSYSTEMMANGER_H
