@@ -12,6 +12,7 @@
 #include "registers/ClockGatingRegister5.h"
 #include "registers/GeneralPurposeRegister1.h"
 #include "registers/SwMuxControlRegister.h"
+#include "SineWaveGenerator.h"
 
 class AudioSystemManager
 {
@@ -92,11 +93,13 @@ private:
 
     AudioControlSGTL5000 m_AudioShield;
 
+    static SineWaveGenerator s_SineWaveGenerator;
+
     static DMAChannel s_DMA;
     static bool s_DoImpulse;
     static uint32_t s_Counter;
 
-    static constexpr uint16_t k_BufferSize{16}; // AUDIO_BLOCK_SAMPLES
+    static constexpr uint16_t k_BufferSize{8}; // AUDIO_BLOCK_SAMPLES
     DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_BufferSize];
 };
 

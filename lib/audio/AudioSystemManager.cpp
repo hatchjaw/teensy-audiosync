@@ -3,6 +3,7 @@
 DMAChannel AudioSystemManager::s_DMA{false};
 bool AudioSystemManager::s_DoImpulse{false};
 uint32_t AudioSystemManager::s_Counter{0};
+SineWaveGenerator AudioSystemManager::s_SineWaveGenerator;
 DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k_BufferSize];
 
 AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
@@ -38,6 +39,8 @@ bool AudioSystemManager::begin()
 
     m_AudioShield.enable();
     m_AudioShield.volume(m_Config.k_Volume);
+
+    s_SineWaveGenerator.setFrequency(240);
 
     return true;
 }
@@ -132,26 +135,28 @@ void AudioSystemManager::clockAuthorityISR()
         destination = (int16_t *) s_I2sTxBuffer;
     }
 
-    for (auto i{0}; i < k_BufferSize / 2; ++i) {
-        if (s_Counter < 5) {
-            s_DoImpulse = true;
-        }
+    s_SineWaveGenerator.generate(destination, 2, k_BufferSize / 2);
 
-        if (s_DoImpulse) {
-            s_DoImpulse = false;
-            destination[2 * i] = (1 << 15) - 1;
-            destination[2 * i + 1] = (1 << 15) - 1;
-        } else {
-            destination[2 * i] = 0;
-            destination[2 * i + 1] = 0;
-        }
-
-        ++s_Counter;
-
-        if (s_Counter == AUDIO_SAMPLE_RATE_EXACT) {
-            s_Counter = 0;
-        }
-    }
+    // for (auto i{0}; i < k_BufferSize / 2; ++i) {
+    //     if (s_Counter < 5) {
+    //         s_DoImpulse = true;
+    //     }
+    //
+    //     if (s_DoImpulse) {
+    //         s_DoImpulse = false;
+    //         destination[2 * i] = (1 << 15) - 1;
+    //         destination[2 * i + 1] = (1 << 15) - 1;
+    //     } else {
+    //         destination[2 * i] = 0;
+    //         destination[2 * i + 1] = 0;
+    //     }
+    //
+    //     ++s_Counter;
+    //
+    //     if (s_Counter == AUDIO_SAMPLE_RATE_EXACT) {
+    //         s_Counter = 0;
+    //     }
+    // }
 
     arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
 }
@@ -172,26 +177,28 @@ void AudioSystemManager::clockSubscriberISR()
         destination = (int16_t *) s_I2sTxBuffer;
     }
 
-    for (auto i{0}; i < k_BufferSize / 2; ++i) {
-        if (s_Counter < 5) {
-            s_DoImpulse = true;
-        }
+    s_SineWaveGenerator.generate(destination, 2, k_BufferSize / 2);
 
-        if (s_DoImpulse) {
-            s_DoImpulse = false;
-            destination[2 * i] = (1 << 15) - 1;
-        } else {
-            destination[2 * i] = 0;
-        }
-
-        destination[2 * i + 1] = 0;
-
-        ++s_Counter;
-
-        if (s_Counter == AUDIO_SAMPLE_RATE_EXACT) {
-            s_Counter = 0;
-        }
-    }
+    // for (auto i{0}; i < k_BufferSize / 2; ++i) {
+    //     if (s_Counter < 5) {
+    //         s_DoImpulse = true;
+    //     }
+    //
+    //     if (s_DoImpulse) {
+    //         s_DoImpulse = false;
+    //         destination[2 * i] = (1 << 15) - 1;
+    //     } else {
+    //         destination[2 * i] = 0;
+    //     }
+    //
+    //     destination[2 * i + 1] = 0;
+    //
+    //     ++s_Counter;
+    //
+    //     if (s_Counter == AUDIO_SAMPLE_RATE_EXACT) {
+    //         s_Counter = 0;
+    //     }
+    // }
 
     arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
 }
@@ -240,6 +247,7 @@ void AudioSystemManager::setSampleRate(const double targetSampleRate)
 void AudioSystemManager::startClock() const
 {
     s_Counter = 0;
+    s_SineWaveGenerator.reset();
 
     m_AnalogAudioPllControlRegister.setEnable(true);
     // m_AnalogAudioPllControlRegister.setPowerDown(false);
@@ -261,6 +269,7 @@ void AudioSystemManager::stopClock() const
     // Serial.println(m_AnalogAudioPllControlRegister);
 
     s_Counter = 0;
+    s_SineWaveGenerator.reset();
 }
 
 volatile bool AudioSystemManager::isClockRunning() const
