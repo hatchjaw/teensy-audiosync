@@ -111,7 +111,8 @@ static void interrupt_1588_timer()
 {
     uint32_t t;
     if (!qindesign::network::EthernetIEEE1588.getAndClearChannelStatus(1)) {
-        asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
+        // asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
+        __DSB();
         return;
     }
     qindesign::network::EthernetIEEE1588.getChannelCompareValue(1, t);
@@ -136,17 +137,25 @@ static void interrupt_1588_timer()
     interrupt_ns = t;
     pps_ns = 0;
 
+    // displayTime(interrupt_s * NS_PER_S + interrupt_ns);
+
     audioSystemManager.adjustClock(ptp.getAdjust());
 
-    shouldEnableAudio = ts.tv_sec % 10 != 9;
+    // Start audio at t = 10s
+    // Only works if started at *around the same time* as the clock authority.
+    // For arbitrary start times, it'll be necessary to measure the initial
+    // offset, i.e. first large time adjustment.
+    shouldEnableAudio = interrupt_s >= 10; //% 10 != 9;
 
     if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
-        displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
+        Serial.print("Subscriber start clock ");
+        displayTime(interrupt_s * NS_PER_S + interrupt_ns);
         audioSystemManager.startClock();
     } else if (!shouldEnableAudio && audioSystemManager.isClockRunning()) {
-        displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
+        displayTime(interrupt_s * NS_PER_S + interrupt_ns);
         audioSystemManager.stopClock();
     }
 
-    asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
+    // asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
+    __DSB();
 }

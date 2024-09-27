@@ -1,8 +1,9 @@
 #include "AudioSystemManager.h"
+#include <QNEthernet.h>
+#include <TimeLib.h>
 
 DMAChannel AudioSystemManager::s_DMA{false};
-bool AudioSystemManager::s_DoImpulse{false};
-uint32_t AudioSystemManager::s_Counter{0};
+bool AudioSystemManager::s_FirstInterrupt{false};
 SineWaveGenerator AudioSystemManager::s_SineWaveGenerator;
 DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k_BufferSize];
 
@@ -29,18 +30,24 @@ bool AudioSystemManager::begin()
     m_Pin21SwMuxControlRegister.begin();
     m_Pin23SwMuxControlRegister.begin();
 
-    setClock();
-
     setupPins();
+
+    // The order of these calls is important.
+    setClock();
 
     setupI2S();
 
     setupDMA();
 
+    // This call must follow the above, and features some significant delays.
     m_AudioShield.enable();
+    // TODO: either mute the audio shield till clock startup, or output zeros.
     m_AudioShield.volume(m_Config.k_Volume);
 
     s_SineWaveGenerator.setFrequency(240);
+
+    // Stop the audio clock till PTP settles down...
+    stopClock();
 
     return true;
 }
@@ -119,8 +126,46 @@ void AudioSystemManager::setupDMA() const
     );
 }
 
-void AudioSystemManager::clockAuthorityISR()
+void AudioSystemManager::isr()
 {
+    if (s_FirstInterrupt) {
+        s_FirstInterrupt = false;
+
+        auto printTime = [](const int64_t t)
+        {
+            int64_t x = t;
+            const int ns = x % 1000;
+            x /= 1000;
+            const int us = x % 1000;
+            x /= 1000;
+            const int ms = x % 1000;
+            x /= 1000;
+
+            tmElements_t tme;
+            breakTime((time_t) x, tme);
+
+            Serial.printf(
+                "First interrupt TIME:"
+                " %02" PRIu8
+                ".%02" PRIu8
+                ".%04" PRIu16
+                " %02" PRIu8
+                ":%02" PRIu8
+                ":%02" PRIu8
+                "::%03" PRIu32
+                ":%03" PRIu32
+                ":%03" PRIu32 "\n",
+                tme.Day, tme.Month, 1970 + tme.Year, tme.Hour, tme.Minute, tme.Second, ms, us, ns);
+        };
+
+        timespec ts;
+        qindesign::network::EthernetIEEE1588.readTimer(ts);
+        Serial.printf("%" PRId64 " s %" PRId32 " ns\n", ts.tv_sec, ts.tv_nsec);
+
+        auto ns{ts.tv_sec * ClockConstants::k_NanosecondsPerSecond + ts.tv_nsec};
+        printTime(ns);
+    }
+
     int16_t *destination;
     const auto sourceAddress = (uint32_t) s_DMA.TCD->SADDR;
     s_DMA.clearInterrupt();
@@ -136,71 +181,28 @@ void AudioSystemManager::clockAuthorityISR()
     }
 
     s_SineWaveGenerator.generate(destination, 2, k_BufferSize / 2);
-
-    // for (auto i{0}; i < k_BufferSize / 2; ++i) {
-    //     if (s_Counter < 5) {
-    //         s_DoImpulse = true;
-    //     }
-    //
-    //     if (s_DoImpulse) {
-    //         s_DoImpulse = false;
-    //         destination[2 * i] = (1 << 15) - 1;
-    //         destination[2 * i + 1] = (1 << 15) - 1;
-    //     } else {
-    //         destination[2 * i] = 0;
-    //         destination[2 * i + 1] = 0;
-    //     }
-    //
-    //     ++s_Counter;
-    //
-    //     if (s_Counter == AUDIO_SAMPLE_RATE_EXACT) {
-    //         s_Counter = 0;
-    //     }
-    // }
 
     arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
 }
 
+void AudioSystemManager::clockAuthorityISR()
+{
+    isr();
+
+    // Generate audio.
+    // Write to (packet/audio) buffer.
+    // If enough new samples are available, signal readiness to transmit packet.
+    // Read (n-k)th packet or (n-kT)th -> (n-k(T-1))th samples (T, buffer size).
+    // Copy samples to destination.
+}
+
 void AudioSystemManager::clockSubscriberISR()
 {
-    int16_t *destination;
-    const auto sourceAddress = (uint32_t) s_DMA.TCD->SADDR;
-    s_DMA.clearInterrupt();
+    isr();
 
-    if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
-        // DMA is transmitting the first half of the buffer
-        // so we must fill the second half
-        destination = (int16_t *) &s_I2sTxBuffer[k_BufferSize / 2];
-    } else {
-        // DMA is transmitting the second half of the buffer
-        // so we must fill the first half
-        destination = (int16_t *) s_I2sTxBuffer;
-    }
-
-    s_SineWaveGenerator.generate(destination, 2, k_BufferSize / 2);
-
-    // for (auto i{0}; i < k_BufferSize / 2; ++i) {
-    //     if (s_Counter < 5) {
-    //         s_DoImpulse = true;
-    //     }
-    //
-    //     if (s_DoImpulse) {
-    //         s_DoImpulse = false;
-    //         destination[2 * i] = (1 << 15) - 1;
-    //     } else {
-    //         destination[2 * i] = 0;
-    //     }
-    //
-    //     destination[2 * i + 1] = 0;
-    //
-    //     ++s_Counter;
-    //
-    //     if (s_Counter == AUDIO_SAMPLE_RATE_EXACT) {
-    //         s_Counter = 0;
-    //     }
-    // }
-
-    arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
+    // Read from (packet/audio) buffer.
+    // Compare reproduction time with current time.
+    // If time matches (!..), copy samples to destination.
 }
 
 FLASHMEM
@@ -228,7 +230,7 @@ void AudioSystemManager::setClock()
     m_AudioPllDenominatorRegister.set(m_ClockDividers.m_Pll4Denom);
 
     // These have to be present. Not necessarily in this order, but if not here
-    // the audio subsystem appears not to work.
+    // the audio subsystem appears to work, but not the audio shield.
     m_AnalogAudioPllControlRegister.setEnable(true);
     m_AnalogAudioPllControlRegister.setPowerDown(false);
     m_AnalogAudioPllControlRegister.setBypass(false);
@@ -246,7 +248,7 @@ void AudioSystemManager::setSampleRate(const double targetSampleRate)
 
 void AudioSystemManager::startClock() const
 {
-    s_Counter = 0;
+    s_FirstInterrupt = true;
     s_SineWaveGenerator.reset();
 
     m_AnalogAudioPllControlRegister.setEnable(true);
@@ -268,7 +270,7 @@ void AudioSystemManager::stopClock() const
     //               m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? "authority" : "subscriber");
     // Serial.println(m_AnalogAudioPllControlRegister);
 
-    s_Counter = 0;
+    s_FirstInterrupt = true;
     s_SineWaveGenerator.reset();
 }
 
@@ -279,14 +281,14 @@ volatile bool AudioSystemManager::isClockRunning() const
 
 void AudioSystemManager::adjustClock(const double nspsDiscrepancy)
 {
-    Serial.printf("Skew (nsps):                 %.*f\n", 8, nspsDiscrepancy);
+    // Serial.printf("Skew (nsps): %*.*f\n", 26, 8, nspsDiscrepancy);
 
     const double proportionalAdjustment{1. + (nspsDiscrepancy / ClockConstants::k_NanosecondsPerSecond)};
 
-    Serial.printf("Proportional adjustment:     %.*f\n", 8, proportionalAdjustment);
+    // Serial.printf("Proportional adjustment: %*.*f\n", 14, 8, proportionalAdjustment);
 
     m_Config.setExactSampleRate(proportionalAdjustment);
-    Serial.println(m_Config);
+    // Serial.println(m_Config);
     m_ClockDividers.calculateFine(m_Config.getExactSampleRate());
     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
 }
@@ -371,9 +373,9 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
         return;
     }
 
-    Serial.printf("PLL4 numerator: %23" PRId32 "\n"
-                  "PLL4 denominator: %21" PRIu32 "\n",
-                  numInt, m_Pll4Denom);
+    // Serial.printf("PLL4 numerator: %23" PRId32 "\n"
+    //               "PLL4 denominator: %21" PRIu32 "\n",
+    //               numInt, m_Pll4Denom);
 
     m_Pll4Num = numInt;
 }

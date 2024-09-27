@@ -72,6 +72,7 @@ private:
 
     void setupDMA() const;
 
+    static void isr();
     static void clockAuthorityISR();
     static void clockSubscriberISR();
 
@@ -94,12 +95,10 @@ private:
     AudioControlSGTL5000 m_AudioShield;
 
     static SineWaveGenerator s_SineWaveGenerator;
-
+    static bool s_FirstInterrupt;
     static DMAChannel s_DMA;
-    static bool s_DoImpulse;
-    static uint32_t s_Counter;
 
-    static constexpr uint16_t k_BufferSize{8}; // AUDIO_BLOCK_SAMPLES
+    static constexpr uint16_t k_BufferSize{AUDIO_BLOCK_SAMPLES};
     DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_BufferSize];
 };
 
