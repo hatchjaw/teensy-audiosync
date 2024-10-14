@@ -73,7 +73,9 @@ private:
     void setupDMA() const;
 
     static void isr();
+
     static void clockAuthorityISR();
+
     static void clockSubscriberISR();
 
     AudioSystemConfig m_Config;
@@ -97,6 +99,10 @@ private:
     static SineWaveGenerator s_SineWaveGenerator;
     static bool s_FirstInterrupt;
     static DMAChannel s_DMA;
+    // Let's start with a buffer of 1/10 s
+    static constexpr uint16_t k_AudioBufferFrames{4800}, k_AudioBufferChannels{2};
+    static int16_t s_AudioBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
+    static uint16_t s_ReadIndex, s_WriteIndex;
 
     static constexpr uint16_t k_BufferSize{AUDIO_BLOCK_SAMPLES};
     DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_BufferSize];

@@ -5,6 +5,9 @@
 DMAChannel AudioSystemManager::s_DMA{false};
 bool AudioSystemManager::s_FirstInterrupt{false};
 SineWaveGenerator AudioSystemManager::s_SineWaveGenerator;
+int16_t AudioSystemManager::s_AudioBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
+uint16_t AudioSystemManager::s_ReadIndex{k_AudioBufferFrames};
+uint16_t AudioSystemManager::s_WriteIndex{0};
 DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k_BufferSize];
 
 AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
@@ -122,8 +125,11 @@ void AudioSystemManager::setupDMA() const
     I2S1_TCSR = I2S_TCSR_TE | I2S_TCSR_BCE | I2S_TCSR_FRDE;
 
     s_DMA.attachInterrupt(
-        m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? clockAuthorityISR : clockSubscriberISR
+        m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? clockAuthorityISR : clockSubscriberISR,
+        80 // default, apparently
     );
+
+    Serial.printf("Audio interrupt priority: %d\n", NVIC_GET_PRIORITY(s_DMA.channel));
 }
 
 void AudioSystemManager::isr()
@@ -164,6 +170,9 @@ void AudioSystemManager::isr()
 
         auto ns{ts.tv_sec * ClockConstants::k_NanosecondsPerSecond + ts.tv_nsec};
         printTime(ns);
+
+        s_WriteIndex = 0;
+        // s_ReadIndex = k_AudioBufferFrames;
     }
 
     int16_t *destination;
@@ -180,13 +189,40 @@ void AudioSystemManager::isr()
         destination = (int16_t *) s_I2sTxBuffer;
     }
 
-    s_SineWaveGenerator.generate(destination, 2, k_BufferSize / 2);
+    if (false) {
+        s_SineWaveGenerator.generate(destination, 2, k_BufferSize / 2);
+    } else {
+        const auto start{2 * s_WriteIndex};
+        s_WriteIndex += k_BufferSize / 2;
+        if (s_WriteIndex >= k_AudioBufferFrames) {
+            uint16_t length2{(uint16_t) (s_WriteIndex - k_AudioBufferFrames)},
+                    length1{(uint16_t) ((k_BufferSize / 2) - length2)};
+            s_SineWaveGenerator.generate(s_AudioBuffer + start, 2, length1);
+            s_SineWaveGenerator.generate(s_AudioBuffer, 2, length2);
+            s_WriteIndex -= k_AudioBufferFrames;
+        } else {
+            s_SineWaveGenerator.generate(s_AudioBuffer + start, 2, k_BufferSize / 2);
+        }
+
+        for (size_t i = 0; i < k_BufferSize / 2; ++i) {
+            for (size_t channel = 0; channel < k_AudioBufferChannels; ++channel) {
+                destination[k_AudioBufferChannels * i + channel] = s_AudioBuffer[k_AudioBufferChannels * s_ReadIndex + channel];
+            }
+            ++s_ReadIndex;
+            if (s_ReadIndex >= k_AudioBufferFrames) {
+                s_ReadIndex = 0;
+            }
+        }
+    }
 
     arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
 }
 
 void AudioSystemManager::clockAuthorityISR()
 {
+    if (s_FirstInterrupt) {
+        s_ReadIndex = k_AudioBufferFrames;
+    }
     isr();
 
     // Generate audio.
@@ -198,6 +234,10 @@ void AudioSystemManager::clockAuthorityISR()
 
 void AudioSystemManager::clockSubscriberISR()
 {
+    if (s_FirstInterrupt) {
+        // Reproduce pi radians out of phase (100 samples @ F0 = 240 Hz @ Fs = 48 kHz)
+        s_ReadIndex = k_AudioBufferFrames - 100;
+    }
     isr();
 
     // Read from (packet/audio) buffer.
