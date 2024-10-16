@@ -34,6 +34,8 @@ AudioSystemConfig config{
     AudioSystemConfig::ClockRole::Authority
 };
 AudioSystemManager audioSystemManager{config};
+int16_t txBuffer[128 * 2];
+qindesign::network::EthernetUDP socket;
 
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
@@ -77,6 +79,8 @@ void setup()
             ptp.begin();
             syncTimer.begin(syncInterrupt, 1000000);
             announceTimer.begin(announceInterrupt, 1000000);
+            // Valid, ad-hoc multicast IP, and valid dynamic port.
+            socket.beginMulticast({224, 4, 224, 4}, 49152);
         }
     });
 
@@ -141,6 +145,22 @@ void loop()
     ptp.update();
 
     digitalWrite(13, ptp.getLockCount() > 5 && noPPSCount < 5 ? HIGH : LOW);
+
+    if (connected) {
+        auto txFramesAvailable{AudioSystemManager::getNumTxFramesAvailable()};
+        if (txFramesAvailable >= 128) {
+            /// Send a packet ///
+
+            // Read from the TX buffer.
+            AudioSystemManager::readFromTxAudioBuffer(txBuffer, 2, 128);
+
+            // Send the packet.
+            auto size{128 * 2 * sizeof(int16_t)};
+            socket.beginPacket({224, 4, 224, 4}, 49153);
+            socket.write((uint8_t *) txBuffer, size);
+            socket.endPacket();
+        }
+    }
 }
 
 void syncInterrupt()
@@ -163,7 +183,7 @@ static void interrupt_1588_timer()
 
     uint32_t t;
     if (!qindesign::network::EthernetIEEE1588.getAndClearChannelStatus(1)) {
-//        asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
+        //        asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
         __DSB();
         return;
     }
@@ -204,7 +224,7 @@ static void interrupt_1588_timer()
     //    }
 
     // Start audio at t = 10s
-    shouldEnableAudio = interrupt_s >= 10;// % 10 != 9;
+    shouldEnableAudio = interrupt_s >= 10; // % 10 != 9;
 
     if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
         Serial.print("Authority start clock ");
@@ -215,6 +235,6 @@ static void interrupt_1588_timer()
         audioSystemManager.stopClock();
     }
 
-//    asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
+    //    asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
     __DSB();
 }

@@ -12,7 +12,7 @@ void SineWaveGenerator::setAmplitude(const double amplitude)
 
 void SineWaveGenerator::generate(int16_t *buffer, const size_t numChannels, const size_t numSamples)
 {
-    for (size_t i = 0; i < numSamples; ++i) {
+    for (size_t i{0}; i < numSamples; ++i) {
         auto sample{m_Amplitude * ((1 << 15) - 1) * sin(2 * M_PI * m_Phase)};
         if (sample > 32751) {
             // For ease of logic analysis...

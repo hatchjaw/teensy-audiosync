@@ -31,6 +31,18 @@ public:
 
     volatile bool isClockRunning() const;
 
+    static size_t getNumTxFramesAvailable();
+
+    /**
+    * Read from the TX buffer into an external buffer.
+    */
+    static void readFromTxAudioBuffer(int16_t *dest, size_t numChannels, size_t numSamples);
+
+    /**
+    * Write to the RX buffer from an external buffer.
+    */
+    static void writeToRxAudioBuffer(int16_t *src, size_t numChannels, size_t numSamples);
+
 private:
     struct ClockDividers : Printable
     {
@@ -101,8 +113,10 @@ private:
     static DMAChannel s_DMA;
     // Let's start with a buffer of 1/10 s
     static constexpr uint16_t k_AudioBufferFrames{4800}, k_AudioBufferChannels{2};
-    static int16_t s_AudioBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
-    static uint16_t s_ReadIndex, s_WriteIndex;
+    static int16_t s_AudioTxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
+    static size_t s_NumTxFramesAvailable;
+    static int16_t s_AudioRxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
+    static uint16_t s_ReadIndexTx, s_WriteIndexTx, s_ReadIndexRx, s_WriteIndexRx;
 
     static constexpr uint16_t k_BufferSize{AUDIO_BLOCK_SAMPLES};
     DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_BufferSize];

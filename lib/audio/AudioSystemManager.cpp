@@ -5,9 +5,13 @@
 DMAChannel AudioSystemManager::s_DMA{false};
 bool AudioSystemManager::s_FirstInterrupt{false};
 SineWaveGenerator AudioSystemManager::s_SineWaveGenerator;
-int16_t AudioSystemManager::s_AudioBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
-uint16_t AudioSystemManager::s_ReadIndex{k_AudioBufferFrames};
-uint16_t AudioSystemManager::s_WriteIndex{0};
+int16_t AudioSystemManager::s_AudioTxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
+int16_t AudioSystemManager::s_AudioRxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
+uint16_t AudioSystemManager::s_ReadIndexTx{0};
+uint16_t AudioSystemManager::s_WriteIndexTx{0};
+size_t AudioSystemManager::s_NumTxFramesAvailable{0};
+uint16_t AudioSystemManager::s_ReadIndexRx{k_AudioBufferFrames};
+uint16_t AudioSystemManager::s_WriteIndexRx{0};
 DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k_BufferSize];
 
 AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
@@ -171,7 +175,7 @@ void AudioSystemManager::isr()
         auto ns{ts.tv_sec * ClockConstants::k_NanosecondsPerSecond + ts.tv_nsec};
         printTime(ns);
 
-        s_WriteIndex = 0;
+        s_WriteIndexTx = 0;
         // s_ReadIndex = k_AudioBufferFrames;
     }
 
@@ -192,25 +196,29 @@ void AudioSystemManager::isr()
     if (false) {
         s_SineWaveGenerator.generate(destination, 2, k_BufferSize / 2);
     } else {
-        const auto start{2 * s_WriteIndex};
-        s_WriteIndex += k_BufferSize / 2;
-        if (s_WriteIndex >= k_AudioBufferFrames) {
-            uint16_t length2{(uint16_t) (s_WriteIndex - k_AudioBufferFrames)},
+        const auto start{2 * s_WriteIndexTx};
+        s_WriteIndexTx += k_BufferSize / 2;
+        // Generate a signal; write it to the outgoing audio buffer
+        if (s_WriteIndexTx >= k_AudioBufferFrames) {
+            uint16_t length2{(uint16_t) (s_WriteIndexTx - k_AudioBufferFrames)},
                     length1{(uint16_t) ((k_BufferSize / 2) - length2)};
-            s_SineWaveGenerator.generate(s_AudioBuffer + start, 2, length1);
-            s_SineWaveGenerator.generate(s_AudioBuffer, 2, length2);
-            s_WriteIndex -= k_AudioBufferFrames;
+            s_SineWaveGenerator.generate(s_AudioTxBuffer + start, 2, length1);
+            s_SineWaveGenerator.generate(s_AudioTxBuffer, 2, length2);
+            s_WriteIndexTx -= k_AudioBufferFrames;
         } else {
-            s_SineWaveGenerator.generate(s_AudioBuffer + start, 2, k_BufferSize / 2);
+            s_SineWaveGenerator.generate(s_AudioTxBuffer + start, 2, k_BufferSize / 2);
         }
+        s_NumTxFramesAvailable += k_BufferSize / 2;
 
+        // Read some samples. For now, do so from the outgoing audio buffer.
+        // This should be replaced with samples from the incoming audio buffer.
         for (size_t i = 0; i < k_BufferSize / 2; ++i) {
             for (size_t channel = 0; channel < k_AudioBufferChannels; ++channel) {
-                destination[k_AudioBufferChannels * i + channel] = s_AudioBuffer[k_AudioBufferChannels * s_ReadIndex + channel];
+                destination[k_AudioBufferChannels * i + channel] = s_AudioTxBuffer[k_AudioBufferChannels * s_ReadIndexRx + channel];
             }
-            ++s_ReadIndex;
-            if (s_ReadIndex >= k_AudioBufferFrames) {
-                s_ReadIndex = 0;
+            ++s_ReadIndexRx;
+            if (s_ReadIndexRx >= k_AudioBufferFrames) {
+                s_ReadIndexRx = 0;
             }
         }
     }
@@ -221,7 +229,7 @@ void AudioSystemManager::isr()
 void AudioSystemManager::clockAuthorityISR()
 {
     if (s_FirstInterrupt) {
-        s_ReadIndex = k_AudioBufferFrames;
+        s_ReadIndexTx = k_AudioBufferFrames;
     }
     isr();
 
@@ -235,8 +243,9 @@ void AudioSystemManager::clockAuthorityISR()
 void AudioSystemManager::clockSubscriberISR()
 {
     if (s_FirstInterrupt) {
-        // Reproduce pi radians out of phase (100 samples @ F0 = 240 Hz @ Fs = 48 kHz)
-        s_ReadIndex = k_AudioBufferFrames - 100;
+        // Reproduce pi/2 radians out of phase (50 samples @ F0 = 240 Hz @ Fs = 48 kHz)
+        // s_ReadIndexTx = k_AudioBufferFrames - 50;
+        s_ReadIndexTx = k_AudioBufferFrames;
     }
     isr();
 
@@ -331,6 +340,27 @@ void AudioSystemManager::adjustClock(const double nspsDiscrepancy)
     // Serial.println(m_Config);
     m_ClockDividers.calculateFine(m_Config.getExactSampleRate());
     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
+}
+
+size_t AudioSystemManager::getNumTxFramesAvailable()
+{
+    return s_NumTxFramesAvailable;
+}
+
+void AudioSystemManager::readFromTxAudioBuffer(int16_t *dest, const size_t numChannels, const size_t numSamples)
+{
+    __disable_irq();
+    for (size_t n{0}; n < numSamples; ++n) {
+        for (size_t ch{0}; ch < numChannels; ++ch) {
+            dest[n * numChannels + ch] = s_AudioTxBuffer[numChannels * s_ReadIndexTx + ch];
+        }
+        ++s_ReadIndexTx;
+        if (s_ReadIndexTx >= k_AudioBufferFrames) {
+            s_ReadIndexTx = 0;
+        }
+        --s_NumTxFramesAvailable;
+    }
+    __enable_irq();
 }
 
 FLASHMEM
