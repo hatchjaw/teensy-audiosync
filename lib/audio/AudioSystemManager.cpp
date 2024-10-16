@@ -10,7 +10,7 @@ int16_t AudioSystemManager::s_AudioRxBuffer[k_AudioBufferChannels * k_AudioBuffe
 uint16_t AudioSystemManager::s_ReadIndexTx{0};
 uint16_t AudioSystemManager::s_WriteIndexTx{0};
 size_t AudioSystemManager::s_NumTxFramesAvailable{0};
-uint16_t AudioSystemManager::s_ReadIndexRx{k_AudioBufferFrames};
+uint16_t AudioSystemManager::s_ReadIndexRx{0};
 uint16_t AudioSystemManager::s_WriteIndexRx{0};
 DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k_BufferSize];
 
@@ -138,6 +138,10 @@ void AudioSystemManager::setupDMA() const
 
 void AudioSystemManager::isr()
 {
+}
+
+void AudioSystemManager::clockAuthorityISR()
+{
     if (s_FirstInterrupt) {
         s_FirstInterrupt = false;
 
@@ -176,7 +180,7 @@ void AudioSystemManager::isr()
         printTime(ns);
 
         s_WriteIndexTx = 0;
-        // s_ReadIndex = k_AudioBufferFrames;
+        s_ReadIndexTx = k_AudioBufferFrames;
     }
 
     int16_t *destination;
@@ -215,6 +219,7 @@ void AudioSystemManager::isr()
         for (size_t i = 0; i < k_BufferSize / 2; ++i) {
             for (size_t channel = 0; channel < k_AudioBufferChannels; ++channel) {
                 destination[k_AudioBufferChannels * i + channel] = s_AudioTxBuffer[k_AudioBufferChannels * s_ReadIndexRx + channel];
+                // destination[k_AudioBufferChannels * i + channel] = s_AudioRxBuffer[k_AudioBufferChannels * s_ReadIndexRx + channel];
             }
             ++s_ReadIndexRx;
             if (s_ReadIndexRx >= k_AudioBufferFrames) {
@@ -224,14 +229,6 @@ void AudioSystemManager::isr()
     }
 
     arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
-}
-
-void AudioSystemManager::clockAuthorityISR()
-{
-    if (s_FirstInterrupt) {
-        s_ReadIndexTx = k_AudioBufferFrames;
-    }
-    isr();
 
     // Generate audio.
     // Write to (packet/audio) buffer.
@@ -243,11 +240,74 @@ void AudioSystemManager::clockAuthorityISR()
 void AudioSystemManager::clockSubscriberISR()
 {
     if (s_FirstInterrupt) {
+        s_FirstInterrupt = false;
+
+        auto printTime = [](const int64_t t)
+        {
+            int64_t x = t;
+            const int ns = x % 1000;
+            x /= 1000;
+            const int us = x % 1000;
+            x /= 1000;
+            const int ms = x % 1000;
+            x /= 1000;
+
+            tmElements_t tme;
+            breakTime((time_t) x, tme);
+
+            Serial.printf(
+                "First interrupt TIME:"
+                " %02" PRIu8
+                ".%02" PRIu8
+                ".%04" PRIu16
+                " %02" PRIu8
+                ":%02" PRIu8
+                ":%02" PRIu8
+                "::%03" PRIu32
+                ":%03" PRIu32
+                ":%03" PRIu32 "\n",
+                tme.Day, tme.Month, 1970 + tme.Year, tme.Hour, tme.Minute, tme.Second, ms, us, ns);
+        };
+
+        timespec ts;
+        qindesign::network::EthernetIEEE1588.readTimer(ts);
+        Serial.printf("%" PRId64 " s %" PRId32 " ns\n", ts.tv_sec, ts.tv_nsec);
+
+        auto ns{ts.tv_sec * ClockConstants::k_NanosecondsPerSecond + ts.tv_nsec};
+        printTime(ns);
+
+        s_WriteIndexTx = 0;
         // Reproduce pi/2 radians out of phase (50 samples @ F0 = 240 Hz @ Fs = 48 kHz)
         // s_ReadIndexTx = k_AudioBufferFrames - 50;
         s_ReadIndexTx = k_AudioBufferFrames;
     }
-    isr();
+
+    int16_t *destination;
+    const auto sourceAddress = (uint32_t) s_DMA.TCD->SADDR;
+    s_DMA.clearInterrupt();
+
+    if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
+        // DMA is transmitting the first half of the buffer
+        // so we must fill the second half
+        destination = (int16_t *) &s_I2sTxBuffer[k_BufferSize / 2];
+    } else {
+        // DMA is transmitting the second half of the buffer
+        // so we must fill the first half
+        destination = (int16_t *) s_I2sTxBuffer;
+    }
+
+    // Read some samples from the RX buffer.
+    for (size_t i = 0; i < k_BufferSize / 2; ++i) {
+        for (size_t channel = 0; channel < k_AudioBufferChannels; ++channel) {
+            destination[k_AudioBufferChannels * i + channel] = s_AudioRxBuffer[k_AudioBufferChannels * s_ReadIndexRx + channel];
+        }
+        ++s_ReadIndexRx;
+        if (s_ReadIndexRx >= k_AudioBufferFrames) {
+            s_ReadIndexRx = 0;
+        }
+    }
+
+    arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
 
     // Read from (packet/audio) buffer.
     // Compare reproduction time with current time.
@@ -359,6 +419,21 @@ void AudioSystemManager::readFromTxAudioBuffer(int16_t *dest, const size_t numCh
             s_ReadIndexTx = 0;
         }
         --s_NumTxFramesAvailable;
+    }
+    __enable_irq();
+}
+
+void AudioSystemManager::writeToRxAudioBuffer(const int16_t *src, size_t numChannels, size_t numSamples)
+{
+    __disable_irq();
+    for (size_t n{0}; n < numSamples; ++n) {
+        for (size_t ch{0}; ch < numChannels; ++ch) {
+            s_AudioRxBuffer[numChannels * s_WriteIndexRx + ch] = src[n * numChannels + ch];
+        }
+        ++s_WriteIndexRx;
+        if (s_WriteIndexRx >= k_AudioBufferFrames) {
+            s_WriteIndexRx = 0;
+        }
     }
     __enable_irq();
 }

@@ -4,6 +4,8 @@
 #include <Arduino.h>
 #include <control_sgtl5000.h>
 #include <DMAChannel.h>
+#include <ptp/ptp-base.h>
+
 #include "Config.h"
 #include "registers/MiscellaneousRegister2.h"
 #include "registers/AnalogAudioPllControlRegister.h"
@@ -17,6 +19,12 @@
 class AudioSystemManager
 {
 public:
+    struct Packet
+    {
+        NanoTime time;
+        uint8_t *data;
+    };
+
     explicit AudioSystemManager(AudioSystemConfig config);
 
     bool begin();
@@ -41,7 +49,7 @@ public:
     /**
     * Write to the RX buffer from an external buffer.
     */
-    static void writeToRxAudioBuffer(int16_t *src, size_t numChannels, size_t numSamples);
+    static void writeToRxAudioBuffer(const int16_t *src, size_t numChannels, size_t numSamples);
 
 private:
     struct ClockDividers : Printable
@@ -117,6 +125,8 @@ private:
     static size_t s_NumTxFramesAvailable;
     static int16_t s_AudioRxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
     static uint16_t s_ReadIndexTx, s_WriteIndexTx, s_ReadIndexRx, s_WriteIndexRx;
+    // 75 packets @ 128 frames @ 48 kHz = 0.2 s.
+    static Packet s_PacketBuffer[75];
 
     static constexpr uint16_t k_BufferSize{AUDIO_BLOCK_SAMPLES};
     DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_BufferSize];

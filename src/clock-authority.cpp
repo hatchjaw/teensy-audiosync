@@ -156,7 +156,7 @@ void loop()
 
             // Send the packet.
             auto size{128 * 2 * sizeof(int16_t)};
-            socket.beginPacket({224, 4, 224, 4}, 49153);
+            socket.beginPacket({224, 4, 224, 4}, 49152);
             socket.write((uint8_t *) txBuffer, size);
             socket.endPacket();
         }

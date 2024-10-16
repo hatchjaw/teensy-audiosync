@@ -29,6 +29,9 @@ AudioSystemConfig config{
     AudioSystemConfig::ClockRole::Subscriber
 };
 AudioSystemManager audioSystemManager{config};
+uint8_t rxPacketBuffer[2 * 128 * sizeof(int16_t)];
+int16_t rxBuffer[4800 * 2];
+qindesign::network::EthernetUDP socket;
 
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
@@ -68,6 +71,7 @@ void setup()
         connected = state;
         if (state) {
             ptp.begin();
+            socket.beginMulticast({224, 4, 224, 4}, 49152);
         }
     });
 
@@ -105,6 +109,12 @@ void loop()
 
     // Six consecutive offsets below 100 ns sets pin 13 high to switch on the LED
     digitalWrite(13, ptp.getLockCount() > 5 ? HIGH : LOW);
+
+    if (auto size{socket.parsePacket()}; size > 0) {
+        // Serial.printf("Found packet of %d bytes\n", size);
+        socket.read(rxPacketBuffer, size);
+        AudioSystemManager::writeToRxAudioBuffer((int16_t *)rxPacketBuffer, 2, size >> 2);
+    }
 }
 
 static void interrupt_1588_timer()
