@@ -29,7 +29,12 @@ AudioSystemConfig config{
     AudioSystemConfig::ClockRole::Subscriber
 };
 AudioSystemManager audioSystemManager{config};
-uint8_t rxPacketBuffer[2 * 128 * sizeof(int16_t)];
+static constexpr size_t kNumChannels{2};
+static constexpr size_t kNumFrames{128};
+static constexpr size_t kSampleSize{sizeof(int16_t)};
+static constexpr size_t kHeaderSize{sizeof(NanoTime)};
+static constexpr size_t kPacketSize{kNumChannels * kNumFrames * kSampleSize + kHeaderSize};
+uint8_t rxPacketBuffer[kPacketSize];
 int16_t rxBuffer[4800 * 2];
 qindesign::network::EthernetUDP socket;
 
@@ -112,8 +117,13 @@ void loop()
 
     if (auto size{socket.parsePacket()}; size > 0) {
         // Serial.printf("Found packet of %d bytes\n", size);
-        socket.read(rxPacketBuffer, size);
-        AudioSystemManager::writeToRxAudioBuffer((int16_t *)rxPacketBuffer, 2, size >> 2);
+        if (size == kPacketSize) {
+            socket.read(rxPacketBuffer, size);
+            AudioSystemManager::writeToPacketBuffer(rxPacketBuffer);
+        } else {
+            socket.read(rxPacketBuffer, size);
+            AudioSystemManager::writeToRxAudioBuffer((int16_t *)rxPacketBuffer, 2, size >> 2);
+        }
     }
 }
 

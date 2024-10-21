@@ -22,7 +22,7 @@ public:
     struct Packet
     {
         NanoTime time;
-        uint8_t *data;
+        uint8_t data[128 << 2];
     };
 
     explicit AudioSystemManager(AudioSystemConfig config);
@@ -41,15 +41,23 @@ public:
 
     static size_t getNumTxFramesAvailable();
 
+    static size_t getNumPacketsAvailable();
+
     /**
     * Read from the TX buffer into an external buffer.
     */
     static void readFromTxAudioBuffer(int16_t *dest, size_t numChannels, size_t numSamples);
 
+    static void readFromPacketBuffer(uint8_t *dest);
+
+    static void writeToPacketBuffer(uint8_t *src);
+
     /**
     * Write to the RX buffer from an external buffer.
     */
     static void writeToRxAudioBuffer(const int16_t *src, size_t numChannels, size_t numSamples);
+
+    static SineWaveGenerator s_SineWaveGenerator;
 
 private:
     struct ClockDividers : Printable
@@ -116,7 +124,6 @@ private:
 
     AudioControlSGTL5000 m_AudioShield;
 
-    static SineWaveGenerator s_SineWaveGenerator;
     static bool s_FirstInterrupt;
     static DMAChannel s_DMA;
     // Let's start with a buffer of 1/10 s
@@ -125,11 +132,16 @@ private:
     static size_t s_NumTxFramesAvailable;
     static int16_t s_AudioRxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
     static uint16_t s_ReadIndexTx, s_WriteIndexTx, s_ReadIndexRx, s_WriteIndexRx;
-    // 75 packets @ 128 frames @ 48 kHz = 0.2 s.
-    static Packet s_PacketBuffer[75];
+    // 150 packets @ 128 frames @ 48 kHz = 0.4 s.
+    static constexpr size_t k_PacketBufferSize{150};
+    static Packet s_PacketBuffer[k_PacketBufferSize];
+    static Packet s_Packet;
+    static size_t s_NumPacketsAvailable;
+    static size_t s_PacketBufferReadIndex, s_PacketBufferWriteIndex;
 
-    static constexpr uint16_t k_BufferSize{AUDIO_BLOCK_SAMPLES};
-    DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_BufferSize];
+    static constexpr uint16_t k_I2sBufferSize{AUDIO_BLOCK_SAMPLES};
+    static constexpr size_t k_I2sBufferSizeBytes{k_I2sBufferSize * sizeof(int16_t)};
+    DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_I2sBufferSize];
 };
 
 #endif //AUDIOSYSTEMMANGER_H

@@ -35,6 +35,7 @@ AudioSystemConfig config{
 };
 AudioSystemManager audioSystemManager{config};
 int16_t txBuffer[128 * 2];
+uint8_t txPacketBuffer[sizeof(NanoTime) + (128 << 2)];
 qindesign::network::EthernetUDP socket;
 
 byte mac[6];
@@ -152,12 +153,21 @@ void loop()
             /// Send a packet ///
 
             // Read from the TX buffer.
+            // AAAAAAGH
             AudioSystemManager::readFromTxAudioBuffer(txBuffer, 2, 128);
 
-            // Send the packet.
-            auto size{128 * 2 * sizeof(int16_t)};
+//            // Send the packet.
+//            auto size{128 * 2 * sizeof(int16_t)};
+//            socket.beginPacket({224, 4, 224, 4}, 49152);
+//            socket.write((uint8_t *) txBuffer, size);
+//            socket.endPacket();
+        }
+
+        auto packetsAvailable{AudioSystemManager::getNumPacketsAvailable()};
+        if (packetsAvailable >= 1) {
+            AudioSystemManager::readFromPacketBuffer(txPacketBuffer);
             socket.beginPacket({224, 4, 224, 4}, 49152);
-            socket.write((uint8_t *) txBuffer, size);
+            socket.write(txPacketBuffer, sizeof(AudioSystemManager::Packet));
             socket.endPacket();
         }
     }
@@ -234,6 +244,9 @@ static void interrupt_1588_timer()
         displayTime(interrupt_s * NS_PER_S + interrupt_ns);
         audioSystemManager.stopClock();
     }
+
+    // Change frequency once per second.
+    AudioSystemManager::s_SineWaveGenerator.setFrequency(interrupt_s % 2 == 0 ? 480 : 240);
 
     //    asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
     __DSB();
