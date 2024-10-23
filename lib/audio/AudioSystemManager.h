@@ -41,8 +41,6 @@ public:
 
     static void adjustPacketBufferReadIndex(NanoTime now);
 
-    static size_t getNumTxFramesAvailable();
-
     static size_t getNumPacketsAvailable();
 
     /**
@@ -135,7 +133,7 @@ private:
     static int16_t s_AudioRxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
     static uint16_t s_ReadIndexTx, s_WriteIndexTx, s_ReadIndexRx, s_WriteIndexRx;
     // 150 packets @ 128 frames @ 48 kHz = 0.4 s.
-    static constexpr size_t k_PacketBufferSize{150};
+    static constexpr size_t k_PacketBufferSize{75};
     static Packet s_PacketBuffer[k_PacketBufferSize];
     static Packet s_Packet;
     static size_t s_NumPacketsAvailable;
@@ -143,9 +141,9 @@ private:
 
     static constexpr NanoTime k_PacketReproductionOffsetNs{ClockConstants::k_NanosecondsPerSecond / 10};
 
-    static constexpr uint16_t k_I2sBufferSize{AUDIO_BLOCK_SAMPLES};
-    static constexpr size_t k_I2sBufferSizeBytes{k_I2sBufferSize * sizeof(int16_t)};
-    DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_I2sBufferSize];
+    static constexpr uint16_t k_I2sBufferSizeFrames{AUDIO_BLOCK_SAMPLES};
+    static constexpr size_t k_I2sBufferSizeBytes{k_I2sBufferSizeFrames * sizeof(int16_t)};
+    DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_I2sBufferSizeFrames];
 };
 
 #endif //AUDIOSYSTEMMANGER_H

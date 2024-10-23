@@ -18,7 +18,7 @@ uint16_t AudioSystemManager::s_WriteIndexTx{0};
 size_t AudioSystemManager::s_NumTxFramesAvailable{0};
 uint16_t AudioSystemManager::s_ReadIndexRx{0};
 uint16_t AudioSystemManager::s_WriteIndexRx{0};
-DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k_I2sBufferSize];
+DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k_I2sBufferSizeFrames];
 
 AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
     : m_Config(config)
@@ -194,20 +194,21 @@ void AudioSystemManager::clockAuthorityISR()
 
     // Generate some audio. //
     const auto start{2 * s_WriteIndexTx};
-    s_WriteIndexTx += k_I2sBufferSize / 2;
+    s_WriteIndexTx += k_I2sBufferSizeFrames / 2;
     // Generate a signal; write it to the outgoing audio buffer
     if (s_WriteIndexTx >= k_AudioBufferFrames) {
         uint16_t length2{(uint16_t) (s_WriteIndexTx - k_AudioBufferFrames)},
-                length1{(uint16_t) ((k_I2sBufferSize / 2) - length2)};
+                length1{(uint16_t) ((k_I2sBufferSizeFrames / 2) - length2)};
         s_SineWaveGenerator.generate(s_AudioTxBuffer + start, 2, length1);
         s_SineWaveGenerator.generate(s_AudioTxBuffer, 2, length2);
         s_WriteIndexTx -= k_AudioBufferFrames;
     } else {
-        s_SineWaveGenerator.generate(s_AudioTxBuffer + start, 2, k_I2sBufferSize / 2);
+        s_SineWaveGenerator.generate(s_AudioTxBuffer + start, 2, k_I2sBufferSizeFrames / 2);
     }
-    s_NumTxFramesAvailable += k_I2sBufferSize / 2;
+    s_NumTxFramesAvailable += k_I2sBufferSizeFrames / 2;
 
-    if (s_NumTxFramesAvailable >= k_I2sBufferSize) {
+    // Check if there are enough frames available to fill a packet.
+    if (s_NumTxFramesAvailable >= k_I2sBufferSizeFrames) {
         // Write a packet to the packet buffer. //
 
         // Get the current ethernet time.
@@ -215,37 +216,42 @@ void AudioSystemManager::clockAuthorityISR()
         qindesign::network::EthernetIEEE1588.readTimer(ts);
         NanoTime now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
 
-        // Fill packet.
-        s_Packet.time = NanoTime{now + k_PacketReproductionOffsetNs};
+        // Set packet time some way in the future.
+        s_Packet.time = now + k_PacketReproductionOffsetNs;
 
-        if (s_ReadIndexTx + k_I2sBufferSize > k_AudioBufferFrames) {
+        // Copy audio data to the packet
+        if (s_ReadIndexTx + k_I2sBufferSizeFrames > k_AudioBufferFrames) {
             size_t len1{static_cast<size_t>(k_AudioBufferFrames - s_ReadIndexTx) << 2},
-                    len2{(k_I2sBufferSize << 2) - len1};
+                    len2{(k_I2sBufferSizeFrames << 2) - len1};
             memcpy(s_Packet.data, &s_AudioTxBuffer[2 * s_ReadIndexTx], len1);
             memcpy(s_Packet.data + len1, s_AudioTxBuffer, len2);
         } else {
-            memcpy(s_Packet.data, &s_AudioTxBuffer[2 * s_ReadIndexTx], k_I2sBufferSize << 2);
+            memcpy(s_Packet.data, &s_AudioTxBuffer[2 * s_ReadIndexTx], k_I2sBufferSizeFrames << 2);
         }
+        // Write the packet to the packet buffer.
         writeToPacketBuffer(reinterpret_cast<uint8_t *>(&s_Packet));
-        // s_NumTxFramesAvailable -= k_I2sBufferSize;
-        // s_ReadIndexTx += k_AudioBufferFrames;
-        // if (s_ReadIndexTx >= k_AudioBufferFrames) {
-        //     s_ReadIndexTx -= k_AudioBufferFrames;
-        // }
+
+        // Update TX frame buffer.
+        s_NumTxFramesAvailable -= k_I2sBufferSizeFrames;
+        s_ReadIndexTx += k_I2sBufferSizeFrames;
+        if (s_ReadIndexTx >= k_AudioBufferFrames) {
+            s_ReadIndexTx -= k_AudioBufferFrames;
+        }
     }
 
     int16_t *destination;
     uint8_t *source;
 
-    // Read (n-k)th packet. //
+    // Read the current packet.
     Packet packet{s_PacketBuffer[s_PacketBufferReadIndex]};
 
     if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
         // DMA is transmitting the first half of the buffer
         // so we must fill the second half
-        destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSize / 2];
+        destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSizeFrames / 2];
         source = &packet.data[k_I2sBufferSizeBytes];
 
+        // Increment the packet read index.
         ++s_PacketBufferReadIndex;
         if (s_PacketBufferReadIndex >= k_PacketBufferSize) {
             s_PacketBufferReadIndex = 0;
@@ -320,7 +326,7 @@ void AudioSystemManager::clockSubscriberISR()
     if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
         // DMA is transmitting the first half of the buffer
         // so we must fill the second half
-        destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSize / 2];
+        destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSizeFrames / 2];
 
         // source = &audioData[k_I2sBufferSize];
         source = &packet.data[k_I2sBufferSizeBytes];
@@ -449,11 +455,6 @@ void AudioSystemManager::adjustClock(const double nspsDiscrepancy)
     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
 }
 
-size_t AudioSystemManager::getNumTxFramesAvailable()
-{
-    return s_NumTxFramesAvailable;
-}
-
 size_t AudioSystemManager::getNumPacketsAvailable()
 {
     return s_NumPacketsAvailable;
@@ -479,7 +480,7 @@ void AudioSystemManager::readFromTxAudioBuffer(int16_t *dest, const size_t numCh
 void AudioSystemManager::readFromPacketBuffer(uint8_t *dest)
 {
     __disable_irq();
-    memcpy(dest, &s_PacketBuffer[s_PacketBufferTxIndex], sizeof(NanoTime) + (k_I2sBufferSize << 2));
+    memcpy(dest, &s_PacketBuffer[s_PacketBufferTxIndex], sizeof(NanoTime) + (k_I2sBufferSizeFrames << 2));
     ++s_PacketBufferTxIndex;
     if (s_PacketBufferTxIndex >= k_PacketBufferSize) {
         s_PacketBufferTxIndex = 0;
@@ -491,7 +492,7 @@ void AudioSystemManager::readFromPacketBuffer(uint8_t *dest)
 void AudioSystemManager::writeToPacketBuffer(uint8_t *src)
 {
     __disable_irq();
-    memcpy(&s_PacketBuffer[s_PacketBufferWriteIndex], src, sizeof(NanoTime) + (k_I2sBufferSize << 2));
+    memcpy(&s_PacketBuffer[s_PacketBufferWriteIndex], src, sizeof(NanoTime) + (k_I2sBufferSizeFrames << 2));
     ++s_PacketBufferWriteIndex;
     if (s_PacketBufferWriteIndex >= k_PacketBufferSize) {
         s_PacketBufferWriteIndex = 0;

@@ -149,21 +149,6 @@ void loop()
     digitalWrite(13, ptp.getLockCount() > 5 && noPPSCount < 5 ? HIGH : LOW);
 
     if (connected) {
-        auto txFramesAvailable{AudioSystemManager::getNumTxFramesAvailable()};
-        if (txFramesAvailable >= 128) {
-            /// Send a packet ///
-
-            // Read from the TX buffer.
-            // AAAAAAGH
-            AudioSystemManager::readFromTxAudioBuffer(txBuffer, 2, 128);
-
-            //            // Send the packet.
-            //            auto size{128 * 2 * sizeof(int16_t)};
-            //            socket.beginPacket({224, 4, 224, 4}, 49152);
-            //            socket.write((uint8_t *) txBuffer, size);
-            //            socket.endPacket();
-        }
-
         auto packetsAvailable{AudioSystemManager::getNumPacketsAvailable()};
         if (packetsAvailable >= 1) {
             AudioSystemManager::readFromPacketBuffer(txPacketBuffer);
