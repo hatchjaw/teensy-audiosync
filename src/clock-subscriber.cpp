@@ -167,13 +167,17 @@ static void interrupt_1588_timer()
     // offset, i.e. first large time adjustment.
     shouldEnableAudio = interrupt_s >= 10; //% 10 != 9;
 
+    NanoTime now{interrupt_s * NS_PER_S + interrupt_ns};
+
     if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
-        Serial.print("Subscriber start clock ");
-        displayTime(interrupt_s * NS_PER_S + interrupt_ns);
+        Serial.print("Subscriber start audio clock ");
+        displayTime(now);
         audioSystemManager.startClock();
     } else if (!shouldEnableAudio && audioSystemManager.isClockRunning()) {
-        displayTime(interrupt_s * NS_PER_S + interrupt_ns);
+        displayTime(now);
         audioSystemManager.stopClock();
+    } else if (audioSystemManager.isClockRunning()) {
+        AudioSystemManager::adjustPacketBufferReadIndex(now);
     }
 
     // asm("dsb"); // allow write to complete so the interrupt doesn't fire twice

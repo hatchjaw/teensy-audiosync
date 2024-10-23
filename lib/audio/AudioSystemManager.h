@@ -39,6 +39,8 @@ public:
 
     volatile bool isClockRunning() const;
 
+    static void adjustPacketBufferReadIndex(NanoTime now);
+
     static size_t getNumTxFramesAvailable();
 
     static size_t getNumPacketsAvailable();
@@ -137,7 +139,9 @@ private:
     static Packet s_PacketBuffer[k_PacketBufferSize];
     static Packet s_Packet;
     static size_t s_NumPacketsAvailable;
-    static size_t s_PacketBufferReadIndex, s_PacketBufferWriteIndex;
+    static size_t s_PacketBufferTxIndex, s_PacketBufferReadIndex, s_PacketBufferWriteIndex;
+
+    static constexpr NanoTime k_PacketReproductionOffsetNs{ClockConstants::k_NanosecondsPerSecond / 10};
 
     static constexpr uint16_t k_I2sBufferSize{AUDIO_BLOCK_SAMPLES};
     static constexpr size_t k_I2sBufferSizeBytes{k_I2sBufferSize * sizeof(int16_t)};

@@ -37,6 +37,7 @@ AudioSystemManager audioSystemManager{config};
 int16_t txBuffer[128 * 2];
 uint8_t txPacketBuffer[sizeof(NanoTime) + (128 << 2)];
 qindesign::network::EthernetUDP socket;
+auto sineFreq{60.};
 
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
@@ -156,11 +157,11 @@ void loop()
             // AAAAAAGH
             AudioSystemManager::readFromTxAudioBuffer(txBuffer, 2, 128);
 
-//            // Send the packet.
-//            auto size{128 * 2 * sizeof(int16_t)};
-//            socket.beginPacket({224, 4, 224, 4}, 49152);
-//            socket.write((uint8_t *) txBuffer, size);
-//            socket.endPacket();
+            //            // Send the packet.
+            //            auto size{128 * 2 * sizeof(int16_t)};
+            //            socket.beginPacket({224, 4, 224, 4}, 49152);
+            //            socket.write((uint8_t *) txBuffer, size);
+            //            socket.endPacket();
         }
 
         auto packetsAvailable{AudioSystemManager::getNumPacketsAvailable()};
@@ -236,17 +237,23 @@ static void interrupt_1588_timer()
     // Start audio at t = 10s
     shouldEnableAudio = interrupt_s >= 10; // % 10 != 9;
 
+    NanoTime now{interrupt_s * NS_PER_S + interrupt_ns};
+
     if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
-        Serial.print("Authority start clock ");
-        displayTime(interrupt_s * NS_PER_S + interrupt_ns);
+        Serial.print("Authority start audio clock ");
+        displayTime(now);
         audioSystemManager.startClock();
     } else if (!shouldEnableAudio && audioSystemManager.isClockRunning()) {
-        displayTime(interrupt_s * NS_PER_S + interrupt_ns);
+        displayTime(now);
         audioSystemManager.stopClock();
+    } else if (audioSystemManager.isClockRunning()) {
+        AudioSystemManager::adjustPacketBufferReadIndex(now);
     }
 
     // Change frequency once per second.
-    AudioSystemManager::s_SineWaveGenerator.setFrequency(interrupt_s % 2 == 0 ? 480 : 240);
+    sineFreq += 60;
+    sineFreq = sineFreq > 1000 ? 60 : sineFreq;
+    AudioSystemManager::s_SineWaveGenerator.setFrequency(sineFreq); //interrupt_s % 2 == 0 ? 480 : 240);
 
     //    asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
     __DSB();

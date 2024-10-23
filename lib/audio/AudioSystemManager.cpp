@@ -10,6 +10,7 @@ int16_t AudioSystemManager::s_AudioRxBuffer[k_AudioBufferChannels * k_AudioBuffe
 AudioSystemManager::Packet AudioSystemManager::s_PacketBuffer[k_PacketBufferSize];
 AudioSystemManager::Packet AudioSystemManager::s_Packet;
 size_t AudioSystemManager::s_NumPacketsAvailable{0};
+size_t AudioSystemManager::s_PacketBufferTxIndex{0};
 size_t AudioSystemManager::s_PacketBufferReadIndex{74};
 size_t AudioSystemManager::s_PacketBufferWriteIndex{0};
 uint16_t AudioSystemManager::s_ReadIndexTx{0};
@@ -18,8 +19,6 @@ size_t AudioSystemManager::s_NumTxFramesAvailable{0};
 uint16_t AudioSystemManager::s_ReadIndexRx{0};
 uint16_t AudioSystemManager::s_WriteIndexRx{0};
 DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k_I2sBufferSize];
-
-int64_t seqNum{0}, prevSeqNum{0}, currSeqNum{0};
 
 AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
     : m_Config(config)
@@ -188,29 +187,12 @@ void AudioSystemManager::clockAuthorityISR()
 
         s_WriteIndexTx = 0;
         s_ReadIndexTx = k_AudioBufferFrames;
-
-        s_PacketBufferReadIndex = 73;
     }
 
-    int16_t *destination;
-    uint8_t *source;
     const auto sourceAddress = (uint32_t) s_DMA.TCD->SADDR;
     s_DMA.clearInterrupt();
 
-    Packet packet{s_PacketBuffer[s_PacketBufferReadIndex]};
-
-    if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
-        // DMA is transmitting the first half of the buffer
-        // so we must fill the second half
-        destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSize / 2];
-        source = &packet.data[k_I2sBufferSizeBytes];
-    } else {
-        // DMA is transmitting the second half of the buffer
-        // so we must fill the first half
-        destination = (int16_t *) s_I2sTxBuffer;
-        source = packet.data;
-    }
-
+    // Generate some audio. //
     const auto start{2 * s_WriteIndexTx};
     s_WriteIndexTx += k_I2sBufferSize / 2;
     // Generate a signal; write it to the outgoing audio buffer
@@ -226,8 +208,15 @@ void AudioSystemManager::clockAuthorityISR()
     s_NumTxFramesAvailable += k_I2sBufferSize / 2;
 
     if (s_NumTxFramesAvailable >= k_I2sBufferSize) {
+        // Write a packet to the packet buffer. //
+
+        // Get the current ethernet time.
+        timespec ts;
+        qindesign::network::EthernetIEEE1588.readTimer(ts);
+        NanoTime now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
+
         // Fill packet.
-        s_Packet.time = NanoTime{seqNum++};
+        s_Packet.time = NanoTime{now + k_PacketReproductionOffsetNs};
 
         if (s_ReadIndexTx + k_I2sBufferSize > k_AudioBufferFrames) {
             size_t len1{static_cast<size_t>(k_AudioBufferFrames - s_ReadIndexTx) << 2},
@@ -238,31 +227,40 @@ void AudioSystemManager::clockAuthorityISR()
             memcpy(s_Packet.data, &s_AudioTxBuffer[2 * s_ReadIndexTx], k_I2sBufferSize << 2);
         }
         writeToPacketBuffer(reinterpret_cast<uint8_t *>(&s_Packet));
-        ++s_NumPacketsAvailable;
+        // s_NumTxFramesAvailable -= k_I2sBufferSize;
+        // s_ReadIndexTx += k_AudioBufferFrames;
+        // if (s_ReadIndexTx >= k_AudioBufferFrames) {
+        //     s_ReadIndexTx -= k_AudioBufferFrames;
+        // }
     }
 
-    // // Read some samples. For now, do so from the outgoing audio buffer.
-    // // This should be replaced with samples from the packet buffer.
-    // for (size_t i = 0; i < k_I2sBufferSize / 2; ++i) {
-    //     for (size_t channel = 0; channel < k_AudioBufferChannels; ++channel) {
-    //         destination[k_AudioBufferChannels * i + channel] = s_AudioTxBuffer[k_AudioBufferChannels * s_ReadIndexRx + channel];
-    //         // destination[k_AudioBufferChannels * i + channel] = s_AudioRxBuffer[k_AudioBufferChannels * s_ReadIndexRx + channel];
-    //     }
-    //     ++s_ReadIndexRx;
-    //     if (s_ReadIndexRx >= k_AudioBufferFrames) {
-    //         s_ReadIndexRx = 0;
-    //     }
-    // }
+    int16_t *destination;
+    uint8_t *source;
 
+    // Read (n-k)th packet. //
+    Packet packet{s_PacketBuffer[s_PacketBufferReadIndex]};
+
+    if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
+        // DMA is transmitting the first half of the buffer
+        // so we must fill the second half
+        destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSize / 2];
+        source = &packet.data[k_I2sBufferSizeBytes];
+
+        ++s_PacketBufferReadIndex;
+        if (s_PacketBufferReadIndex >= k_PacketBufferSize) {
+            s_PacketBufferReadIndex = 0;
+        }
+    } else {
+        // DMA is transmitting the second half of the buffer
+        // so we must fill the first half
+        destination = (int16_t *) s_I2sTxBuffer;
+        source = packet.data;
+    }
+
+    // Copy samples to destination. //
     memcpy(destination, source, k_I2sBufferSizeBytes);
 
     arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
-
-    // Generate audio.
-    // Write to (packet/audio) buffer.
-    // If enough new samples are available, signal readiness to transmit packet.
-    // Read (n-k)th packet or (n-kT)th -> (n-k(T-1))th samples (T, buffer size).
-    // Copy samples to destination.
 }
 
 void AudioSystemManager::clockSubscriberISR()
@@ -308,8 +306,6 @@ void AudioSystemManager::clockSubscriberISR()
         // Reproduce pi/2 radians out of phase (50 samples @ F0 = 240 Hz @ Fs = 48 kHz)
         // s_ReadIndexTx = k_AudioBufferFrames - 50;
         s_ReadIndexTx = k_AudioBufferFrames;
-
-        s_PacketBufferReadIndex = 74;
     }
 
     int16_t *destination;
@@ -318,8 +314,8 @@ void AudioSystemManager::clockSubscriberISR()
     const auto sourceAddress = (uint32_t) s_DMA.TCD->SADDR;
     s_DMA.clearInterrupt();
 
+    // Read from (packet/audio) buffer. //
     Packet packet{s_PacketBuffer[s_PacketBufferReadIndex]};
-    auto audioData{reinterpret_cast<int16_t *>(packet.data)};
 
     if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
         // DMA is transmitting the first half of the buffer
@@ -329,12 +325,7 @@ void AudioSystemManager::clockSubscriberISR()
         // source = &audioData[k_I2sBufferSize];
         source = &packet.data[k_I2sBufferSizeBytes];
 
-        // memcpy(destination,
-        //     &s_PacketBuffer[s_PacketBufferReadIndex].data + k_AudioBufferChannels * 64 * sizeof(int16_t),
-        //     k_I2sBufferSizeBytes / 2);
-
         ++s_PacketBufferReadIndex;
-        prevSeqNum = currSeqNum;
         if (s_PacketBufferReadIndex >= k_PacketBufferSize) {
             s_PacketBufferReadIndex = 0;
         }
@@ -345,36 +336,11 @@ void AudioSystemManager::clockSubscriberISR()
 
         // source = audioData;
         source = packet.data;
-
-        // memcpy(destination,
-        //    &s_PacketBuffer[s_PacketBufferReadIndex].data,
-        //    k_I2sBufferSizeBytes / 2);
-
-        currSeqNum = packet.time;
-        if (currSeqNum - prevSeqNum != 1) {
-            Serial.printf("current seqnum %" PRId64 ", prev seqnum %" PRId64 "\n", currSeqNum, prevSeqNum);
-        }
     }
 
     memcpy(destination, source, k_I2sBufferSizeBytes);
 
-    // // Read some samples from the packet buffer.
-    // for (size_t i = 0; i < k_I2sBufferSize / 2; ++i) {
-    //     for (size_t channel = 0; channel < k_AudioBufferChannels; ++channel) {
-    //         destination[k_AudioBufferChannels * i + channel] = s_AudioRxBuffer[k_AudioBufferChannels * s_ReadIndexRx + channel];
-    //         // destination[k_AudioBufferChannels * i + channel] = source[k_AudioBufferChannels * i + channel];
-    //     }
-    //     ++s_ReadIndexRx;
-    //     if (s_ReadIndexRx >= k_AudioBufferFrames) {
-    //         s_ReadIndexRx = 0;
-    //     }
-    // }
-
     arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
-
-    // Read from (packet/audio) buffer.
-    // Compare reproduction time with current time.
-    // If time matches (!..), copy samples to destination.
 }
 
 FLASHMEM
@@ -451,11 +417,29 @@ volatile bool AudioSystemManager::isClockRunning() const
     return m_AnalogAudioPllControlRegister.isClockRunning();
 }
 
+// Compare reproduction time with current time. //
+// If times are close (!..) set the packet buffer read index. //
+void AudioSystemManager::adjustPacketBufferReadIndex(NanoTime now)
+{
+    auto initialPacketReadIndex{s_PacketBufferReadIndex == 0 ? k_PacketBufferSize - 1 : s_PacketBufferReadIndex - 1};
+    Packet packet{s_PacketBuffer[s_PacketBufferReadIndex]};
+    // Serial.printf("!Current time: %" PRId64 ", packet time: %" PRId64 ", diff: %" PRId64 "\n", now, packet.time, now - packet.time);
+    while (abs(now - packet.time) > 1500000 && s_PacketBufferReadIndex != initialPacketReadIndex) {
+        //now < packet.time && s_PacketBufferReadIndex != initialPacketReadIndex) {
+        Serial.printf("Current time: %" PRId64 ", packet time: %" PRId64 ", diff: %" PRId64 "\n", now, packet.time, now - packet.time);
+        ++s_PacketBufferReadIndex;
+        if (s_PacketBufferReadIndex >= k_PacketBufferSize) {
+            s_PacketBufferReadIndex = 0;
+        }
+        packet = s_PacketBuffer[s_PacketBufferReadIndex];
+    }
+}
+
 void AudioSystemManager::adjustClock(const double nspsDiscrepancy)
 {
     // Serial.printf("Skew (nsps): %*.*f\n", 26, 8, nspsDiscrepancy);
 
-    const double proportionalAdjustment{1. + (nspsDiscrepancy / ClockConstants::k_NanosecondsPerSecond)};
+    const double proportionalAdjustment{1. + (nspsDiscrepancy / (double) ClockConstants::k_NanosecondsPerSecond)};
 
     // Serial.printf("Proportional adjustment: %*.*f\n", 14, 8, proportionalAdjustment);
 
@@ -491,14 +475,14 @@ void AudioSystemManager::readFromTxAudioBuffer(int16_t *dest, const size_t numCh
     __enable_irq();
 }
 
-// Only used by clock authority...
+// Only used by clock authority, to get the next packet to transmit.
 void AudioSystemManager::readFromPacketBuffer(uint8_t *dest)
 {
     __disable_irq();
-    memcpy(dest, &s_PacketBuffer[s_PacketBufferReadIndex], sizeof(NanoTime) + (k_I2sBufferSize << 2));
-    ++s_PacketBufferReadIndex;
-    if (s_PacketBufferReadIndex >= k_PacketBufferSize) {
-        s_PacketBufferReadIndex = 0;
+    memcpy(dest, &s_PacketBuffer[s_PacketBufferTxIndex], sizeof(NanoTime) + (k_I2sBufferSize << 2));
+    ++s_PacketBufferTxIndex;
+    if (s_PacketBufferTxIndex >= k_PacketBufferSize) {
+        s_PacketBufferTxIndex = 0;
     }
     --s_NumPacketsAvailable;
     __enable_irq();
@@ -512,6 +496,8 @@ void AudioSystemManager::writeToPacketBuffer(uint8_t *src)
     if (s_PacketBufferWriteIndex >= k_PacketBufferSize) {
         s_PacketBufferWriteIndex = 0;
     }
+    // Signal that a packet is available for transmission.
+    ++s_NumPacketsAvailable;
     __enable_irq();
 }
 
