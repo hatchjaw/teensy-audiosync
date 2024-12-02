@@ -597,9 +597,9 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
         return;
     }
 
-    // Serial.printf("PLL4 numerator: %23" PRId32 "\n"
-    //               "PLL4 denominator: %21" PRIu32 "\n",
-    //               numInt, m_Pll4Denom);
+    Serial.printf("PLL4 numerator: %23" PRId32 "\n"
+                  "PLL4 denominator: %21" PRIu32 "\n",
+                  numInt, m_Pll4Denom);
 
     m_Pll4Num = numInt;
 }

@@ -42,7 +42,6 @@ auto sineFreq{60.};
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
 IPAddress subnetMask{255, 255, 255, 0};
-
 IPAddress gateway{192, 168, 10, 1};
 IntervalTimer syncTimer;
 IntervalTimer announceTimer;
@@ -148,14 +147,11 @@ void loop()
 
     digitalWrite(13, ptp.getLockCount() > 5 && noPPSCount < 5 ? HIGH : LOW);
 
-    if (connected) {
-        auto packetsAvailable{AudioSystemManager::getNumPacketsAvailable()};
-        if (packetsAvailable >= 1) {
-            AudioSystemManager::readFromPacketBuffer(txPacketBuffer);
-            socket.beginPacket({224, 4, 224, 4}, 49152);
-            socket.write(txPacketBuffer, sizeof(AudioSystemManager::Packet));
-            socket.endPacket();
-        }
+    if (connected && AudioSystemManager::getNumPacketsAvailable() >= 1) {
+        AudioSystemManager::readFromPacketBuffer(txPacketBuffer);
+        socket.beginPacket({224, 4, 224, 4}, 49152);
+        socket.write(txPacketBuffer, sizeof(AudioSystemManager::Packet));
+        socket.endPacket();
     }
 }
 
