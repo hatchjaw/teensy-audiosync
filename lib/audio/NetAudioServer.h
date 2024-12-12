@@ -20,8 +20,10 @@ private:
     void update() override;
 
     static constexpr size_t k_BufferSizeFrames{AUDIO_BLOCK_SAMPLES};
-    static constexpr size_t k_PacketBufferSize{75};
-    static constexpr NanoTime k_PacketReproductionOffsetNs{ClockConstants::k_NanosecondsPerSecond / 10};
+    static constexpr size_t k_PacketBufferSize{300};
+    static constexpr NanoTime k_PacketReproductionOffsetNs{
+        2 * ClockConstants::k_NanosecondsPerSecond / 10
+    };
 
     int m_NumPacketsAvailable{0};
     EthernetUDP m_Socket;

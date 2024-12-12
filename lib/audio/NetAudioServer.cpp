@@ -14,14 +14,14 @@ void NetAudioServer::send()
     if (!m_Connected || m_NumPacketsAvailable == 0) return;
 
     // Read from packet buffer.
-    // __disable_irq();
+    __disable_irq();
     memcpy(m_TxPacketBuffer, &m_PacketBuffer[m_PacketBufferTxIndex], sizeof(NanoTime) + (k_BufferSizeFrames << 2));
     ++m_PacketBufferTxIndex;
     if (m_PacketBufferTxIndex >= k_PacketBufferSize) {
         m_PacketBufferTxIndex = 0;
     }
     --m_NumPacketsAvailable;
-    // __enable_irq();
+    __enable_irq();
 
     m_Socket.beginPacket({224, 4, 224, 4}, 49152);
     m_Socket.write(m_TxPacketBuffer, sizeof(AudioSystemManager::Packet));
@@ -62,12 +62,12 @@ void NetAudioServer::update()
     }
 
     // Write packet to packet buffer;
-    // __disable_irq();
+    __disable_irq();
     memcpy(&m_PacketBuffer[m_PacketBufferWriteIndex], &m_Packet, sizeof(NanoTime) + (k_BufferSizeFrames << 2));
     ++m_PacketBufferWriteIndex;
     if (m_PacketBufferWriteIndex >= k_PacketBufferSize) {
         m_PacketBufferWriteIndex = 0;
     }
     ++m_NumPacketsAvailable;
-    // __enable_irq();
+    __enable_irq();
 }

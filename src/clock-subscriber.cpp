@@ -46,12 +46,11 @@ IPAddress gateway{192, 168, 10, 1};
 bool connected{false};
 bool p2p = false;
 
-l3PTP ptp(
+l2PTP ptp(
     config.k_ClockRole == AudioSystemConfig::ClockRole::Authority,
     config.k_ClockRole == AudioSystemConfig::ClockRole::Subscriber,
     p2p
 );
-//l2PTP ptp(master, slave, p2p);
 
 void setup()
 {

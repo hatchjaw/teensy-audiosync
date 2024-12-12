@@ -20,6 +20,22 @@ uint16_t AudioSystemManager::s_ReadIndexRx{0};
 uint16_t AudioSystemManager::s_WriteIndexRx{0};
 DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k_I2sBufferSizeFrames];
 
+void showTime(const NanoTime t)
+{
+    NanoTime x = t;
+    const int ns = x % 1000;
+    x /= 1000;
+    const int us = x % 1000;
+    x /= 1000;
+    const int ms = x % 1000;
+    x /= 1000;
+
+    tmElements_t tme;
+    breakTime((time_t) x, tme);
+
+    Serial.printf("%02d.%02d.%04d %02d:%02d:%02d::%03d:%03d:%03d", tme.Day, tme.Month, 1970 + tme.Year, tme.Hour, tme.Minute, tme.Second, ms, us, ns);
+}
+
 AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
     : m_Config(config)
 {
@@ -425,14 +441,31 @@ volatile bool AudioSystemManager::isClockRunning() const
 
 // Compare reproduction time with current time. //
 // If times are close (!..) set the packet buffer read index. //
+// Oh boy... this (kind of) works for 48 kHz @ 128-frames because
+// 48000/128 = 375, but 44100/128 = 344.53125; if subscribers start up during
+// different seconds there's no way they're going to synchronise.
 void AudioSystemManager::adjustPacketBufferReadIndex(NanoTime now)
 {
     auto initialPacketReadIndex{s_PacketBufferReadIndex == 0 ? k_PacketBufferSize - 1 : s_PacketBufferReadIndex - 1};
     Packet packet{s_PacketBuffer[s_PacketBufferReadIndex]};
-    // Serial.printf("!Current time: %" PRId64 ", packet time: %" PRId64 ", diff: %" PRId64 "\n", now, packet.time, now - packet.time);
-    while (abs(now - packet.time) > 1500000 && s_PacketBufferReadIndex != initialPacketReadIndex) {
+    constexpr NanoTime acceptableOffset{ClockConstants::k_NanosecondsPerSecond*AUDIO_BLOCK_SAMPLES/(int64_t)AUDIO_SAMPLE_RATE_EXACT};//{1'500'000};
+
+    // // Serial.printf("!Current time: %" PRId64 ", packet time: %" PRId64 ", diff: %" PRId64 "\n", now, packet.time, now - packet.time);
+    // Serial.print(":Current time: ");
+    // showTime(now);
+    // Serial.printf(", Read index: %" PRIu32 "\n:Packet time:  ", s_PacketBufferReadIndex);
+    // showTime(packet.time);
+    // Serial.printf(", diff: %" PRId64 "\n", now - packet.time);
+
+    while (abs(now - packet.time) > acceptableOffset && s_PacketBufferReadIndex != initialPacketReadIndex) {
         //now < packet.time && s_PacketBufferReadIndex != initialPacketReadIndex) {
-        Serial.printf("Current time: %" PRId64 ", packet time: %" PRId64 ", diff: %" PRId64 "\n", now, packet.time, now - packet.time);
+        // Serial.printf("Current time: %" PRId64 ", packet time: %" PRId64 ", diff: %" PRId64 "\n", now, packet.time, now - packet.time);
+        Serial.print("Current time: ");
+        showTime(now);
+        Serial.printf(", Read index: %" PRIu32 "\nPacket time:  ", s_PacketBufferReadIndex);
+        showTime(packet.time);
+        Serial.printf(", diff: %" PRId64 "\n", now - packet.time);
+
         ++s_PacketBufferReadIndex;
         if (s_PacketBufferReadIndex >= k_PacketBufferSize) {
             s_PacketBufferReadIndex = 0;
@@ -443,14 +476,14 @@ void AudioSystemManager::adjustPacketBufferReadIndex(NanoTime now)
 
 void AudioSystemManager::adjustClock(const double nspsDiscrepancy)
 {
-    // Serial.printf("Skew (nsps): %*.*f\n", 26, 8, nspsDiscrepancy);
+    Serial.printf("Skew (nsps): %*.*f\n", 26, 8, nspsDiscrepancy);
 
     const double proportionalAdjustment{1. + (nspsDiscrepancy / (double) ClockConstants::k_NanosecondsPerSecond)};
 
-    // Serial.printf("Proportional adjustment: %*.*f\n", 14, 8, proportionalAdjustment);
+    Serial.printf("Proportional adjustment: %*.*f\n", 14, 8, proportionalAdjustment);
 
     m_Config.setExactSampleRate(proportionalAdjustment);
-    // Serial.println(m_Config);
+    Serial.println(m_Config);
     m_ClockDividers.calculateFine(m_Config.getExactSampleRate());
     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
 }
@@ -569,10 +602,9 @@ void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSam
             if (isPll4FreqValid()
                 //                && getPll4Freq() > (ClockConstants::k_pll4FreqMin + ClockConstants::k_pll4FreqMax) / 2
                 && m_Pll4Denom == 1'000'000'000) {
-                return;
                 printTo(Serial);
                 Serial.println();
-                break;
+                return;
             } else {
                 break;
             }

@@ -48,12 +48,11 @@ IntervalTimer announceTimer;
 
 bool connected{false};
 
-l3PTP ptp(
+l2PTP ptp(
     config.k_ClockRole == AudioSystemConfig::ClockRole::Authority,
     config.k_ClockRole == AudioSystemConfig::ClockRole::Subscriber,
     false
 );
-//l2PTP ptp(master, slave, false);
 
 void setup()
 {
