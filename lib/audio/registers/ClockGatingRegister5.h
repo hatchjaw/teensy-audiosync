@@ -7,8 +7,7 @@
  * CCM Clock Gating Register 5 (CCM_CCGR5)
  * i.MX RT1060 Processor Reference Manual rev. 3, §14.7.26, p. 1084
  * Implementation of audio-related fields.
- * For testability, this class is not implemented as a singleton, but only one
- * instance of it should exist.
+ * Only one instance of this class should exist.
  */
 class ClockGatingRegister5 final : public IMXRT1060Register
 {

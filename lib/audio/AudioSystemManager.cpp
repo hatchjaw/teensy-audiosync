@@ -5,6 +5,7 @@
 DMAChannel AudioSystemManager::s_DMA{false};
 bool AudioSystemManager::s_FirstInterrupt{false};
 SineWaveGenerator AudioSystemManager::s_SineWaveGenerator;
+PulseGenerator AudioSystemManager::s_PulseGenerator;
 int16_t AudioSystemManager::s_AudioTxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
 int16_t AudioSystemManager::s_AudioRxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
 AudioSystemManager::Packet AudioSystemManager::s_PacketBuffer[k_PacketBufferSize];
@@ -74,6 +75,8 @@ bool AudioSystemManager::begin()
     m_AudioShield.volume(m_Config.k_Volume);
 
     s_SineWaveGenerator.setFrequency(240);
+    s_PulseGenerator.setWidth(1);
+    s_PulseGenerator.setFrequency(1);
 
     // Stop the audio clock till PTP settles down...
     stopClock();
@@ -215,11 +218,14 @@ void AudioSystemManager::clockAuthorityISR()
     if (s_WriteIndexTx >= k_AudioBufferFrames) {
         uint16_t length2{(uint16_t) (s_WriteIndexTx - k_AudioBufferFrames)},
                 length1{(uint16_t) ((k_I2sBufferSizeFrames / 2) - length2)};
-        s_SineWaveGenerator.generate(s_AudioTxBuffer + start, 2, length1);
-        s_SineWaveGenerator.generate(s_AudioTxBuffer, 2, length2);
+        // s_SineWaveGenerator.generate(s_AudioTxBuffer + start, 2, length1);
+        s_PulseGenerator.generate(s_AudioTxBuffer + start, 2, length1);
+        // s_SineWaveGenerator.generate(s_AudioTxBuffer, 2, length2);
+        s_PulseGenerator.generate(s_AudioTxBuffer, 2, length2);
         s_WriteIndexTx -= k_AudioBufferFrames;
     } else {
-        s_SineWaveGenerator.generate(s_AudioTxBuffer + start, 2, k_I2sBufferSizeFrames / 2);
+        // s_SineWaveGenerator.generate(s_AudioTxBuffer + start, 2, k_I2sBufferSizeFrames / 2);
+        s_PulseGenerator.generate(s_AudioTxBuffer + start, 2, k_I2sBufferSizeFrames / 2);
     }
     s_NumTxFramesAvailable += k_I2sBufferSizeFrames / 2;
 
@@ -410,6 +416,7 @@ void AudioSystemManager::startClock() const
 {
     s_FirstInterrupt = true;
     s_SineWaveGenerator.reset();
+    s_PulseGenerator.reset();
 
     m_AnalogAudioPllControlRegister.setEnable(true);
     // m_AnalogAudioPllControlRegister.setPowerDown(false);
@@ -432,6 +439,7 @@ void AudioSystemManager::stopClock() const
 
     s_FirstInterrupt = true;
     s_SineWaveGenerator.reset();
+    s_PulseGenerator.reset();
 }
 
 volatile bool AudioSystemManager::isClockRunning() const
@@ -448,7 +456,11 @@ void AudioSystemManager::adjustPacketBufferReadIndex(NanoTime now)
 {
     auto initialPacketReadIndex{s_PacketBufferReadIndex == 0 ? k_PacketBufferSize - 1 : s_PacketBufferReadIndex - 1};
     Packet packet{s_PacketBuffer[s_PacketBufferReadIndex]};
-    constexpr NanoTime acceptableOffset{ClockConstants::k_NanosecondsPerSecond*AUDIO_BLOCK_SAMPLES/(int64_t)AUDIO_SAMPLE_RATE_EXACT};//{1'500'000};
+    constexpr NanoTime acceptableOffset{
+        ClockConstants::k_NanosecondsPerSecond * (int64_t) AUDIO_BLOCK_SAMPLES /
+        (int64_t) AUDIO_SAMPLE_RATE_EXACT
+        // 1'500'000
+    };
 
     // // Serial.printf("!Current time: %" PRId64 ", packet time: %" PRId64 ", diff: %" PRId64 "\n", now, packet.time, now - packet.time);
     // Serial.print(":Current time: ");
@@ -478,7 +490,10 @@ void AudioSystemManager::adjustClock(const double nspsDiscrepancy)
 {
     Serial.printf("Skew (nsps): %*.*f\n", 26, 8, nspsDiscrepancy);
 
-    const double proportionalAdjustment{1. + (nspsDiscrepancy / (double) ClockConstants::k_NanosecondsPerSecond)};
+    const double proportionalAdjustment{
+        1. + nspsDiscrepancy /
+        (double) ClockConstants::k_NanosecondsPerSecond
+    };
 
     Serial.printf("Proportional adjustment: %*.*f\n", 14, 8, proportionalAdjustment);
 

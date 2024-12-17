@@ -15,6 +15,7 @@
 #include "registers/GeneralPurposeRegister1.h"
 #include "registers/SwMuxControlRegister.h"
 #include "SineWaveGenerator.h"
+#include "PulseGenerator.h"
 
 class AudioSystemManager
 {
@@ -58,6 +59,7 @@ public:
     static void writeToRxAudioBuffer(const int16_t *src, size_t numChannels, size_t numSamples);
 
     static SineWaveGenerator s_SineWaveGenerator;
+    static PulseGenerator s_PulseGenerator;
 
 private:
     struct ClockDividers : Printable
@@ -133,7 +135,7 @@ private:
     static int16_t s_AudioRxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
     static uint16_t s_ReadIndexTx, s_WriteIndexTx, s_ReadIndexRx, s_WriteIndexRx;
     // 150 packets @ 128 frames @ 48 kHz = 0.4 s.
-    static constexpr size_t k_PacketBufferSize{75};
+    static constexpr size_t k_PacketBufferSize{150};
     static Packet s_PacketBuffer[k_PacketBufferSize];
     static Packet s_Packet;
     static size_t s_NumPacketsAvailable;

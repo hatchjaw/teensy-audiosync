@@ -7,8 +7,7 @@
  * Miscellaneous Register 2 (CCM_ANALOG_MISC2n)
  * i.MX RT1060 Processor Reference Manual rev. 3, §14.8.19, p. 1126
  * Implementation of audio-related fields.
- * For testability, this class is not implemented as a singleton, but only one
- * instance of it should exist.
+ * Only one instance of this class should exist.
  */
 class MiscellaneousRegister2 final : public IMXRT1060BitbandRegister
 {

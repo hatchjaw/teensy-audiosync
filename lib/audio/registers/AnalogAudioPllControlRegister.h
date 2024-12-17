@@ -6,8 +6,7 @@
 /**
  * Analog Audio PLL control Register (CCM_ANALOG_PLL_AUDIOn)
  * i.MX RT1060 Processor Reference Manual rev. 3, §14.8.8, p. 1104
- * For testability, this class is not implemented as a singleton, but only one
- * instance of it should exist.
+ * Only one instance of this class should exist.
  */
 class AnalogAudioPllControlRegister final : public IMXRT1060BitbandRegister
 {

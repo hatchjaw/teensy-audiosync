@@ -15,7 +15,7 @@ void NetAudioServer::send()
 
     // Read from packet buffer.
     __disable_irq();
-    memcpy(m_TxPacketBuffer, &m_PacketBuffer[m_PacketBufferTxIndex], sizeof(NanoTime) + (k_BufferSizeFrames << 2));
+    memcpy(m_TxPacketBuffer, &m_PacketBuffer[m_PacketBufferTxIndex], sizeof(NanoTime) + (k_TxBufferNumFrames << 2));
     ++m_PacketBufferTxIndex;
     if (m_PacketBufferTxIndex >= k_PacketBufferSize) {
         m_PacketBufferTxIndex = 0;
@@ -49,13 +49,13 @@ void NetAudioServer::update()
         // to one of this object's input channels.
         if (inBlock[channel]) {
             // Interleave samples into the packet.
-            for (size_t frame{0}; frame < k_BufferSizeFrames; ++frame) {
+            for (size_t frame{0}; frame < k_TxBufferNumFrames; ++frame) {
                 audioData[(frame * num_inputs + channel)] = inBlock[channel]->data[frame];
             }
 
             release(inBlock[channel]);
         } else {
-            for (size_t frame{0}; frame < k_BufferSizeFrames; ++frame) {
+            for (size_t frame{0}; frame < k_TxBufferNumFrames; ++frame) {
                 m_Packet.data[frame * num_inputs + channel] = 0;
             }
         }
@@ -63,7 +63,7 @@ void NetAudioServer::update()
 
     // Write packet to packet buffer;
     __disable_irq();
-    memcpy(&m_PacketBuffer[m_PacketBufferWriteIndex], &m_Packet, sizeof(NanoTime) + (k_BufferSizeFrames << 2));
+    memcpy(&m_PacketBuffer[m_PacketBufferWriteIndex], &m_Packet, sizeof(NanoTime) + (k_TxBufferNumFrames << 2));
     ++m_PacketBufferWriteIndex;
     if (m_PacketBufferWriteIndex >= k_PacketBufferSize) {
         m_PacketBufferWriteIndex = 0;

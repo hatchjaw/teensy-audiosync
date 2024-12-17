@@ -7,8 +7,7 @@
  * CCM Clock Divider Register (CCM_CS1CDR)
  * i.MX RT1060 Processor Reference Manual rev. 3, §14.7.10, p. 1056
  * Implementation of audio-related fields.
- * For testability, this class is not implemented as a singleton, but only one
- * instance of it should exist.
+ * Only one instance of this class should exist.
  */
 class ClockDividerRegister1 final : public IMXRT1060Register
 {

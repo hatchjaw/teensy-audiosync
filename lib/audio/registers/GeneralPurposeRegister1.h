@@ -6,9 +6,8 @@
 /**
  * GPR1 General Purpose Register (IOMUXC_GPR_GPR1), 0x4008C004
  * i.MX RT1060 Processor Reference Manual rev. 3, §11.3.2, p. 325
- * Implementation of audio-related fields
- * For testability, this class is not implemented as a singleton, but only one
- * instance of it should exist.
+ * Implementation of audio-related fields.
+ * Only one instance of this class should exist.
  */
 class GeneralPurposeRegister1 final : public IMXRT1060Register
 {

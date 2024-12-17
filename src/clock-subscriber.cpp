@@ -121,7 +121,7 @@ void loop()
             AudioSystemManager::writeToPacketBuffer(rxPacketBuffer);
         } else {
             socket.read(rxPacketBuffer, size);
-            AudioSystemManager::writeToRxAudioBuffer((int16_t *)rxPacketBuffer, 2, size >> 2);
+            AudioSystemManager::writeToRxAudioBuffer((int16_t *) rxPacketBuffer, 2, size >> 2);
         }
     }
 }
@@ -158,7 +158,18 @@ static void interrupt_1588_timer()
 
     // displayTime(interrupt_s * NS_PER_S + interrupt_ns);
 
-    audioSystemManager.adjustClock(ptp.getAdjust());
+    // Serial.printf("Adjust: %f\n"
+    //               "Accum: %d\n"
+    //               "Drift: %f\n"
+    //               "Delay: %" PRId64 "\n"
+    //               "Offset: %" PRId64 "\n",
+    //               ptp.getAdjust(),
+    //               ptp.getAccumulatedOffset(),
+    //               ptp.getDrift(),
+    //               ptp.getDelay(),
+    //               ptp.getOffset());
+
+    audioSystemManager.adjustClock(ptp.getAdjust() + (double) ptp.getOffset());
 
     // Start audio at t = 10s
     // Only works if started at *around the same time* as the clock authority.

@@ -7,8 +7,7 @@
  * CCM Serial Clock Multiplexer Register 1 (CCM_CSCMR1)
  * i.MX RT1060 Processor Reference Manual rev. 3, §14.7.7, p. 1051
  * Implementation of audio-related fields.
- * For testability, this class is not implemented as a singleton, but only one
- * instance of it should exist.
+ * Only one instance of this class should exist.
  *
  * "NOTE
  * Any change on the above multiplexer will have to be done
