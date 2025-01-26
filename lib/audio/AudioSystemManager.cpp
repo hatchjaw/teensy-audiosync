@@ -470,6 +470,16 @@ void AudioSystemManager::adjustPacketBufferReadIndex(NanoTime now)
     // Serial.printf(", diff: %" PRId64 "\n", now - packet.time);
 
     while (abs(now - packet.time) > acceptableOffset && s_PacketBufferReadIndex != initialPacketReadIndex) {
+        ++s_PacketBufferReadIndex;
+        if (s_PacketBufferReadIndex >= k_PacketBufferSize) {
+            s_PacketBufferReadIndex = 0;
+        }
+        // if (s_PacketBufferReadIndex == 0) {
+        //     s_PacketBufferReadIndex = k_PacketBufferSize;
+        // }
+        // --s_PacketBufferReadIndex;
+        packet = s_PacketBuffer[s_PacketBufferReadIndex];
+
         //now < packet.time && s_PacketBufferReadIndex != initialPacketReadIndex) {
         // Serial.printf("Current time: %" PRId64 ", packet time: %" PRId64 ", diff: %" PRId64 "\n", now, packet.time, now - packet.time);
         Serial.print("Current time: ");
@@ -477,13 +487,18 @@ void AudioSystemManager::adjustPacketBufferReadIndex(NanoTime now)
         Serial.printf(", Read index: %" PRIu32 "\nPacket time:  ", s_PacketBufferReadIndex);
         showTime(packet.time);
         Serial.printf(", diff: %" PRId64 "\n", now - packet.time);
-
-        ++s_PacketBufferReadIndex;
-        if (s_PacketBufferReadIndex >= k_PacketBufferSize) {
-            s_PacketBufferReadIndex = 0;
-        }
-        packet = s_PacketBuffer[s_PacketBufferReadIndex];
     }
+}
+
+void AudioSystemManager::reportBufferFillLevel()
+{
+    Serial.printf("Read index: %" PRIu32 ", Write index: %" PRIu32 ", Num packets available: %" PRIu32 "\n",
+                  s_PacketBufferReadIndex,
+                  s_PacketBufferWriteIndex,
+                  s_PacketBufferWriteIndex > s_PacketBufferReadIndex ?
+                    s_PacketBufferWriteIndex - s_PacketBufferReadIndex :
+                    s_PacketBufferWriteIndex + k_PacketBufferSize - s_PacketBufferReadIndex
+    );
 }
 
 void AudioSystemManager::adjustClock(const double nspsDiscrepancy)

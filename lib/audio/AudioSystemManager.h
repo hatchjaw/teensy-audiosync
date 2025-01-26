@@ -42,6 +42,8 @@ public:
 
     static void adjustPacketBufferReadIndex(NanoTime now);
 
+    static void reportBufferFillLevel();
+
     static size_t getNumPacketsAvailable();
 
     /**

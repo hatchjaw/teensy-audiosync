@@ -35,7 +35,6 @@ static constexpr size_t kSampleSize{sizeof(int16_t)};
 static constexpr size_t kHeaderSize{sizeof(NanoTime)};
 static constexpr size_t kPacketSize{kNumChannels * kNumFrames * kSampleSize + kHeaderSize};
 uint8_t rxPacketBuffer[kPacketSize];
-int16_t rxBuffer[4800 * 2];
 qindesign::network::EthernetUDP socket;
 
 byte mac[6];
@@ -107,6 +106,24 @@ NanoTime interrupt_ns = 0;
 NanoTime pps_s = 0;
 NanoTime pps_ns = 0;
 
+void hexDump(const uint8_t *buffer, const int length)
+{
+    int word{0}, row{0};
+    for (const uint8_t *p = buffer; word < length; ++p, ++word) {
+        if (word % 16 == 0) {
+            if (word != 0) Serial.print(F("\n"));
+            Serial.printf(F("%04x: "), row);
+            ++row;
+        } else if (word % 2 == 0) {
+            Serial.print(F(" "));
+        }
+        Serial.printf(F("%02x "), *p);
+    }
+    Serial.println(F("\n"));
+}
+
+int numRead{0};
+
 void loop()
 {
     ptp.update();
@@ -115,9 +132,13 @@ void loop()
     digitalWrite(13, ptp.getLockCount() > 5 ? HIGH : LOW);
 
     if (auto size{socket.parsePacket()}; size > 0) {
+        numRead++;
         // Serial.printf("Found packet of %d bytes\n", size);
         if (size == kPacketSize) {
             socket.read(rxPacketBuffer, size);
+            // if (numRead % 100 == 0) {
+            //     hexDump(rxPacketBuffer, size);
+            // }
             AudioSystemManager::writeToPacketBuffer(rxPacketBuffer);
         } else {
             socket.read(rxPacketBuffer, size);
@@ -130,7 +151,7 @@ static void interrupt_1588_timer()
 {
     uint32_t t;
     if (!qindesign::network::EthernetIEEE1588.getAndClearChannelStatus(1)) {
-        // asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
+        // Allow write to complete so the interrupt doesn't fire twice
         __DSB();
         return;
     }
@@ -170,6 +191,8 @@ static void interrupt_1588_timer()
     //               ptp.getOffset());
 
     audioSystemManager.adjustClock(ptp.getAdjust() + (double) ptp.getOffset());
+    // audioSystemManager.adjustClock(ptp.getAdjust() - 5e-4 * ptp.getDrift());
+    // audioSystemManager.adjustClock(ptp.getAdjust());
 
     // Start audio at t = 10s
     // Only works if started at *around the same time* as the clock authority.
@@ -187,9 +210,10 @@ static void interrupt_1588_timer()
         displayTime(now);
         audioSystemManager.stopClock();
     } else if (audioSystemManager.isClockRunning()) {
+        AudioSystemManager::reportBufferFillLevel();
         AudioSystemManager::adjustPacketBufferReadIndex(now);
     }
 
-    // asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
+    // Allow write to complete so the interrupt doesn't fire twice
     __DSB();
 }
