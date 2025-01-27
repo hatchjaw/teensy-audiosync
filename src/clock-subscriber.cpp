@@ -1,3 +1,4 @@
+#include <AnanasClient.h>
 #include <Audio.h>
 #include <t41-ptp.h>
 #include <QNEthernet.h>
@@ -29,13 +30,14 @@ AudioSystemConfig config{
     AudioSystemConfig::ClockRole::Subscriber
 };
 AudioSystemManager audioSystemManager{config};
+ananas::AudioClient ananasClient;
 static constexpr size_t kNumChannels{2};
 static constexpr size_t kNumFrames{128};
 static constexpr size_t kSampleSize{sizeof(int16_t)};
 static constexpr size_t kHeaderSize{sizeof(NanoTime)};
 static constexpr size_t kPacketSize{kNumChannels * kNumFrames * kSampleSize + kHeaderSize};
 uint8_t rxPacketBuffer[kPacketSize];
-qindesign::network::EthernetUDP socket;
+// qindesign::network::EthernetUDP socket;
 
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
@@ -74,7 +76,8 @@ void setup()
         connected = state;
         if (state) {
             ptp.begin();
-            socket.beginMulticast({224, 4, 224, 4}, 49152);
+            // socket.beginMulticast({224, 4, 224, 4}, 49152);
+            ananasClient.connect();
         }
     });
 
@@ -98,7 +101,9 @@ void setup()
     NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
 
     // Set up audio
+    AudioSystemManager::setAudioProcessor(&ananasClient);
     audioSystemManager.begin();
+    ananasClient.begin();
 }
 
 NanoTime interrupt_s = 0;
@@ -131,20 +136,22 @@ void loop()
     // Six consecutive offsets below 100 ns sets pin 13 high to switch on the LED
     digitalWrite(13, ptp.getLockCount() > 5 ? HIGH : LOW);
 
-    if (auto size{socket.parsePacket()}; size > 0) {
-        numRead++;
-        // Serial.printf("Found packet of %d bytes\n", size);
-        if (size == kPacketSize) {
-            socket.read(rxPacketBuffer, size);
-            // if (numRead % 100 == 0) {
-            //     hexDump(rxPacketBuffer, size);
-            // }
-            AudioSystemManager::writeToPacketBuffer(rxPacketBuffer);
-        } else {
-            socket.read(rxPacketBuffer, size);
-            AudioSystemManager::writeToRxAudioBuffer((int16_t *) rxPacketBuffer, 2, size >> 2);
-        }
-    }
+    // if (auto size{socket.parsePacket()}; size > 0) {
+    //     numRead++;
+    //     // Serial.printf("Found packet of %d bytes\n", size);
+    //     if (size == kPacketSize) {
+    //         socket.read(rxPacketBuffer, size);
+    //         // if (numRead % 100 == 0) {
+    //         //     hexDump(rxPacketBuffer, size);
+    //         // }
+    //         AudioSystemManager::writeToPacketBuffer(rxPacketBuffer);
+    //     } else {
+    //         socket.read(rxPacketBuffer, size);
+    //         AudioSystemManager::writeToRxAudioBuffer((int16_t *) rxPacketBuffer, 2, size >> 2);
+    //     }
+    // }
+
+    ananasClient.loop();
 }
 
 static void interrupt_1588_timer()
@@ -210,8 +217,10 @@ static void interrupt_1588_timer()
         displayTime(now);
         audioSystemManager.stopClock();
     } else if (audioSystemManager.isClockRunning()) {
-        AudioSystemManager::reportBufferFillLevel();
-        AudioSystemManager::adjustPacketBufferReadIndex(now);
+        ananasClient.printStats();
+        ananasClient.adjustBufferReadIndex(now);
+        // AudioSystemManager::reportBufferFillLevel();
+        // AudioSystemManager::adjustPacketBufferReadIndex(now);
     }
 
     // Allow write to complete so the interrupt doesn't fire twice

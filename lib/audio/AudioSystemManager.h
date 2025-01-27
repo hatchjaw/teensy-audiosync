@@ -2,8 +2,10 @@
 #define AUDIOSYSTEMMANGER_H
 
 #include <Arduino.h>
+#include <AudioProcessor.h>
 #include <control_sgtl5000.h>
 #include <DMAChannel.h>
+#include <memory>
 #include <ptp/ptp-base.h>
 
 #include "Config.h"
@@ -39,6 +41,8 @@ public:
     void stopClock() const;
 
     volatile bool isClockRunning() const;
+
+    static void setAudioProcessor(AudioProcessor *processor);
 
     static void adjustPacketBufferReadIndex(NanoTime now);
 
@@ -127,6 +131,8 @@ private:
     Pin23SwMuxControlRegister m_Pin23SwMuxControlRegister;
 
     AudioControlSGTL5000 m_AudioShield;
+
+    static AudioProcessor *s_AudioProcessor;
 
     static bool s_FirstInterrupt;
     static DMAChannel s_DMA;

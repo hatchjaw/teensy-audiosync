@@ -19,6 +19,7 @@ uint16_t AudioSystemManager::s_WriteIndexTx{0};
 size_t AudioSystemManager::s_NumTxFramesAvailable{0};
 uint16_t AudioSystemManager::s_ReadIndexRx{0};
 uint16_t AudioSystemManager::s_WriteIndexRx{0};
+AudioProcessor *AudioSystemManager::s_AudioProcessor = nullptr;
 DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k_I2sBufferSizeFrames];
 
 void showTime(const NanoTime t)
@@ -154,15 +155,45 @@ void AudioSystemManager::setupDMA() const
     I2S1_TCSR = I2S_TCSR_TE | I2S_TCSR_BCE | I2S_TCSR_FRDE;
 
     s_DMA.attachInterrupt(
-        m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? clockAuthorityISR : clockSubscriberISR,
-        80 // default, apparently
+        isr, //m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? clockAuthorityISR : clockSubscriberISR,
+        80 // default, apparently (source?..)
     );
 
     Serial.printf("Audio interrupt priority: %d\n", NVIC_GET_PRIORITY(s_DMA.channel));
 }
 
+static int16_t buff[128 * 2]; // audio block frames * numChannels
+static uint count{0};
+
 void AudioSystemManager::isr()
 {
+    int16_t *destination, *source;
+    const auto sourceAddress = (uint32_t) s_DMA.TCD->SADDR;
+    s_DMA.clearInterrupt();
+
+    // Bloody hell, I'm not sure why this works. Fill the second half of the I2S
+    // buffer with the first half of the source buffer?..
+    if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
+        s_AudioProcessor->processAudio(buff, 2, k_I2sBufferSizeFrames);
+        // DMA is transmitting the first half of the buffer; fill the second half.
+        destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSizeFrames / 2];
+        // source = &buff[k_I2sBufferSizeFrames]; // That's the midpoint.
+        source = buff;
+
+        // if (++count % 1000 <= 1) {
+        //     Serial.println("Buff:");
+        //     ananas::Utils::hexDump(reinterpret_cast<uint8_t *>(buff), sizeof(int16_t) * k_AudioBufferChannels * k_I2sBufferSizeFrames);
+        // }
+    } else {
+        // DMA is transmitting the second half of the buffer; fill the first half.
+        destination = (int16_t *) s_I2sTxBuffer;
+        // source = buff;
+        source = &buff[k_I2sBufferSizeFrames]; // That's the midpoint.
+    }
+
+    memcpy(destination, source, k_I2sBufferSizeBytes); // Actually number of bytes over two?
+
+    arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
 }
 
 void AudioSystemManager::clockAuthorityISR()
@@ -447,6 +478,11 @@ volatile bool AudioSystemManager::isClockRunning() const
     return m_AnalogAudioPllControlRegister.isClockRunning();
 }
 
+void AudioSystemManager::setAudioProcessor(AudioProcessor *processor)
+{
+    s_AudioProcessor = processor;
+}
+
 // Compare reproduction time with current time. //
 // If times are close (!..) set the packet buffer read index. //
 // Oh boy... this (kind of) works for 48 kHz @ 128-frames because
@@ -495,9 +531,9 @@ void AudioSystemManager::reportBufferFillLevel()
     Serial.printf("Read index: %" PRIu32 ", Write index: %" PRIu32 ", Num packets available: %" PRIu32 "\n",
                   s_PacketBufferReadIndex,
                   s_PacketBufferWriteIndex,
-                  s_PacketBufferWriteIndex > s_PacketBufferReadIndex ?
-                    s_PacketBufferWriteIndex - s_PacketBufferReadIndex :
-                    s_PacketBufferWriteIndex + k_PacketBufferSize - s_PacketBufferReadIndex
+                  s_PacketBufferWriteIndex > s_PacketBufferReadIndex
+                      ? s_PacketBufferWriteIndex - s_PacketBufferReadIndex
+                      : s_PacketBufferWriteIndex + k_PacketBufferSize - s_PacketBufferReadIndex
     );
 }
 
