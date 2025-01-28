@@ -1,3 +1,4 @@
+#include <AnanasServer.h>
 #include <Audio.h>
 #include <t41-ptp.h>
 #include <QNEthernet.h>
@@ -34,6 +35,8 @@ AudioSystemConfig config{
     AudioSystemConfig::ClockRole::Authority
 };
 AudioSystemManager audioSystemManager{config};
+ananas::AudioServer ananasServer;
+
 int16_t txBuffer[128 * 2];
 uint8_t txPacketBuffer[sizeof(NanoTime) + (128 << 2)];
 qindesign::network::EthernetUDP socket;
@@ -80,7 +83,8 @@ void setup()
             syncTimer.begin(syncInterrupt, 1000000);
             announceTimer.begin(announceInterrupt, 1000000);
             // Valid, ad-hoc multicast IP, and valid dynamic port.
-            socket.beginMulticast({224, 4, 224, 4}, 49152);
+            // socket.beginMulticast({224, 4, 224, 4}, 49152);
+            ananasServer.connect();
         }
     });
 
@@ -111,6 +115,7 @@ void setup()
     //    // rising edge trigger
     //    qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(2, true); //Configure Interrupt generation
 
+    ananasServer.begin();
     // Set up audio
     audioSystemManager.begin();
 }
@@ -146,12 +151,14 @@ void loop()
 
     digitalWrite(13, ptp.getLockCount() > 5 && noPPSCount < 5 ? HIGH : LOW);
 
-    if (connected && AudioSystemManager::getNumPacketsAvailable() >= 1) {
-        AudioSystemManager::readFromPacketBuffer(txPacketBuffer);
-        socket.beginPacket({224, 4, 224, 4}, 49152);
-        socket.write(txPacketBuffer, sizeof(AudioSystemManager::Packet));
-        socket.endPacket();
-    }
+    // if (connected && AudioSystemManager::getNumPacketsAvailable() >= 1) {
+    //     AudioSystemManager::readFromPacketBuffer(txPacketBuffer);
+    //     socket.beginPacket({224, 4, 224, 4}, 49152);
+    //     socket.write(txPacketBuffer, sizeof(AudioSystemManager::Packet));
+    //     socket.endPacket();
+    // }
+
+    ananasServer.run();
 }
 
 void syncInterrupt()

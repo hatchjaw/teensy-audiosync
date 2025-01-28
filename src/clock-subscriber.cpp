@@ -1,9 +1,9 @@
-#include <AnanasClient.h>
 #include <Audio.h>
 #include <t41-ptp.h>
 #include <QNEthernet.h>
 #include <TimeLib.h>
 #include <AudioSystemManager.h>
+#include <AnanasClient.h>
 
 static void interrupt_1588_timer();
 
@@ -151,7 +151,7 @@ void loop()
     //     }
     // }
 
-    ananasClient.loop();
+    ananasClient.run();
 }
 
 static void interrupt_1588_timer()

@@ -3,9 +3,23 @@
 
 #include <Arduino.h>
 #include <TimeLib.h>
+#include <t41-ptp.h>
+
+#ifndef AUDIO_BLOCK_SAMPLES
+#define AUDIO_BLOCK_SAMPLES  128
+#endif
 
 namespace ananas
 {
+    struct Constants
+    {
+        /**
+         * Doesn't belong here.
+         */
+        static constexpr int64_t kNanoSecondsPerSecond{1'000'000'000};
+        static constexpr size_t kAudioBlockFrames{AUDIO_BLOCK_SAMPLES};
+    };
+
     class Utils
     {
     public:
@@ -25,6 +39,9 @@ namespace ananas
             Serial.println(F("\n"));
         }
 
+        /**
+         * Doesn't belong here.
+         */
         static void printTime(const NanoTime t)
         {
             NanoTime x = t;
