@@ -23,6 +23,8 @@ namespace ananas
 
         void processAudio(int16_t *buffer, size_t numChannels, size_t numSamples) override;
 
+        void prepare(uint sampleRate) override;
+
     private:
         void send();
 

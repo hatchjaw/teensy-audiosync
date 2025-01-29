@@ -4,6 +4,8 @@
 #include <QNEthernet.h>
 #include <TimeLib.h>
 #include <AudioSystemManager.h>
+#include <audio_processors/PulseTrain.h>
+#include <audio_processors/SineOsc.h>
 
 void syncInterrupt();
 
@@ -35,12 +37,72 @@ AudioSystemConfig config{
     AudioSystemConfig::ClockRole::Authority
 };
 AudioSystemManager audioSystemManager{config};
-ananas::AudioServer ananasServer;
 
-int16_t txBuffer[128 * 2];
-uint8_t txPacketBuffer[sizeof(NanoTime) + (128 << 2)];
-qindesign::network::EthernetUDP socket;
-auto sineFreq{60.};
+uint count{0};
+
+class Proc1 final : public AudioProcessor
+{
+public:
+    Proc1(SineOsc &sine, ananas::AudioServer &server)
+        : sine(sine),
+          server(server)
+    {
+    }
+
+    void prepare(const uint sampleRate) override
+    {
+        sine.prepare(sampleRate);
+        server.prepare(sampleRate);
+    }
+
+    void processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples) override
+    {
+        sine.processAudio(buffer, numChannels, numSamples);
+        server.processAudio(buffer, numChannels, numSamples);
+    }
+
+private:
+    SineOsc &sine;
+    ananas::AudioServer &server;
+};
+
+class Proc2 final : public AudioProcessor
+{
+public:
+    Proc2(PulseTrain &pulseTrain, ananas::AudioServer &server)
+        : pulseTrain(pulseTrain),
+          server(server)
+    {
+    }
+
+    void prepare(const uint sampleRate) override
+    {
+        pulseTrain.prepare(sampleRate);
+        server.prepare(sampleRate);
+    }
+
+    void processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples) override
+    {
+        pulseTrain.processAudio(buffer, numChannels, numSamples);
+        // if (count++ % 1000 >= 1) {
+        //     Serial.println("After pulse train");
+        //     ananas::Utils::hexDump(reinterpret_cast<uint8_t *>(buffer), sizeof(int16_t) * numChannels * numSamples);
+        // }
+        server.processAudio(buffer, numChannels, numSamples);
+    }
+
+private:
+    PulseTrain &pulseTrain;
+    ananas::AudioServer &server;
+};
+
+SineOsc sine;
+PulseTrain pulseTrain;
+ananas::AudioServer ananasServer;
+Proc1 p1{sine, ananasServer};
+Proc2 p2{pulseTrain, ananasServer};
+
+auto sineFreq{60.f};
 
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
@@ -82,8 +144,6 @@ void setup()
             ptp.begin();
             syncTimer.begin(syncInterrupt, 1000000);
             announceTimer.begin(announceInterrupt, 1000000);
-            // Valid, ad-hoc multicast IP, and valid dynamic port.
-            // socket.beginMulticast({224, 4, 224, 4}, 49152);
             ananasServer.connect();
         }
     });
@@ -115,9 +175,13 @@ void setup()
     //    // rising edge trigger
     //    qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(2, true); //Configure Interrupt generation
 
-    ananasServer.begin();
     // Set up audio
+    AudioSystemManager::setAudioProcessor(&p2);
     audioSystemManager.begin();
+    ananasServer.begin();
+    sine.setAmplitude(.5f);
+    // pulseTrain.setWidth(4);
+    pulseTrain.setFrequency(60.f);
 }
 
 bool sync = false;
@@ -151,13 +215,6 @@ void loop()
 
     digitalWrite(13, ptp.getLockCount() > 5 && noPPSCount < 5 ? HIGH : LOW);
 
-    // if (connected && AudioSystemManager::getNumPacketsAvailable() >= 1) {
-    //     AudioSystemManager::readFromPacketBuffer(txPacketBuffer);
-    //     socket.beginPacket({224, 4, 224, 4}, 49152);
-    //     socket.write(txPacketBuffer, sizeof(AudioSystemManager::Packet));
-    //     socket.endPacket();
-    // }
-
     ananasServer.run();
 }
 
@@ -177,11 +234,9 @@ void announceInterrupt()
 
 static void interrupt_1588_timer()
 {
-    //    Serial.println("IRQ_ENET_TIMER!");
-
     uint32_t t;
     if (!qindesign::network::EthernetIEEE1588.getAndClearChannelStatus(1)) {
-        //        asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
+        // allow write to complete so the interrupt doesn't fire twice
         __DSB();
         return;
     }
@@ -189,7 +244,7 @@ static void interrupt_1588_timer()
 
     t = ((NanoTime) t + NS_PER_S - 60) % NS_PER_S;
 
-    timespec ts;
+    timespec ts{};
     qindesign::network::EthernetIEEE1588.readTimer(ts);
 
     if (ts.tv_nsec < 100 * 1000 * 1000 && t > 900 * 1000 * 1000) {
@@ -224,7 +279,7 @@ static void interrupt_1588_timer()
     // Start audio at t = 10s
     shouldEnableAudio = interrupt_s >= 10; // % 10 != 9;
 
-    NanoTime now{interrupt_s * NS_PER_S + interrupt_ns};
+    const NanoTime now{interrupt_s * NS_PER_S + interrupt_ns};
 
     if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
         Serial.print("Authority start audio clock ");
@@ -234,14 +289,14 @@ static void interrupt_1588_timer()
         displayTime(now);
         audioSystemManager.stopClock();
     } else if (audioSystemManager.isClockRunning()) {
-        AudioSystemManager::adjustPacketBufferReadIndex(now);
+        // ananasServer.adjustBufferReadIndex(now);
     }
 
     // Change frequency once per second.
-    sineFreq += 60;
-    sineFreq = sineFreq > 1000 ? 60 : sineFreq;
-    AudioSystemManager::s_SineWaveGenerator.setFrequency(sineFreq); //interrupt_s % 2 == 0 ? 480 : 240);
+    // sineFreq += 60.f;
+    // sineFreq = sineFreq > 1000.f ? 60.f : sineFreq;
+    // sine.setFrequency(interrupt_s % 2 == 0 ? 480.f : 240.f);
 
-    //    asm("dsb"); // allow write to complete so the interrupt doesn't fire twice
+    // allow write to complete so the interrupt doesn't fire twice
     __DSB();
 }

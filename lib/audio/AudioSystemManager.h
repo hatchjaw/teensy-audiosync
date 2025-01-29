@@ -5,8 +5,6 @@
 #include <AudioProcessor.h>
 #include <control_sgtl5000.h>
 #include <DMAChannel.h>
-#include <memory>
-#include <ptp/ptp-base.h>
 
 #include "Config.h"
 #include "registers/MiscellaneousRegister2.h"
@@ -16,18 +14,10 @@
 #include "registers/ClockGatingRegister5.h"
 #include "registers/GeneralPurposeRegister1.h"
 #include "registers/SwMuxControlRegister.h"
-#include "SineWaveGenerator.h"
-#include "PulseGenerator.h"
 
 class AudioSystemManager
 {
 public:
-    struct Packet
-    {
-        NanoTime time;
-        uint8_t data[128 << 2];
-    };
-
     explicit AudioSystemManager(AudioSystemConfig config);
 
     bool begin();
@@ -43,29 +33,6 @@ public:
     volatile bool isClockRunning() const;
 
     static void setAudioProcessor(AudioProcessor *processor);
-
-    static void adjustPacketBufferReadIndex(NanoTime now);
-
-    static void reportBufferFillLevel();
-
-    static size_t getNumPacketsAvailable();
-
-    /**
-    * Read from the TX buffer into an external buffer.
-    */
-    static void readFromTxAudioBuffer(int16_t *dest, size_t numChannels, size_t numSamples);
-
-    static void readFromPacketBuffer(uint8_t *dest);
-
-    static void writeToPacketBuffer(uint8_t *src);
-
-    /**
-    * Write to the RX buffer from an external buffer.
-    */
-    static void writeToRxAudioBuffer(const int16_t *src, size_t numChannels, size_t numSamples);
-
-    static SineWaveGenerator s_SineWaveGenerator;
-    static PulseGenerator s_PulseGenerator;
 
 private:
     struct ClockDividers : Printable
@@ -110,10 +77,6 @@ private:
 
     static void isr();
 
-    static void clockAuthorityISR();
-
-    static void clockSubscriberISR();
-
     AudioSystemConfig m_Config;
     ClockDividers m_ClockDividers;
 
@@ -136,20 +99,6 @@ private:
 
     static bool s_FirstInterrupt;
     static DMAChannel s_DMA;
-    // Let's start with a buffer of 1/10 s
-    static constexpr uint16_t k_AudioBufferFrames{4800}, k_AudioBufferChannels{2};
-    static int16_t s_AudioTxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
-    static size_t s_NumTxFramesAvailable;
-    static int16_t s_AudioRxBuffer[k_AudioBufferChannels * k_AudioBufferFrames];
-    static uint16_t s_ReadIndexTx, s_WriteIndexTx, s_ReadIndexRx, s_WriteIndexRx;
-    // 150 packets @ 128 frames @ 48 kHz = 0.4 s.
-    static constexpr size_t k_PacketBufferSize{150};
-    static Packet s_PacketBuffer[k_PacketBufferSize];
-    static Packet s_Packet;
-    static size_t s_NumPacketsAvailable;
-    static size_t s_PacketBufferTxIndex, s_PacketBufferReadIndex, s_PacketBufferWriteIndex;
-
-    static constexpr NanoTime k_PacketReproductionOffsetNs{ClockConstants::k_NanosecondsPerSecond / 10};
 
     static constexpr uint16_t k_I2sBufferSizeFrames{AUDIO_BLOCK_SAMPLES};
     static constexpr size_t k_I2sBufferSizeBytes{k_I2sBufferSizeFrames * sizeof(int16_t)};

@@ -219,8 +219,6 @@ static void interrupt_1588_timer()
     } else if (audioSystemManager.isClockRunning()) {
         ananasClient.printStats();
         ananasClient.adjustBufferReadIndex(now);
-        // AudioSystemManager::reportBufferFillLevel();
-        // AudioSystemManager::adjustPacketBufferReadIndex(now);
     }
 
     // Allow write to complete so the interrupt doesn't fire twice

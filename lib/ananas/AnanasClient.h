@@ -32,6 +32,8 @@ namespace ananas
 
         void adjustBufferReadIndex(NanoTime now);
 
+        void prepare(uint sampleRate) override;
+
     private:
         static constexpr size_t kNumChannels{2};
         static constexpr size_t kNumFrames{Constants::kAudioBlockFrames};

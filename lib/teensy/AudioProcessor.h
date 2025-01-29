@@ -8,7 +8,10 @@ class AudioProcessor
 public:
     virtual ~AudioProcessor() = default;
 
+    virtual void prepare(uint sampleRate) = 0;
+
     virtual void processAudio(int16_t *buffer, size_t numChannels, size_t numSamples) = 0;
+
 };
 
 #endif //AUDIOPROCESSOR_H

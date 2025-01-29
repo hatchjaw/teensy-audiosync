@@ -35,11 +35,13 @@ namespace ananas
 
         [[nodiscard]] size_t getReadIndex() const;
 
-        [[nodiscard]] bool isFull() const;
+        [[nodiscard]] bool isEmpty() const;
+
+        void clear();
 
     private:
         size_t writeIndex{0}, readIndex{0};
-        Packet packetBuffer[kPacketBufferSize] = {};
+        Packet buffer[kPacketBufferSize] = {};
     };
 } // ananas
 

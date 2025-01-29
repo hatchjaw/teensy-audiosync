@@ -106,11 +106,11 @@ namespace ananas
         auto packetTime{packetBuffer.peek().time};
         auto diff{now - packetTime};
         while (abs(diff) > 2'666'666 && initialReadIndex != packetBuffer.getReadIndex()) {
-            if (std::signbit(diff)) {
-                packetBuffer.decrementReadIndex();
-            } else {
+            // if (std::signbit(diff)) {
+            //     packetBuffer.decrementReadIndex();
+            // } else {
                 packetBuffer.incrementReadIndex();
-            }
+            // }
             packetTime = packetBuffer.peek().time;
             diff = now - packetTime;
             Serial.print("Current time: ");
@@ -119,5 +119,10 @@ namespace ananas
             Utils::printTime(packetTime);
             Serial.printf(", diff: %" PRId64 "\n", diff);
         }
+    }
+
+    void AudioClient::prepare(uint sampleRate)
+    {
+        packetBuffer.clear();
     }
 }

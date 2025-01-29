@@ -4,7 +4,7 @@ namespace ananas {
     void PacketBuffer::write(const Packet &packet)
     {
         // memcpy(&packetBuffer[writeIndex], packet->rawData(), sizeof(NanoTime) + (128 << 2));
-        packetBuffer[writeIndex] = packet;
+        buffer[writeIndex] = packet;
         writeIndex = (writeIndex + 1) % kPacketBufferSize;
         // Might be better to avoid a division...
         // ++writeIndex;
@@ -22,7 +22,7 @@ namespace ananas {
 
     Packet &PacketBuffer::peek()
     {
-        return packetBuffer[readIndex];
+        return buffer[readIndex];
     }
 
     size_t PacketBuffer::printTo(Print &p) const
@@ -58,8 +58,15 @@ namespace ananas {
         return readIndex;
     }
 
-    bool PacketBuffer::isFull() const
+    bool PacketBuffer::isEmpty() const
     {
         return readIndex == writeIndex;
+    }
+
+    void PacketBuffer::clear()
+    {
+        readIndex = 0;
+        writeIndex = 0;
+        memset(buffer, 0, sizeof(buffer));
     }
 } // ananas

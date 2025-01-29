@@ -1,7 +1,6 @@
 #include "AnanasServer.h"
 
 #include <AnanasPacket.h>
-#include <NetAudioServer.h>
 #include <QNEthernet.h>
 #include <ptp/ptp-base.h>
 
@@ -32,7 +31,7 @@ namespace ananas
 
         // Get the current ethernet time.
         timespec ts{};
-        EthernetIEEE1588.readTimer(ts);
+        qindesign::network::EthernetIEEE1588.readTimer(ts);
         const NanoTime now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
         // Set packet time some way in the future.
         txPacket.time = now + kPacketReproductionOffsetNs;
@@ -40,9 +39,14 @@ namespace ananas
         packetBuffer.write(txPacket);
     }
 
+    void AudioServer::prepare(uint sampleRate)
+    {
+        packetBuffer.clear();
+    }
+
     void AudioServer::send()
     {
-        if (packetBuffer.isFull()) return;
+        if (packetBuffer.isEmpty()) return;
 
         socket.beginPacket({224, 4, 224, 4}, 49152);
         socket.write(packetBuffer.read().rawData(), sizeof(Packet));
