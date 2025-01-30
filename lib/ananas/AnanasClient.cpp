@@ -4,11 +4,6 @@
 
 namespace ananas
 {
-    AudioClient::AudioClient()
-    // : rxPacket(std::make_unique<Packet>())
-    {
-    }
-
     void AudioClient::begin()
     {
     }
@@ -54,20 +49,10 @@ namespace ananas
     {
         this->sampleRate = sampleRate;
         packetBuffer.clear();
-        firstProcessTime = 0;
     }
 
     void AudioClient::processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples)
     {
-        if (firstProcessTime == 0) {
-            timespec ts{};
-            qindesign::network::EthernetIEEE1588.readTimer(ts);
-            const NanoTime now{ts.tv_sec * Constants::kNanoSecondsPerSecond + ts.tv_nsec};
-            firstProcessTime = now;
-            Serial.print("First process time: ");
-            Utils::printTime(now);
-            Serial.println();
-        }
         nRead++;
 
         // // const auto audio{packetBuffer.read().audio()};

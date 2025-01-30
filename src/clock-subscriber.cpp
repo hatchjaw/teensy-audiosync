@@ -98,6 +98,17 @@ void loop()
     digitalWrite(13, ptp.getLockCount() > 5 ? HIGH : LOW);
 
     ananasClient.run();
+
+    // if (started && !paused && elapsed > 10000) {
+    //     audioSystemManager.stopClock();
+    //     Serial.println("Subscriber stop audio clock");
+    //     paused = true;
+    // } else if (started && paused && elapsed > 10100) {
+    //     audioSystemManager.startClock();
+    //     elapsed = 0;
+    //     Serial.println("Subscriber start audio clock");
+    //     paused = false;
+    // }
 }
 
 static void interrupt_1588_timer()
@@ -150,7 +161,7 @@ static void interrupt_1588_timer()
     // For arbitrary start times, it'll be necessary to measure the initial
     // offset, i.e. first large time adjustment.
     // shouldEnableAudio = interrupt_s >= 10;
-    const auto offset{ptp.getOffset()};
+    // const auto offset{ptp.getOffset()};
     shouldEnableAudio = ptp.getLockCount() > 0;// ptp.getDelay() != 0 && offset < 1000 && offset > -1000;
 
     NanoTime now{interrupt_s * NS_PER_S + interrupt_ns};

@@ -23,20 +23,18 @@ public:
 
     bool begin();
 
-    // void setSampleRate(double targetSampleRate);
-
     void adjustClock(double nspsDiscrepancy);
 
-    void startClock() const;
+    void startClock();
 
-    void stopClock() const;
+    void stopClock();
 
     volatile bool isClockRunning() const;
 
     static void setAudioProcessor(AudioProcessor *processor);
 
 private:
-    struct ClockDividers : Printable
+    struct ClockDividers final : Printable
     {
         uint8_t m_Pll4Div{ClockConstants::k_Pll4DivMin};
         int32_t m_Pll4Num{0};

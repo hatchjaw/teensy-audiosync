@@ -101,9 +101,7 @@ void AnalogAudioPllControlRegister::awaitLock() const
 {
     const auto cycles{ARM_DWT_CYCCNT};
     while (!(getValue() & CCM_ANALOG_PLL_AUDIO_LOCK)) {}
-    // Serial.printf("PLL4 lock took %" PRIu32 " cycles.\n", ARM_DWT_CYCCNT - cycles);
     while (ARM_DWT_CYCCNT - cycles < 300000) {}
-    // Serial.printf("PLL4 lock took %" PRIu32 " cycles.\n", ARM_DWT_CYCCNT - cycles);
 }
 
 //==============================================================================

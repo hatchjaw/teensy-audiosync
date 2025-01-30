@@ -16,6 +16,9 @@ AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
 FLASHMEM
 bool AudioSystemManager::begin()
 {
+    m_ClockDividers.calculateCoarse(m_Config.k_SampleRate);
+    Serial.print(m_ClockDividers);
+
     cycPreReg = ARM_DWT_CYCCNT;
 
     m_AnalogAudioPllControlRegister.begin();
@@ -184,8 +187,8 @@ void AudioSystemManager::setupDMA() const
 FLASHMEM
 void AudioSystemManager::setClock()
 {
-    m_ClockDividers.calculateCoarse(m_Config.k_SampleRate);
-    Serial.print(m_ClockDividers);
+    // m_ClockDividers.calculateCoarse(m_Config.k_SampleRate);
+    // Serial.print(m_ClockDividers);
 
     m_ClockGatingRegister5.enableSai1Clock();
 
@@ -214,49 +217,59 @@ void AudioSystemManager::setClock()
     // Serial.println(m_AnalogAudioPllControlRegister);
 }
 
-// void AudioSystemManager::setSampleRate(const double targetSampleRate)
-// {
-//     m_Config.setExactSampleRate(targetSampleRate);
-//     Serial.println(m_Config);
-//     m_ClockDividers.calculateFine(m_Config.getExactSampleRate());
-//     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
-// }
-
-void AudioSystemManager::startClock() const
+void AudioSystemManager::startClock()
 {
     s_FirstInterrupt = true;
 
-    // const auto cycles1{ARM_DWT_CYCCNT};
-    m_AnalogAudioPllControlRegister.setEnable(true);
-    // while (ARM_DWT_CYCCNT - cycles1 < 12500) {
-    //     // Arbitrary delay to attempt to encourage a distributed sync.
-    // }
-    // const auto cycles2{ARM_DWT_CYCCNT};
+    // timespec now{}, powerupT{}, enableT{}, unbypassT{};
+    // qindesign::network::EthernetIEEE1588.readTimer(now);
+    // auto initialNs{now.tv_nsec}, currentNs{now.tv_nsec};
+    //
+    // do {
+    //     qindesign::network::EthernetIEEE1588.readTimer(now);
+    //     currentNs = now.tv_nsec < initialNs ? 1'000'000'000 + now.tv_nsec : now.tv_nsec;
+    // } while (currentNs - initialNs < 20000);
+    // initialNs = currentNs;
+    // enableT = now;
+    // m_AnalogAudioPllControlRegister.setEnable(true);
+    // do {
+    //     qindesign::network::EthernetIEEE1588.readTimer(now);
+    //     currentNs = now.tv_nsec < initialNs ? 1'000'000'000 + now.tv_nsec : now.tv_nsec;
+    // } while (currentNs - initialNs < 20000);
+    // initialNs = currentNs;
+    // powerupT = now;
     // m_AnalogAudioPllControlRegister.setPowerDown(false);
-    m_AnalogAudioPllControlRegister.setBypass(false);
-    // const auto cycles3{ARM_DWT_CYCCNT};
-    // Serial.printf("PLL4 enable took %" PRIu32 " cycles.\n", cycles2 - cycles1);
-    // Serial.printf("PLL4 unbypass took %" PRIu32 " cycles.\n", cycles3 - cycles2);
+    // do {
+    //     qindesign::network::EthernetIEEE1588.readTimer(now);
+    //     currentNs = now.tv_nsec < initialNs ? 1'000'000'000 + now.tv_nsec : now.tv_nsec;
+    // } while (currentNs - initialNs < 20000);
+    // unbypassT = now;
+    // m_AnalogAudioPllControlRegister.setBypass(false);
+    //
+    // Serial.printf("Clock enabled at:    ");
+    // ananas::Utils::printTime(enableT.tv_sec * ClockConstants::k_NanosecondsPerSecond + enableT.tv_nsec);
+    // Serial.println();
+    // Serial.printf("Clock powered up at: ");
+    // ananas::Utils::printTime(powerupT.tv_sec * ClockConstants::k_NanosecondsPerSecond + powerupT.tv_nsec);
+    // Serial.println();
+    // Serial.printf("Clock unbypassed at: ");
+    // ananas::Utils::printTime(unbypassT.tv_sec * ClockConstants::k_NanosecondsPerSecond + unbypassT.tv_nsec);
+    // Serial.println();
 
-    // Serial.printf("Clock %s starting audio clock\n",
-    //               m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? "authority" : "subscriber");
-    // Serial.println(m_AnalogAudioPllControlRegister);
+    m_AnalogAudioPllControlRegister.setPowerDown(false);
+    m_AnalogAudioPllControlRegister.setBypass(false);
+    m_AnalogAudioPllControlRegister.setEnable(true);
+
+    m_AudioShield.volume(m_Config.k_Volume);
 }
 
-void AudioSystemManager::stopClock() const
+void AudioSystemManager::stopClock()
 {
-    // const auto cycles1{ARM_DWT_CYCCNT};
-    m_AnalogAudioPllControlRegister.setEnable(false);
-    // const auto cycles2{ARM_DWT_CYCCNT};
-    // m_AnalogAudioPllControlRegister.setPowerDown(true);
-    m_AnalogAudioPllControlRegister.setBypass(true);
-    // const auto cycles3{ARM_DWT_CYCCNT};
-    // Serial.printf("PLL4 disable took %" PRIu32 " cycles.\n", cycles2 - cycles1);
-    // Serial.printf("PLL4 bypass took %" PRIu32 " cycles.\n", cycles3 - cycles2);
+    m_AudioShield.volume(0.f);
 
-    // Serial.printf("Clock %s stopping audio clock\n",
-    //               m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? "authority" : "subscriber");
-    // Serial.println(m_AnalogAudioPllControlRegister);
+    m_AnalogAudioPllControlRegister.setEnable(false);
+    m_AnalogAudioPllControlRegister.setPowerDown(true);
+    m_AnalogAudioPllControlRegister.setBypass(true);
 
     s_FirstInterrupt = true;
 }

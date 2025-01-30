@@ -17,8 +17,6 @@ namespace ananas
                               public NetworkProcessor
     {
     public:
-        AudioClient();
-
         void begin() override;
 
         void run() override;
@@ -40,16 +38,13 @@ namespace ananas
         static constexpr size_t kHeaderSize{sizeof(NanoTime)};
         static constexpr size_t kPacketSize{kNumChannels * kNumFrames * kSampleSize + kHeaderSize};
 
-        // std::unique_ptr<Packet> rxPacket;
-        Packet rxPacket;
+        Packet rxPacket{};
         PacketBuffer packetBuffer;
         int sampleOffset{0};
 
         uint nWrite{0}, nRead{0};
         NanoTime prevTime{0}, totalTime{0};
         uint sampleRate{0};
-
-        NanoTime firstProcessTime{0};
     };
 }
 
