@@ -17,6 +17,7 @@ namespace ananas
          * Doesn't belong here.
          */
         static constexpr int64_t kNanoSecondsPerSecond{1'000'000'000};
+        static constexpr float kNanoSecondsPerCpuCycle{10.f/6.f};
         static constexpr size_t kAudioBlockFrames{AUDIO_BLOCK_SAMPLES};
     };
 
@@ -56,6 +57,11 @@ namespace ananas
             breakTime(x, tme);
 
             Serial.printf("%02d.%02d.%04d %02d:%02d:%02d::%03d:%03d:%03d", tme.Day, tme.Month, 1970 + tme.Year, tme.Hour, tme.Minute, tme.Second, ms, us, ns);
+        }
+
+        static uint32_t cyclesToNs(const uint32_t numCycles)
+        {
+            return static_cast<uint32_t>(numCycles * Constants::kNanoSecondsPerCpuCycle);
         }
     };
 }

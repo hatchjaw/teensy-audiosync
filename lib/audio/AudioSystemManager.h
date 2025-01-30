@@ -3,8 +3,8 @@
 
 #include <Arduino.h>
 #include <AudioProcessor.h>
-#include <control_sgtl5000.h>
 #include <DMAChannel.h>
+#include <Utils.h>
 
 #include "Config.h"
 #include "registers/MiscellaneousRegister2.h"
@@ -14,6 +14,7 @@
 #include "registers/ClockGatingRegister5.h"
 #include "registers/GeneralPurposeRegister1.h"
 #include "registers/SwMuxControlRegister.h"
+#include "SGTL5000.h"
 
 class AudioSystemManager
 {
@@ -22,7 +23,7 @@ public:
 
     bool begin();
 
-    void setSampleRate(double targetSampleRate);
+    // void setSampleRate(double targetSampleRate);
 
     void adjustClock(double nspsDiscrepancy);
 
@@ -77,6 +78,15 @@ private:
 
     static void isr();
 
+    uint32_t cycPreReg{0},
+            cycPostReg{0},
+            cycPostPin{0},
+            cycPostClk{0},
+            cycPostI2S{0},
+            cycPostDMA{0},
+            cycPostSGTL{0},
+            cycPostStop{0};
+
     AudioSystemConfig m_Config;
     ClockDividers m_ClockDividers;
 
@@ -93,14 +103,14 @@ private:
     Pin21SwMuxControlRegister m_Pin21SwMuxControlRegister;
     Pin23SwMuxControlRegister m_Pin23SwMuxControlRegister;
 
-    AudioControlSGTL5000 m_AudioShield;
+    SGTL5000 m_AudioShield;
 
     static AudioProcessor *s_AudioProcessor;
 
     static bool s_FirstInterrupt;
     static DMAChannel s_DMA;
 
-    static constexpr uint16_t k_I2sBufferSizeFrames{AUDIO_BLOCK_SAMPLES};
+    static constexpr uint16_t k_I2sBufferSizeFrames{ananas::Constants::kAudioBlockFrames};
     static constexpr size_t k_I2sBufferSizeBytes{k_I2sBufferSizeFrames * sizeof(int16_t)};
     DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_I2sBufferSizeFrames];
 };

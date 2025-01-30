@@ -5,7 +5,7 @@
 namespace ananas
 {
     AudioClient::AudioClient()
-        // : rxPacket(std::make_unique<Packet>())
+    // : rxPacket(std::make_unique<Packet>())
     {
     }
 
@@ -50,10 +50,24 @@ namespace ananas
         socket.beginMulticast({224, 4, 224, 4}, 49152);
     }
 
-    // static int16_t s{-(1 << 15)};
+    void AudioClient::prepare(uint sampleRate)
+    {
+        this->sampleRate = sampleRate;
+        packetBuffer.clear();
+        firstProcessTime = 0;
+    }
 
     void AudioClient::processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples)
     {
+        if (firstProcessTime == 0) {
+            timespec ts{};
+            qindesign::network::EthernetIEEE1588.readTimer(ts);
+            const NanoTime now{ts.tv_sec * Constants::kNanoSecondsPerSecond + ts.tv_nsec};
+            firstProcessTime = now;
+            Serial.print("First process time: ");
+            Utils::printTime(now);
+            Serial.println();
+        }
         nRead++;
 
         // // const auto audio{packetBuffer.read().audio()};
@@ -82,13 +96,6 @@ namespace ananas
         // }
 
         memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numSamples);
-
-        // for (auto n{0}; n < numSamples; ++n) {
-        //     for (auto c{0}; c < numChannels; ++c) {
-        //         dest[n * numChannels + c] = s;
-        //     }
-        //     s += 1 << 8;
-        // }
     }
 
     void AudioClient::printStats() const
@@ -105,24 +112,23 @@ namespace ananas
                 initialReadIndex{(idx + PacketBuffer::kPacketBufferSize - 1) % PacketBuffer::kPacketBufferSize};
         auto packetTime{packetBuffer.peek().time};
         auto diff{now - packetTime};
-        while (abs(diff) > 2'666'666 && initialReadIndex != packetBuffer.getReadIndex()) {
+        const auto kMaxDiff{static_cast<int64_t>(1e9 * kNumFrames / sampleRate)};
+        // while (abs(diff) > kMaxDiff && initialReadIndex != packetBuffer.getReadIndex()) {
+        while ((diff > kMaxDiff / 2 || diff < -kMaxDiff / 2) && initialReadIndex != packetBuffer.getReadIndex()) {
             // if (std::signbit(diff)) {
             //     packetBuffer.decrementReadIndex();
             // } else {
-                packetBuffer.incrementReadIndex();
+            packetBuffer.incrementReadIndex();
             // }
             packetTime = packetBuffer.peek().time;
             diff = now - packetTime;
-            Serial.print("Current time: ");
-            Utils::printTime(now);
-            Serial.printf(", Read index: %" PRIu32 "\nPacket time:  ", packetBuffer.getReadIndex());
-            Utils::printTime(packetTime);
-            Serial.printf(", diff: %" PRId64 "\n", diff);
+            // Serial.print("Current time: ");
+            // Utils::printTime(now);
+            // Serial.printf(", Read index: %" PRIu32 "\nPacket time:  ", packetBuffer.getReadIndex());
+            // Utils::printTime(packetTime);
+            // Serial.printf(", diff: %" PRId64 "\n", diff, kMaxDiff);
         }
-    }
-
-    void AudioClient::prepare(uint sampleRate)
-    {
-        packetBuffer.clear();
+        sampleOffset = diff / static_cast<int64_t>(1e9 / sampleRate);
+        // Serial.printf("Packet offset: %" PRId64 " ns, Sample offset: %" PRId32 "\n", diff, sampleOffset);
     }
 }

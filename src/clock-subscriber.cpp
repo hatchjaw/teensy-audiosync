@@ -7,22 +7,6 @@
 
 static void interrupt_1588_timer();
 
-void displayTime(const NanoTime t)
-{
-    NanoTime x = t;
-    const int ns = x % 1000;
-    x /= 1000;
-    const int us = x % 1000;
-    x /= 1000;
-    const int ms = x % 1000;
-    x /= 1000;
-
-    tmElements_t tme;
-    breakTime((time_t) x, tme);
-
-    Serial.printf("TIME: %02d.%02d.%04d %02d:%02d:%02d::%03d:%03d:%03d\n", tme.Day, tme.Month, 1970 + tme.Year, tme.Hour, tme.Minute, tme.Second, ms, us, ns);
-}
-
 volatile bool shouldEnableAudio{false};
 AudioSystemConfig config{
     AUDIO_BLOCK_SAMPLES,
@@ -31,13 +15,6 @@ AudioSystemConfig config{
 };
 AudioSystemManager audioSystemManager{config};
 ananas::AudioClient ananasClient;
-static constexpr size_t kNumChannels{2};
-static constexpr size_t kNumFrames{128};
-static constexpr size_t kSampleSize{sizeof(int16_t)};
-static constexpr size_t kHeaderSize{sizeof(NanoTime)};
-static constexpr size_t kPacketSize{kNumChannels * kNumFrames * kSampleSize + kHeaderSize};
-uint8_t rxPacketBuffer[kPacketSize];
-// qindesign::network::EthernetUDP socket;
 
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
@@ -63,7 +40,7 @@ void setup()
     pinMode(13, OUTPUT);
 
     // Setup networking
-    qindesign::network::Ethernet.setHostname("t41ptpslave");
+    qindesign::network::Ethernet.setHostname("t41ptpsubscriber");
     qindesign::network::Ethernet.macAddress(mac);
     staticIP[2] = mac[4];
     staticIP[3] = mac[5];
@@ -76,16 +53,9 @@ void setup()
         connected = state;
         if (state) {
             ptp.begin();
-            // socket.beginMulticast({224, 4, 224, 4}, 49152);
             ananasClient.connect();
         }
     });
-
-    Serial.println("Clock subscriber");
-    Serial.printf("Mac address:   %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    Serial.print("IP:            ");
-    Serial.println(qindesign::network::Ethernet.localIP());
-    Serial.println();
 
     // PPS Out
     // peripherial: ENET_1588_EVENT1_OUT
@@ -104,28 +74,19 @@ void setup()
     AudioSystemManager::setAudioProcessor(&ananasClient);
     audioSystemManager.begin();
     ananasClient.begin();
+
+    // Report *after* setting everything up.
+    Serial.println("Clock subscriber");
+    Serial.printf("Mac address:   %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    Serial.print("IP:            ");
+    Serial.println(qindesign::network::Ethernet.localIP());
+    Serial.println();
 }
 
 NanoTime interrupt_s = 0;
 NanoTime interrupt_ns = 0;
 NanoTime pps_s = 0;
 NanoTime pps_ns = 0;
-
-void hexDump(const uint8_t *buffer, const int length)
-{
-    int word{0}, row{0};
-    for (const uint8_t *p = buffer; word < length; ++p, ++word) {
-        if (word % 16 == 0) {
-            if (word != 0) Serial.print(F("\n"));
-            Serial.printf(F("%04x: "), row);
-            ++row;
-        } else if (word % 2 == 0) {
-            Serial.print(F(" "));
-        }
-        Serial.printf(F("%02x "), *p);
-    }
-    Serial.println(F("\n"));
-}
 
 int numRead{0};
 
@@ -135,21 +96,6 @@ void loop()
 
     // Six consecutive offsets below 100 ns sets pin 13 high to switch on the LED
     digitalWrite(13, ptp.getLockCount() > 5 ? HIGH : LOW);
-
-    // if (auto size{socket.parsePacket()}; size > 0) {
-    //     numRead++;
-    //     // Serial.printf("Found packet of %d bytes\n", size);
-    //     if (size == kPacketSize) {
-    //         socket.read(rxPacketBuffer, size);
-    //         // if (numRead % 100 == 0) {
-    //         //     hexDump(rxPacketBuffer, size);
-    //         // }
-    //         AudioSystemManager::writeToPacketBuffer(rxPacketBuffer);
-    //     } else {
-    //         socket.read(rxPacketBuffer, size);
-    //         AudioSystemManager::writeToRxAudioBuffer((int16_t *) rxPacketBuffer, 2, size >> 2);
-    //     }
-    // }
 
     ananasClient.run();
 }
@@ -184,8 +130,6 @@ static void interrupt_1588_timer()
     interrupt_ns = t;
     pps_ns = 0;
 
-    // displayTime(interrupt_s * NS_PER_S + interrupt_ns);
-
     // Serial.printf("Adjust: %f\n"
     //               "Accum: %d\n"
     //               "Drift: %f\n"
@@ -205,19 +149,24 @@ static void interrupt_1588_timer()
     // Only works if started at *around the same time* as the clock authority.
     // For arbitrary start times, it'll be necessary to measure the initial
     // offset, i.e. first large time adjustment.
-    shouldEnableAudio = interrupt_s >= 10; //% 10 != 9;
+    // shouldEnableAudio = interrupt_s >= 10;
+    const auto offset{ptp.getOffset()};
+    shouldEnableAudio = ptp.getLockCount() > 0;// ptp.getDelay() != 0 && offset < 1000 && offset > -1000;
 
     NanoTime now{interrupt_s * NS_PER_S + interrupt_ns};
 
     if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
-        Serial.print("Subscriber start audio clock ");
-        displayTime(now);
+        // audioSystemManager.begin();
         audioSystemManager.startClock();
+        Serial.print("Subscriber start audio clock ");
+        ananas::Utils::printTime(now);
+        Serial.println();
     } else if (!shouldEnableAudio && audioSystemManager.isClockRunning()) {
-        displayTime(now);
-        audioSystemManager.stopClock();
+        // audioSystemManager.stopClock();
+        // ananas::Utils::printTime(now);
+        // Serial.println();
     } else if (audioSystemManager.isClockRunning()) {
-        ananasClient.printStats();
+//        ananasClient.printStats();
         ananasClient.adjustBufferReadIndex(now);
     }
 

@@ -16,7 +16,7 @@ AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
 FLASHMEM
 bool AudioSystemManager::begin()
 {
-    Serial.println(m_Config);
+    cycPreReg = ARM_DWT_CYCCNT;
 
     m_AnalogAudioPllControlRegister.begin();
     m_AudioPllNumeratorRegister.begin();
@@ -31,24 +31,77 @@ bool AudioSystemManager::begin()
     m_Pin21SwMuxControlRegister.begin();
     m_Pin23SwMuxControlRegister.begin();
 
+    cycPostReg = ARM_DWT_CYCCNT;
+
     setupPins();
+
+    cycPostPin = ARM_DWT_CYCCNT;
 
     // The order of these calls is important.
     setClock();
 
+    cycPostClk = ARM_DWT_CYCCNT;
+
     setupI2S();
 
+    cycPostI2S = ARM_DWT_CYCCNT;
+
     setupDMA();
+
+    s_FirstInterrupt = true;
+
+    cycPostDMA = ARM_DWT_CYCCNT;
 
     // This call must follow the above, and features some significant delays.
     m_AudioShield.enable();
     // TODO: either mute the audio shield till clock startup, or output zeros.
     m_AudioShield.volume(m_Config.k_Volume);
 
+    cycPostSGTL = ARM_DWT_CYCCNT;
+
     // Stop the audio clock till PTP settles down...
     stopClock();
 
+    cycPostStop = ARM_DWT_CYCCNT;
+
     s_AudioProcessor->prepare(m_Config.k_SampleRate);
+
+    // With predictability of timing in mind, report setup here, rather than
+    // between calls to set up registers.
+    Serial.println(m_Config);
+    Serial.printf("Audio interrupt priority: %d\n", NVIC_GET_PRIORITY(s_DMA.channel));
+
+    Serial.printf(
+        // "- Register setup took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "- Pin setup took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "- Clock setup took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "- I2S setup took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "- DMA setup took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "- Audio shield setup took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "  - Begin took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "  - Init took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "  - Analog power took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "  - Digital power took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "  - Line out took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "  - Clock took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "  - Setup took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        // "- Audio stop took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
+        "=== Audio system setup took %" PRIu32 " cycles (%" PRIu32 " ns).\n",
+        // cycPostReg - cycPreReg, ananas::Utils::cyclesToNs(cycPostReg - cycPreReg),
+        // cycPostPin - cycPostReg, ananas::Utils::cyclesToNs(cycPostPin - cycPostReg),
+        // cycPostClk - cycPostPin, ananas::Utils::cyclesToNs(cycPostClk - cycPostPin),
+        // cycPostI2S - cycPostClk, ananas::Utils::cyclesToNs(cycPostI2S - cycPostClk),
+        // cycPostDMA - cycPostI2S, ananas::Utils::cyclesToNs(cycPostDMA - cycPostI2S),
+        // cycPostSGTL - cycPostDMA, ananas::Utils::cyclesToNs(cycPostSGTL - cycPostDMA),
+        // m_AudioShield.cycPostBegin - m_AudioShield.cycStart, ananas::Utils::cyclesToNs(m_AudioShield.cycPostBegin - m_AudioShield.cycStart),
+        // m_AudioShield.cycPostInit - m_AudioShield.cycPostBegin, ananas::Utils::cyclesToNs(m_AudioShield.cycPostInit - m_AudioShield.cycPostBegin),
+        // m_AudioShield.cycPostAnPwr - m_AudioShield.cycPostInit, ananas::Utils::cyclesToNs(m_AudioShield.cycPostAnPwr - m_AudioShield.cycPostInit),
+        // m_AudioShield.cycPostDgPwr - m_AudioShield.cycPostAnPwr, ananas::Utils::cyclesToNs(m_AudioShield.cycPostDgPwr - m_AudioShield.cycPostAnPwr),
+        // m_AudioShield.cycPostLnOut - m_AudioShield.cycPostDgPwr, ananas::Utils::cyclesToNs(m_AudioShield.cycPostLnOut - m_AudioShield.cycPostDgPwr),
+        // m_AudioShield.cycPostClock - m_AudioShield.cycPostLnOut, ananas::Utils::cyclesToNs(m_AudioShield.cycPostClock - m_AudioShield.cycPostLnOut),
+        // m_AudioShield.cycPostSetup - m_AudioShield.cycPostClock, ananas::Utils::cyclesToNs(m_AudioShield.cycPostSetup - m_AudioShield.cycPostClock),
+        // cycPostStop - cycPostSGTL, ananas::Utils::cyclesToNs(cycPostStop - cycPostSGTL),
+        cycPostStop - cycPreReg, ananas::Utils::cyclesToNs(cycPostStop - cycPreReg));
 
     return true;
 }
@@ -122,56 +175,10 @@ void AudioSystemManager::setupDMA() const
     I2S1_RCSR |= I2S_RCSR_RE | I2S_RCSR_BCE;
     I2S1_TCSR = I2S_TCSR_TE | I2S_TCSR_BCE | I2S_TCSR_FRDE;
 
-    s_DMA.attachInterrupt(
-        isr, //m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? clockAuthorityISR : clockSubscriberISR,
-        80 // default, apparently (source?..)
-    );
-
-    Serial.printf("Audio interrupt priority: %d\n", NVIC_GET_PRIORITY(s_DMA.channel));
-}
-
-static int16_t buff[128 * 2]; // audio block frames * numChannels
-static uint count{0};
-
-void AudioSystemManager::isr()
-{
-    if (s_FirstInterrupt) {
-        s_FirstInterrupt = false;
-        timespec ts{};
-        qindesign::network::EthernetIEEE1588.readTimer(ts);
-        const auto ns{ts.tv_sec * ClockConstants::k_NanosecondsPerSecond + ts.tv_nsec};
-        Serial.print("First interrupt time: ");
-        ananas::Utils::printTime(ns);
-        Serial.println();
-    }
-
-    int16_t *destination, *source;
-    const auto sourceAddress = (uint32_t) s_DMA.TCD->SADDR;
-    s_DMA.clearInterrupt();
-
-    // Bloody hell, I'm not sure why this works. Fill the second half of the I2S
-    // buffer with the first half of the source buffer?..
-    if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
-        s_AudioProcessor->processAudio(buff, 2, k_I2sBufferSizeFrames);
-        // DMA is transmitting the first half of the buffer; fill the second half.
-        destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSizeFrames / 2];
-        // source = &buff[k_I2sBufferSizeFrames]; // That's the midpoint.
-        source = buff;
-
-        // if (++count % 1000 <= 1) {
-        //     Serial.println("Output buffer:");
-        //     ananas::Utils::hexDump(reinterpret_cast<uint8_t *>(buff), sizeof(int16_t) * 2 * k_I2sBufferSizeFrames);
-        // }
-    } else {
-        // DMA is transmitting the second half of the buffer; fill the first half.
-        destination = (int16_t *) s_I2sTxBuffer;
-        // source = buff;
-        source = &buff[k_I2sBufferSizeFrames]; // That's the midpoint.
-    }
-
-    memcpy(destination, source, k_I2sBufferSizeBytes); // Actually number of bytes over two?
-
-    arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
+    s_DMA.attachInterrupt(isr);
+    // isr,
+    // 64 // 128 is the default, i.e. the priority assigned if none is provided.
+    // );
 }
 
 FLASHMEM
@@ -204,24 +211,32 @@ void AudioSystemManager::setClock()
     m_AnalogAudioPllControlRegister.setPowerDown(false);
     m_AnalogAudioPllControlRegister.setBypass(false);
 
-    Serial.println(m_AnalogAudioPllControlRegister);
+    // Serial.println(m_AnalogAudioPllControlRegister);
 }
 
-void AudioSystemManager::setSampleRate(const double targetSampleRate)
-{
-    m_Config.setExactSampleRate(targetSampleRate);
-    Serial.println(m_Config);
-    m_ClockDividers.calculateFine(m_Config.getExactSampleRate());
-    m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
-}
+// void AudioSystemManager::setSampleRate(const double targetSampleRate)
+// {
+//     m_Config.setExactSampleRate(targetSampleRate);
+//     Serial.println(m_Config);
+//     m_ClockDividers.calculateFine(m_Config.getExactSampleRate());
+//     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
+// }
 
 void AudioSystemManager::startClock() const
 {
     s_FirstInterrupt = true;
 
+    // const auto cycles1{ARM_DWT_CYCCNT};
     m_AnalogAudioPllControlRegister.setEnable(true);
+    // while (ARM_DWT_CYCCNT - cycles1 < 12500) {
+    //     // Arbitrary delay to attempt to encourage a distributed sync.
+    // }
+    // const auto cycles2{ARM_DWT_CYCCNT};
     // m_AnalogAudioPllControlRegister.setPowerDown(false);
-    // m_AnalogAudioPllControlRegister.setBypass(false);
+    m_AnalogAudioPllControlRegister.setBypass(false);
+    // const auto cycles3{ARM_DWT_CYCCNT};
+    // Serial.printf("PLL4 enable took %" PRIu32 " cycles.\n", cycles2 - cycles1);
+    // Serial.printf("PLL4 unbypass took %" PRIu32 " cycles.\n", cycles3 - cycles2);
 
     // Serial.printf("Clock %s starting audio clock\n",
     //               m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? "authority" : "subscriber");
@@ -230,9 +245,14 @@ void AudioSystemManager::startClock() const
 
 void AudioSystemManager::stopClock() const
 {
-    // m_AnalogAudioPllControlRegister.setBypass(true);
-    // m_AnalogAudioPllControlRegister.setPowerDown(false);
+    // const auto cycles1{ARM_DWT_CYCCNT};
     m_AnalogAudioPllControlRegister.setEnable(false);
+    // const auto cycles2{ARM_DWT_CYCCNT};
+    // m_AnalogAudioPllControlRegister.setPowerDown(true);
+    m_AnalogAudioPllControlRegister.setBypass(true);
+    // const auto cycles3{ARM_DWT_CYCCNT};
+    // Serial.printf("PLL4 disable took %" PRIu32 " cycles.\n", cycles2 - cycles1);
+    // Serial.printf("PLL4 bypass took %" PRIu32 " cycles.\n", cycles3 - cycles2);
 
     // Serial.printf("Clock %s stopping audio clock\n",
     //               m_Config.k_ClockRole == AudioSystemConfig::ClockRole::Authority ? "authority" : "subscriber");
@@ -253,19 +273,64 @@ void AudioSystemManager::setAudioProcessor(AudioProcessor *processor)
 
 void AudioSystemManager::adjustClock(const double nspsDiscrepancy)
 {
-    Serial.printf("Skew (nsps): %*.*f\n", 26, 8, nspsDiscrepancy);
-
     const double proportionalAdjustment{
         1. + nspsDiscrepancy /
         (double) ClockConstants::k_NanosecondsPerSecond
     };
 
-    Serial.printf("Proportional adjustment: %*.*f\n", 14, 8, proportionalAdjustment);
-
     m_Config.setExactSampleRate(proportionalAdjustment);
-    Serial.println(m_Config);
     m_ClockDividers.calculateFine(m_Config.getExactSampleRate());
     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
+
+    // Serial.println(m_Config);
+
+    // Serial.printf("Skew (nsps): %*.*f\n", 26, 8, nspsDiscrepancy);
+    // Serial.printf("Proportional adjustment: %*.*f\n", 14, 8, proportionalAdjustment);
+}
+
+// TODO: move these into the class.
+static int16_t buff[128 * 2]; // audio block frames * numChannels
+static uint count{0};
+
+void AudioSystemManager::isr()
+{
+    int16_t *destination, *source;
+    const auto sourceAddress = (uint32_t) s_DMA.TCD->SADDR;
+    s_DMA.clearInterrupt();
+
+    // Bloody hell, I'm not sure why this works. Fill the second half of the I2S
+    // buffer with the first half of the source buffer?..
+    if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
+        s_AudioProcessor->processAudio(buff, 2, k_I2sBufferSizeFrames);
+        // DMA is transmitting the first half of the buffer; fill the second half.
+        destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSizeFrames / 2];
+        // source = &buff[k_I2sBufferSizeFrames]; // That's the midpoint.
+        source = buff;
+
+        // if (++count % 1000 <= 1) {
+        //     Serial.println("Output buffer:");
+        //     ananas::Utils::hexDump(reinterpret_cast<uint8_t *>(buff), sizeof(int16_t) * 2 * k_I2sBufferSizeFrames);
+        // }
+    } else {
+        // DMA is transmitting the second half of the buffer; fill the first half.
+        destination = (int16_t *) s_I2sTxBuffer;
+        // source = buff;
+        source = &buff[k_I2sBufferSizeFrames]; // That's the midpoint.
+    }
+
+    memcpy(destination, source, k_I2sBufferSizeBytes); // Actually number of bytes over two?
+
+    arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
+
+    if (s_FirstInterrupt) {
+        s_FirstInterrupt = false;
+        timespec ts{};
+        qindesign::network::EthernetIEEE1588.readTimer(ts);
+        const auto ns{ts.tv_sec * ClockConstants::k_NanosecondsPerSecond + ts.tv_nsec};
+        Serial.print("First interrupt time: ");
+        ananas::Utils::printTime(ns);
+        Serial.println();
+    }
 }
 
 FLASHMEM
@@ -320,7 +385,7 @@ void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSam
             if (isPll4FreqValid()
                 //                && getPll4Freq() > (ClockConstants::k_pll4FreqMin + ClockConstants::k_pll4FreqMax) / 2
                 && m_Pll4Denom == 1'000'000'000) {
-                Serial.println(*this);
+                // Serial.println(*this);
                 return;
             } else {
                 break;
@@ -346,9 +411,9 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
         return;
     }
 
-    Serial.printf("PLL4 numerator: %23" PRId32 "\n"
-                  "PLL4 denominator: %21" PRIu32 "\n",
-                  numInt, m_Pll4Denom);
+    // Serial.printf("PLL4 numerator: %23" PRId32 "\n"
+    //               "PLL4 denominator: %21" PRIu32 "\n",
+    //               numInt, m_Pll4Denom);
 
     m_Pll4Num = numInt;
 }

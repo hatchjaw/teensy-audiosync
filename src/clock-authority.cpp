@@ -13,22 +13,6 @@ void announceInterrupt();
 
 static void interrupt_1588_timer();
 
-void displayTime(const NanoTime t)
-{
-    NanoTime x = t;
-    const int ns = x % 1000;
-    x /= 1000;
-    const int us = x % 1000;
-    x /= 1000;
-    const int ms = x % 1000;
-    x /= 1000;
-
-    tmElements_t tme;
-    breakTime((time_t) x, tme);
-
-    Serial.printf("TIME: %02d.%02d.%04d %02d:%02d:%02d::%03d:%03d:%03d\n", tme.Day, tme.Month, 1970 + tme.Year, tme.Hour, tme.Minute, tme.Second, ms, us, ns);
-}
-
 bool shouldEnableAudio{false};
 
 AudioSystemConfig config{
@@ -37,8 +21,6 @@ AudioSystemConfig config{
     AudioSystemConfig::ClockRole::Authority
 };
 AudioSystemManager audioSystemManager{config};
-
-uint count{0};
 
 class Proc1 final : public AudioProcessor
 {
@@ -84,10 +66,6 @@ public:
     void processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples) override
     {
         pulseTrain.processAudio(buffer, numChannels, numSamples);
-        // if (count++ % 1000 >= 1) {
-        //     Serial.println("After pulse train");
-        //     ananas::Utils::hexDump(reinterpret_cast<uint8_t *>(buffer), sizeof(int16_t) * numChannels * numSamples);
-        // }
         server.processAudio(buffer, numChannels, numSamples);
     }
 
@@ -129,7 +107,7 @@ void setup()
     pinMode(13, OUTPUT);
 
     // Setup networking
-    qindesign::network::Ethernet.setHostname("t41ptpmaster");
+    qindesign::network::Ethernet.setHostname("t41ptpauthority");
     qindesign::network::Ethernet.macAddress(mac);
     staticIP[2] = mac[4];
     staticIP[3] = mac[5];
@@ -262,32 +240,20 @@ static void interrupt_1588_timer()
     interrupt_ns = t;
     pps_ns = 0;
 
-    // Only needed if running with GPS input
-    //    pps = true;
-    //    noPPSCount = 0;
-
-    //    shouldEnableAudio = ts.tv_sec == 5;
-    //
-    //    if (shouldEnableAudio && !audioEnabled) {
-    //        displayTime((ts.tv_sec * NS_PER_S) + ts.tv_nsec);
-    //        Serial.println("Leader: Starting Audio");
-    //        audioSystemManager.start();
-    //        counter = 0;
-    //        audioEnabled = true;
-    //    }
-
     // Start audio at t = 10s
-    shouldEnableAudio = interrupt_s >= 10; // % 10 != 9;
+    shouldEnableAudio = interrupt_s >= 10;
 
     const NanoTime now{interrupt_s * NS_PER_S + interrupt_ns};
 
     if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
-        Serial.print("Authority start audio clock ");
-        displayTime(now);
         audioSystemManager.startClock();
+        Serial.print("Authority start audio clock ");
+        ananas::Utils::printTime(now);
+        Serial.println();
     } else if (!shouldEnableAudio && audioSystemManager.isClockRunning()) {
-        displayTime(now);
         audioSystemManager.stopClock();
+        ananas::Utils::printTime(now);
+        Serial.println();
     } else if (audioSystemManager.isClockRunning()) {
         // ananasServer.adjustBufferReadIndex(now);
     }

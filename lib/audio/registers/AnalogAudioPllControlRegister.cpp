@@ -13,7 +13,8 @@ bool AnalogAudioPllControlRegister::setBypass(bool bypass) const
     } else {
         clear(CCM_ANALOG_PLL_AUDIO_BYPASS);
     }
-//    Serial.printf("bypass: CCM_ANALOG_PLL_AUDIO: %X\n", getValue());
+
+    //    Serial.printf("bypass: CCM_ANALOG_PLL_AUDIO: %X\n", getValue());
     return true;
 }
 
@@ -24,6 +25,7 @@ bool AnalogAudioPllControlRegister::setEnable(bool enable) const
     } else {
         clear(CCM_ANALOG_PLL_AUDIO_ENABLE);
     }
+
 //    Serial.printf("enable: CCM_ANALOG_PLL_AUDIO: %X\n", getValue());
     return true;
 }
@@ -99,7 +101,9 @@ void AnalogAudioPllControlRegister::awaitLock() const
 {
     const auto cycles{ARM_DWT_CYCCNT};
     while (!(getValue() & CCM_ANALOG_PLL_AUDIO_LOCK)) {}
-    Serial.printf("PLL4 lock took %" PRIu32 " cycles.\n", ARM_DWT_CYCCNT - cycles);
+    // Serial.printf("PLL4 lock took %" PRIu32 " cycles.\n", ARM_DWT_CYCCNT - cycles);
+    while (ARM_DWT_CYCCNT - cycles < 300000) {}
+    // Serial.printf("PLL4 lock took %" PRIu32 " cycles.\n", ARM_DWT_CYCCNT - cycles);
 }
 
 //==============================================================================

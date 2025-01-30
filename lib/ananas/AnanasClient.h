@@ -1,7 +1,6 @@
 #ifndef ANANASCLIENT_H
 #define ANANASCLIENT_H
 
-#include <memory>
 #include <AudioProcessor.h>
 #include <ProgramComponent.h>
 #include <NetworkProcessor.h>
@@ -44,9 +43,13 @@ namespace ananas
         // std::unique_ptr<Packet> rxPacket;
         Packet rxPacket;
         PacketBuffer packetBuffer;
+        int sampleOffset{0};
 
         uint nWrite{0}, nRead{0};
         NanoTime prevTime{0}, totalTime{0};
+        uint sampleRate{0};
+
+        NanoTime firstProcessTime{0};
     };
 }
 
