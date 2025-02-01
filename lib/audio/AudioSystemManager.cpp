@@ -11,13 +11,15 @@ DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k
 AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
     : m_Config(config)
 {
-    m_ClockDividers.calculateCoarse(m_Config.k_SampleRate);
-    Serial.print(m_ClockDividers);
 }
 
 FLASHMEM
 bool AudioSystemManager::begin()
 {
+    // Calculate fundamental values for clock dividers.
+    m_ClockDividers.calculateCoarse(m_Config.k_SampleRate);
+    Serial.print(m_ClockDividers);
+
     // Set up the audio processor.
     s_AudioProcessor->prepare(m_Config.k_SampleRate);
 
@@ -74,7 +76,7 @@ bool AudioSystemManager::begin()
     //==========================================================================
     // Set audio PLL (PLL4) and SAI1 clock registers
     //==========================================================================
-    // Enable SAI1 (can this be moved?)
+    // Enable SAI1 clock
     m_ClockGatingRegister5.enableSai1Clock();
 
     m_SerialClockMultiplexerRegister1.setSai1ClkSel(SerialClockMultiplexerRegister1::Sai1ClkSel::DeriveClockFromPll4);
@@ -99,9 +101,9 @@ bool AudioSystemManager::begin()
     //==========================================================================
     // These have to be present. Not necessarily in this order, but if not here
     // the audio subsystem appears to work, but not the audio shield.
-    m_AnalogAudioPllControlRegister.setEnable(true);
-    m_AnalogAudioPllControlRegister.setPowerDown(false);
-    m_AnalogAudioPllControlRegister.setBypass(false);
+    // m_AnalogAudioPllControlRegister.setEnable(true);
+    // m_AnalogAudioPllControlRegister.setPowerDown(false);
+    // m_AnalogAudioPllControlRegister.setBypass(false);
 
     cycPostClk = ARM_DWT_CYCCNT;
 
@@ -166,12 +168,12 @@ bool AudioSystemManager::begin()
     s_DMA.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI1_TX); // i2s channel that will trigger the DMA transfer when ready for data
     s_DMA.enable();
 
-    m_SAI1TransmitControlRegister.setTransmitterEnable(true);
-    m_SAI1TransmitControlRegister.setBitClockEnable(true);
-    m_SAI1TransmitControlRegister.setFIFORequestDMAEnable(true);
-    m_SAI1ReceiveControlRegister.setReceiverEnable(true);
-    m_SAI1ReceiveControlRegister.setBitClockEnable(true);
-
+    // m_SAI1TransmitControlRegister.setTransmitterEnable(true);
+    // m_SAI1TransmitControlRegister.setBitClockEnable(true);
+    // m_SAI1TransmitControlRegister.setFIFORequestDMAEnable(true);
+    // m_SAI1ReceiveControlRegister.setReceiverEnable(true);
+    // m_SAI1ReceiveControlRegister.setBitClockEnable(true);
+    //
     s_DMA.attachInterrupt(isr);
 
     s_FirstInterrupt = true;
@@ -182,16 +184,15 @@ bool AudioSystemManager::begin()
     // Enable the audio shield
     //==========================================================================
     // This call must follow the above, and features some significant delays.
-    m_AudioShield.enable();
-    // TODO: either mute the audio shield till clock startup, or output zeros.
-    m_AudioShield.volume(m_Config.k_Volume);
+    // m_AudioShield.enable();
+    // m_AudioShield.volume(m_Config.k_Volume);
 
     //==========================================================================
 
     cycPostSGTL = ARM_DWT_CYCCNT;
 
     // Stop the audio clock (originally till PTP settles down...)
-    stopClock();
+    // stopClock();
 
     cycPostStop = ARM_DWT_CYCCNT;
 
@@ -356,15 +357,20 @@ void AudioSystemManager::setClock()
 
 void AudioSystemManager::startClock()
 {
-    s_FirstInterrupt = true;
-
     m_AnalogAudioPllControlRegister.setPowerDown(false);
     m_AnalogAudioPllControlRegister.setBypass(false);
     m_AnalogAudioPllControlRegister.setEnable(true);
 
-    m_SAI1TransmitControlRegister.resetFIFO();
+    m_SAI1TransmitControlRegister.setTransmitterEnable(true);
+    m_SAI1TransmitControlRegister.setBitClockEnable(true);
+    m_SAI1TransmitControlRegister.setFIFORequestDMAEnable(true);
+    m_SAI1ReceiveControlRegister.setReceiverEnable(true);
+    m_SAI1ReceiveControlRegister.setBitClockEnable(true);
 
+    m_AudioShield.enable();
     m_AudioShield.volume(m_Config.k_Volume);
+
+    s_FirstInterrupt = true;
 }
 
 void AudioSystemManager::stopClock()

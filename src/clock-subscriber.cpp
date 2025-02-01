@@ -72,7 +72,7 @@ void setup()
 
     // Set up audio
     AudioSystemManager::setAudioProcessor(&ananasClient);
-    // audioSystemManager.begin();
+    audioSystemManager.begin();
     ananasClient.begin();
 
     // Report *after* setting everything up.
@@ -157,7 +157,7 @@ static void interrupt_1588_timer()
             now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
 
     if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
-        audioSystemManager.begin();
+        // audioSystemManager.begin();
         audioSystemManager.startClock();
         Serial.print("Subscriber start audio clock ");
         ananas::Utils::printTime(enetCompareTime);
