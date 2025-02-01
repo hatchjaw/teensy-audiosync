@@ -3,7 +3,7 @@
 bool MiscellaneousRegister2::begin()
 {
     setAudioPostDiv(AudioPostDiv::DivideBy1);
-    return false;
+    return true;
 }
 
 bool MiscellaneousRegister2::setAudioPostDiv(const AudioPostDiv div) const

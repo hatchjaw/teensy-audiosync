@@ -62,7 +62,7 @@ void setup()
     // IOMUX: ALT6
     // teensy pin: 24
     CORE_PIN24_CONFIG = 6;
-    qindesign::network::EthernetIEEE1588.setChannelCompareValue(1, NS_PER_S - 60);
+    qindesign::network::EthernetIEEE1588.setChannelCompareValue(1, NS_PER_S);
     qindesign::network::EthernetIEEE1588.setChannelMode(1, qindesign::network::EthernetIEEE1588Class::TimerChannelModes::kPulseHighOnCompare);
     qindesign::network::EthernetIEEE1588.setChannelOutputPulseWidth(1, 25);
 
@@ -72,7 +72,7 @@ void setup()
 
     // Set up audio
     AudioSystemManager::setAudioProcessor(&ananasClient);
-    audioSystemManager.begin();
+    // audioSystemManager.begin();
     ananasClient.begin();
 
     // Report *after* setting everything up.
@@ -85,8 +85,6 @@ void setup()
 
 NanoTime interrupt_s = 0;
 NanoTime interrupt_ns = 0;
-NanoTime pps_s = 0;
-NanoTime pps_ns = 0;
 
 int numRead{0};
 
@@ -98,17 +96,6 @@ void loop()
     digitalWrite(13, ptp.getLockCount() > 5 ? HIGH : LOW);
 
     ananasClient.run();
-
-    // if (started && !paused && elapsed > 10000) {
-    //     audioSystemManager.stopClock();
-    //     Serial.println("Subscriber stop audio clock");
-    //     paused = true;
-    // } else if (started && paused && elapsed > 10100) {
-    //     audioSystemManager.startClock();
-    //     elapsed = 0;
-    //     Serial.println("Subscriber start audio clock");
-    //     paused = false;
-    // }
 }
 
 static void interrupt_1588_timer()
@@ -121,25 +108,27 @@ static void interrupt_1588_timer()
     }
     qindesign::network::EthernetIEEE1588.getChannelCompareValue(1, t);
 
-    t = ((NanoTime) t + NS_PER_S - 60) % NS_PER_S;
+    t %= NS_PER_S;
 
-    timespec ts;
+    timespec ts{};
     qindesign::network::EthernetIEEE1588.readTimer(ts);
 
+    // The channel compare value may be close to, but not exactly, 1e9.
+    // If it's just less than 1e9, the tv_sec part of the timespec read from the
+    // timer will be 1 second too great.
+    // What circumstances exist where t < 9e8 and tv_nsec > 1e8 I don't know;
+    // perhaps when using an external PPS source.
+    // The subscriber probably doesn't need to perform this check.
     if (ts.tv_nsec < 100 * 1000 * 1000 && t > 900 * 1000 * 1000) {
-        pps_s = ts.tv_sec;
         interrupt_s = ts.tv_sec - 1;
+        // Serial.printf("t (channel compare): %" PRIu32 ", ts.tv_nsec: %" PRId32 "\n", t, ts.tv_nsec);
+        // Serial.printf("So interrupt_s = %" PRId64 " = %" PRId32 " - 1\n", interrupt_s, ts.tv_sec);
     } else {
         interrupt_s = ts.tv_sec;
-        if (ts.tv_nsec < 500 * 1000 * 1000) {
-            pps_s = ts.tv_sec;
-        } else {
-            pps_s = ts.tv_sec + 1;
-        }
+        // Serial.printf("t (channel compare): %" PRIu32 ", ts.tv_nsec: %" PRId32 "\n", t, ts.tv_nsec);
     }
 
     interrupt_ns = t;
-    pps_ns = 0;
 
     // Serial.printf("Adjust: %f\n"
     //               "Accum: %d\n"
@@ -162,22 +151,23 @@ static void interrupt_1588_timer()
     // offset, i.e. first large time adjustment.
     // shouldEnableAudio = interrupt_s >= 10;
     // const auto offset{ptp.getOffset()};
-    shouldEnableAudio = ptp.getLockCount() > 0;// ptp.getDelay() != 0 && offset < 1000 && offset > -1000;
+    shouldEnableAudio = ptp.getLockCount() > 0; // ptp.getDelay() != 0 && offset < 1000 && offset > -1000;
 
-    NanoTime now{interrupt_s * NS_PER_S + interrupt_ns};
+    const NanoTime enetCompareTime{interrupt_s * NS_PER_S + interrupt_ns},
+            now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
 
     if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
-        // audioSystemManager.begin();
+        audioSystemManager.begin();
         audioSystemManager.startClock();
         Serial.print("Subscriber start audio clock ");
-        ananas::Utils::printTime(now);
+        ananas::Utils::printTime(enetCompareTime);
         Serial.println();
     } else if (!shouldEnableAudio && audioSystemManager.isClockRunning()) {
         // audioSystemManager.stopClock();
         // ananas::Utils::printTime(now);
         // Serial.println();
     } else if (audioSystemManager.isClockRunning()) {
-//        ananasClient.printStats();
+        //        ananasClient.printStats();
         ananasClient.adjustBufferReadIndex(now);
     }
 

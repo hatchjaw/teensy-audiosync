@@ -11,16 +11,21 @@ DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k
 AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
     : m_Config(config)
 {
+    m_ClockDividers.calculateCoarse(m_Config.k_SampleRate);
+    Serial.print(m_ClockDividers);
 }
 
 FLASHMEM
 bool AudioSystemManager::begin()
 {
-    m_ClockDividers.calculateCoarse(m_Config.k_SampleRate);
-    Serial.print(m_ClockDividers);
+    // Set up the audio processor.
+    s_AudioProcessor->prepare(m_Config.k_SampleRate);
 
     cycPreReg = ARM_DWT_CYCCNT;
 
+    //==========================================================================
+    // Reset all registers
+    //==========================================================================
     m_AnalogAudioPllControlRegister.begin();
     m_AudioPllNumeratorRegister.begin();
     m_AudioPllDenominatorRegister.begin();
@@ -33,46 +38,167 @@ bool AudioSystemManager::begin()
     m_Pin20SwMuxControlRegister.begin();
     m_Pin21SwMuxControlRegister.begin();
     m_Pin23SwMuxControlRegister.begin();
+    m_SAI1TransmitMaskRegister.begin();
+    m_SAI1TransmitConfig1Register.begin();
+    m_SAI1TransmitConfig2Register.begin();
+    m_SAI1TransmitConfig3Register.begin();
+    m_SAI1TransmitConfig4Register.begin();
+    m_SAI1TransmitConfig5Register.begin();
+    m_SAI1TransmitControlRegister.begin();
+    m_SAI1ReceiveMaskRegister.begin();
+    m_SAI1ReceiveConfig1Register.begin();
+    m_SAI1ReceiveConfig2Register.begin();
+    m_SAI1ReceiveConfig3Register.begin();
+    m_SAI1ReceiveConfig4Register.begin();
+    m_SAI1ReceiveConfig5Register.begin();
+    m_SAI1ReceiveControlRegister.begin();
 
     cycPostReg = ARM_DWT_CYCCNT;
 
-    setupPins();
+    // setupPins();
+
+    //==========================================================================
+    // Set mux modes for I2S pins.
+    //==========================================================================
+    // LRCLK1 on pin 20
+    m_Pin20SwMuxControlRegister.setMuxMode(Pin20SwMuxControlRegister::MuxMode::Sai1RxSync);
+    // BCLK on pin 21
+    m_Pin21SwMuxControlRegister.setMuxMode(Pin21SwMuxControlRegister::MuxMode::Sai1RxBclk);
+    // MCLK on pin 23
+    m_Pin23SwMuxControlRegister.setMuxMode(Pin23SwMuxControlRegister::MuxMode::Sai1Mclk);
+    // Data on pin 7
+    m_Pin7SwMuxControlRegister.setMuxMode(Pin7SwMuxControlRegister::MuxMode::Sai1TxData00);
 
     cycPostPin = ARM_DWT_CYCCNT;
 
-    // The order of these calls is important.
-    setClock();
+    //==========================================================================
+    // Set audio PLL (PLL4) and SAI1 clock registers
+    //==========================================================================
+    // Enable SAI1 (can this be moved?)
+    m_ClockGatingRegister5.enableSai1Clock();
+
+    m_SerialClockMultiplexerRegister1.setSai1ClkSel(SerialClockMultiplexerRegister1::Sai1ClkSel::DeriveClockFromPll4);
+
+    // Set audio divider registers
+    m_MiscellaneousRegister2.setAudioPostDiv(m_ClockDividers.k_AudioPostDiv);
+
+    m_ClockDividerRegister1.setSai1ClkPred(m_ClockDividers.m_Sai1Pre);
+    m_ClockDividerRegister1.setSai1ClkPodf(m_ClockDividers.m_Sai1Post);
+
+    m_GeneralPurposeRegister1.setSai1MclkDirection(GeneralPurposeRegister1::SignalDirection::Output);
+    m_GeneralPurposeRegister1.setSai1MclkSource(GeneralPurposeRegister1::Sai1MclkSource::CcmSai1ClkRoot);
+
+    m_AnalogAudioPllControlRegister.setBypassClockSource(AnalogAudioPllControlRegister::BypassClockSource::RefClk24M);
+    m_AnalogAudioPllControlRegister.setPostDivSelect(m_ClockDividers.k_Pll4PostDiv);
+    m_AnalogAudioPllControlRegister.setDivSelect(m_ClockDividers.m_Pll4Div);
+    m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
+    m_AudioPllDenominatorRegister.set(m_ClockDividers.m_Pll4Denom);
+
+    //==========================================================================
+    // Activate the audio PLL
+    //==========================================================================
+    // These have to be present. Not necessarily in this order, but if not here
+    // the audio subsystem appears to work, but not the audio shield.
+    m_AnalogAudioPllControlRegister.setEnable(true);
+    m_AnalogAudioPllControlRegister.setPowerDown(false);
+    m_AnalogAudioPllControlRegister.setBypass(false);
 
     cycPostClk = ARM_DWT_CYCCNT;
 
-    setupI2S();
+    //==========================================================================
+    // Configure SAI1 (I2S)
+    //==========================================================================
+    // TODO: check whether transmit/receive are enabled
+    m_SAI1TransmitMaskRegister.setMask(0);
+    m_SAI1TransmitConfig1Register.setWatermarkLevel(1);
+    m_SAI1TransmitConfig2Register.setSyncMode(SAI1TransmitConfig2Register::SyncMode::SynchronousWithReceiver);
+    m_SAI1TransmitConfig2Register.setBitClockPolarity(SAI1TransmitConfig2Register::BitClockPolarity::ActiveLow);
+    m_SAI1TransmitConfig2Register.setBitClockDirection(SAI1TransmitConfig2Register::BitClockDirection::Internal);
+    m_SAI1TransmitConfig2Register.setBitClockDivide(1);
+    m_SAI1TransmitConfig2Register.selectMasterClock(SAI1TransmitConfig2Register::Clock::MasterClock1);
+    m_SAI1TransmitConfig3Register.enableTransmitChannel(1, true);
+    m_SAI1TransmitConfig4Register.setFrameSize(2);
+    m_SAI1TransmitConfig4Register.setSyncWidth(32);
+    m_SAI1TransmitConfig4Register.setEndianness(SAI1TransmitConfig4Register::Endianness::BigEndian);
+    m_SAI1TransmitConfig4Register.setFrameSyncDirection(SAI1TransmitConfig4Register::FrameSyncDirection::Internal);
+    m_SAI1TransmitConfig4Register.setFrameSyncEarly(SAI1TransmitConfig4Register::FrameSyncAssert::OneBitEarly);
+    m_SAI1TransmitConfig4Register.setFrameSyncPolarity(SAI1TransmitConfig4Register::FrameSyncPolarity::ActiveLow);
+    m_SAI1TransmitConfig5Register.setWordNWidth(32);
+    m_SAI1TransmitConfig5Register.setWord0Width(32);
+    m_SAI1TransmitConfig5Register.setFirstBitShift(32);
+    m_SAI1ReceiveMaskRegister.setMask(0);
+    m_SAI1ReceiveConfig1Register.setWatermarkLevel(1);
+    m_SAI1ReceiveConfig2Register.setSyncMode(SAI1ReceiveConfig2Register::SyncMode::Asynchronous);
+    m_SAI1ReceiveConfig2Register.setBitClockPolarity(SAI1ReceiveConfig2Register::BitClockPolarity::ActiveLow);
+    m_SAI1ReceiveConfig2Register.setBitClockDirection(SAI1ReceiveConfig2Register::BitClockDirection::Internal);
+    m_SAI1ReceiveConfig2Register.setBitClockDivide(1);
+    m_SAI1ReceiveConfig2Register.selectMasterClock(SAI1ReceiveConfig2Register::Clock::MasterClock1);
+    m_SAI1ReceiveConfig3Register.enableReceiveChannel(1, true);
+    m_SAI1ReceiveConfig4Register.setFrameSize(2);
+    m_SAI1ReceiveConfig4Register.setSyncWidth(32);
+    m_SAI1ReceiveConfig4Register.setEndianness(SAI1ReceiveConfig4Register::Endianness::BigEndian);
+    m_SAI1ReceiveConfig4Register.setFrameSyncDirection(SAI1ReceiveConfig4Register::FrameSyncDirection::Internal);
+    m_SAI1ReceiveConfig4Register.setFrameSyncEarly(SAI1ReceiveConfig4Register::FrameSyncAssert::OneBitEarly);
+    m_SAI1ReceiveConfig4Register.setFrameSyncPolarity(SAI1ReceiveConfig4Register::FrameSyncPolarity::ActiveLow);
+    m_SAI1ReceiveConfig5Register.setWordNWidth(32);
+    m_SAI1ReceiveConfig5Register.setWord0Width(32);
+    m_SAI1ReceiveConfig5Register.setFirstBitShift(32);
 
     cycPostI2S = ARM_DWT_CYCCNT;
 
-    setupDMA();
+    //==========================================================================
+    // Set up DMA
+    //==========================================================================
+    s_DMA.begin(true);
+
+    s_DMA.TCD->SADDR = s_I2sTxBuffer; //source address
+    s_DMA.TCD->SOFF = 2; // source buffer address increment per transfer in bytes
+    s_DMA.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1); // specifies 16 bit source and destination
+    s_DMA.TCD->NBYTES_MLNO = 2; // bytes to transfer for each service request///////////////////////////////////////////////////////////////////
+    s_DMA.TCD->SLAST = -sizeof(s_I2sTxBuffer); // last source address adjustment
+    s_DMA.TCD->DOFF = 0; // increments at destination
+    s_DMA.TCD->CITER_ELINKNO = sizeof(s_I2sTxBuffer) / 2;
+    s_DMA.TCD->DLASTSGA = 0; // destination address offset
+    s_DMA.TCD->BITER_ELINKNO = sizeof(s_I2sTxBuffer) / 2;
+    s_DMA.TCD->CSR = DMA_TCD_CSR_INTHALF | DMA_TCD_CSR_INTMAJOR;
+    // interrupts
+    s_DMA.TCD->DADDR = (void *) ((uint32_t) &I2S1_TDR0 + 2); // I2S1 register DMA writes to
+    s_DMA.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI1_TX); // i2s channel that will trigger the DMA transfer when ready for data
+    s_DMA.enable();
+
+    m_SAI1TransmitControlRegister.setTransmitterEnable(true);
+    m_SAI1TransmitControlRegister.setBitClockEnable(true);
+    m_SAI1TransmitControlRegister.setFIFORequestDMAEnable(true);
+    m_SAI1ReceiveControlRegister.setReceiverEnable(true);
+    m_SAI1ReceiveControlRegister.setBitClockEnable(true);
+
+    s_DMA.attachInterrupt(isr);
 
     s_FirstInterrupt = true;
 
     cycPostDMA = ARM_DWT_CYCCNT;
 
+    //==========================================================================
+    // Enable the audio shield
+    //==========================================================================
     // This call must follow the above, and features some significant delays.
     m_AudioShield.enable();
     // TODO: either mute the audio shield till clock startup, or output zeros.
     m_AudioShield.volume(m_Config.k_Volume);
 
+    //==========================================================================
+
     cycPostSGTL = ARM_DWT_CYCCNT;
 
-    // Stop the audio clock till PTP settles down...
+    // Stop the audio clock (originally till PTP settles down...)
     stopClock();
 
     cycPostStop = ARM_DWT_CYCCNT;
 
-    s_AudioProcessor->prepare(m_Config.k_SampleRate);
-
     // With predictability of timing in mind, report setup here, rather than
     // between calls to set up registers.
     Serial.println(m_Config);
-    Serial.printf("Audio interrupt priority: %d\n", NVIC_GET_PRIORITY(s_DMA.channel));
+    // Serial.printf("Audio interrupt priority: %d\n", NVIC_GET_PRIORITY(s_DMA.channel));
 
     Serial.printf(
         // "- Register setup took %" PRIu32 " cycles (%" PRIu32 " ns).\n"
@@ -105,6 +231,17 @@ bool AudioSystemManager::begin()
         // m_AudioShield.cycPostSetup - m_AudioShield.cycPostClock, ananas::Utils::cyclesToNs(m_AudioShield.cycPostSetup - m_AudioShield.cycPostClock),
         // cycPostStop - cycPostSGTL, ananas::Utils::cyclesToNs(cycPostStop - cycPostSGTL),
         cycPostStop - cycPreReg, ananas::Utils::cyclesToNs(cycPostStop - cycPreReg));
+
+    // Check SAI1/I2S config
+    // TMR 0 | TCR1 1 | TCR2 47000001 | TCR3 10000 | TCR4 11F1B | TCR5 1F1F1F00
+    // RMR 0 | RCR1 1 | RCR2 7000001 | RCR3 10000 | RCR4 11F1B | RCR5 1F1F1F00
+    // TCSR 90100001 | RCSR 90170000
+    // Serial.printf("TMR %X | TCR1 %X | TCR2 %X | TCR3 %X | TCR4 %X | TCR5 %X\n"
+    //               "RMR %X | RCR1 %X | RCR2 %X | RCR3 %X | RCR4 %X | RCR5 %X\n"
+    //               "TCSR %X | RCSR %X\n",
+    //               I2S1_TMR, I2S1_TCR1, I2S1_TCR2, I2S1_TCR3, I2S1_TCR4, I2S1_TCR5,
+    //               I2S1_RMR, I2S1_RCR1, I2S1_RCR2, I2S1_RCR3, I2S1_RCR4, I2S1_RCR5,
+    //               I2S1_TCSR, I2S1_RCSR);
 
     return true;
 }
@@ -221,44 +358,11 @@ void AudioSystemManager::startClock()
 {
     s_FirstInterrupt = true;
 
-    // timespec now{}, powerupT{}, enableT{}, unbypassT{};
-    // qindesign::network::EthernetIEEE1588.readTimer(now);
-    // auto initialNs{now.tv_nsec}, currentNs{now.tv_nsec};
-    //
-    // do {
-    //     qindesign::network::EthernetIEEE1588.readTimer(now);
-    //     currentNs = now.tv_nsec < initialNs ? 1'000'000'000 + now.tv_nsec : now.tv_nsec;
-    // } while (currentNs - initialNs < 20000);
-    // initialNs = currentNs;
-    // enableT = now;
-    // m_AnalogAudioPllControlRegister.setEnable(true);
-    // do {
-    //     qindesign::network::EthernetIEEE1588.readTimer(now);
-    //     currentNs = now.tv_nsec < initialNs ? 1'000'000'000 + now.tv_nsec : now.tv_nsec;
-    // } while (currentNs - initialNs < 20000);
-    // initialNs = currentNs;
-    // powerupT = now;
-    // m_AnalogAudioPllControlRegister.setPowerDown(false);
-    // do {
-    //     qindesign::network::EthernetIEEE1588.readTimer(now);
-    //     currentNs = now.tv_nsec < initialNs ? 1'000'000'000 + now.tv_nsec : now.tv_nsec;
-    // } while (currentNs - initialNs < 20000);
-    // unbypassT = now;
-    // m_AnalogAudioPllControlRegister.setBypass(false);
-    //
-    // Serial.printf("Clock enabled at:    ");
-    // ananas::Utils::printTime(enableT.tv_sec * ClockConstants::k_NanosecondsPerSecond + enableT.tv_nsec);
-    // Serial.println();
-    // Serial.printf("Clock powered up at: ");
-    // ananas::Utils::printTime(powerupT.tv_sec * ClockConstants::k_NanosecondsPerSecond + powerupT.tv_nsec);
-    // Serial.println();
-    // Serial.printf("Clock unbypassed at: ");
-    // ananas::Utils::printTime(unbypassT.tv_sec * ClockConstants::k_NanosecondsPerSecond + unbypassT.tv_nsec);
-    // Serial.println();
-
     m_AnalogAudioPllControlRegister.setPowerDown(false);
     m_AnalogAudioPllControlRegister.setBypass(false);
     m_AnalogAudioPllControlRegister.setEnable(true);
+
+    m_SAI1TransmitControlRegister.resetFIFO();
 
     m_AudioShield.volume(m_Config.k_Volume);
 }

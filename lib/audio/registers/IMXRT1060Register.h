@@ -4,7 +4,8 @@
 #include <Arduino.h>
 
 /**
- * Description of a 32-bit register for the i.MX RT1060 MCU
+ * Represents a 32-bit register for the IMXRT1060 microcontroller.
+ * Provides methods managing the value of the register.
  */
 class IMXRT1060Register : public Printable
 {
@@ -51,10 +52,25 @@ protected:
 
     /**
      * Write to the register. The value of the register will be replaced with
-     * `value`.
+     * the value provided.
      * @param value
      */
-    void write(uint32_t value) const { *m_Address = value; }
+    void write(const uint32_t value) const { *m_Address = value; }
+
+    /**
+     * Updates the value of a register by applying a bitmask.
+     *
+     * Conditionally modifies the current register value based on the provided bitmask.
+     * If 'enable' is true, the bits specified in the mask are set.
+     * If 'enable' is false, the bits specified in the mask are cleared.
+     *
+     * @param enable Determines whether to set or clear the bits defined by the mask.
+     * @param mask The bitmask specifying the bits to modify in the register value.
+     */
+    void writeMask(const bool enable, const uint32_t mask) const
+    {
+        write(enable ? getValue() | mask : getValue() & ~mask);
+    }
 
 private:
     /**

@@ -3,18 +3,18 @@
 
 #include <Arduino.h>
 #include <AudioProcessor.h>
+#include <Config.h>
 #include <DMAChannel.h>
+#include <SGTL5000.h>
 #include <Utils.h>
-
-#include "Config.h"
-#include "registers/MiscellaneousRegister2.h"
-#include "registers/AnalogAudioPllControlRegister.h"
-#include "registers/ClockDividerRegister1.h"
-#include "registers/SerialClockMultiplexerRegister1.h"
-#include "registers/ClockGatingRegister5.h"
-#include "registers/GeneralPurposeRegister1.h"
-#include "registers/SwMuxControlRegister.h"
-#include "SGTL5000.h"
+#include <registers/AnalogAudioPllControlRegister.h>
+#include <registers/ClockDividerRegister1.h>
+#include <registers/ClockGatingRegister5.h>
+#include <registers/GeneralPurposeRegister1.h>
+#include <registers/MiscellaneousRegister2.h>
+#include <registers/SAI1.h>
+#include <registers/SerialClockMultiplexerRegister1.h>
+#include <registers/SwMuxControlRegister.h>
 
 class AudioSystemManager
 {
@@ -100,6 +100,20 @@ private:
     Pin20SwMuxControlRegister m_Pin20SwMuxControlRegister;
     Pin21SwMuxControlRegister m_Pin21SwMuxControlRegister;
     Pin23SwMuxControlRegister m_Pin23SwMuxControlRegister;
+    SAI1TransmitControlRegister m_SAI1TransmitControlRegister;
+    SAI1TransmitConfig1Register m_SAI1TransmitConfig1Register;
+    SAI1TransmitConfig2Register m_SAI1TransmitConfig2Register;
+    SAI1TransmitConfig3Register m_SAI1TransmitConfig3Register;
+    SAI1TransmitConfig4Register m_SAI1TransmitConfig4Register;
+    SAI1TransmitConfig5Register m_SAI1TransmitConfig5Register;
+    SAI1TransmitMaskRegister m_SAI1TransmitMaskRegister;
+    SAI1ReceiveControlRegister m_SAI1ReceiveControlRegister;
+    SAI1ReceiveConfig1Register m_SAI1ReceiveConfig1Register;
+    SAI1ReceiveConfig2Register m_SAI1ReceiveConfig2Register;
+    SAI1ReceiveConfig3Register m_SAI1ReceiveConfig3Register;
+    SAI1ReceiveConfig4Register m_SAI1ReceiveConfig4Register;
+    SAI1ReceiveConfig5Register m_SAI1ReceiveConfig5Register;
+    SAI1ReceiveMaskRegister m_SAI1ReceiveMaskRegister;
 
     SGTL5000 m_AudioShield;
 
