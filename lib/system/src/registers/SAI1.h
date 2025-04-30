@@ -1,3 +1,9 @@
+/*******************************************************************************
+ * A collection of classes for managing registers that are relevant to the
+ * IMXRT1060's Synchronous Audio Interface (SAI1 --- "1" because there are also
+ * SAI2 and SAI3).
+ ******************************************************************************/
+
 #ifndef SAI1_H
 #define SAI1_H
 

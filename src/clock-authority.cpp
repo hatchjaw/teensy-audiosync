@@ -120,24 +120,20 @@ void setup()
         connected = state;
         if (state) {
             ptp.begin();
+            const timespec t{1745940240, 0};
+            qindesign::network::EthernetIEEE1588.writeTimer(t);
             syncTimer.begin(syncInterrupt, 1000000);
             announceTimer.begin(announceInterrupt, 1000000);
             ananasServer.connect();
         }
     });
 
-    Serial.println("Clock authority");
-    Serial.printf("Mac address:   %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-    Serial.print("IP:            ");
-    Serial.println(qindesign::network::Ethernet.localIP());
-    Serial.println();
-
     // PPS Out
     // peripherial: ENET_1588_EVENT1_OUT
     // IOMUX: ALT6
     // teensy pin: 24
     CORE_PIN24_CONFIG = 6;
-    qindesign::network::EthernetIEEE1588.setChannelCompareValue(1, NS_PER_S - 60);
+    qindesign::network::EthernetIEEE1588.setChannelCompareValue(1, NS_PER_S);
     qindesign::network::EthernetIEEE1588.setChannelMode(1, qindesign::network::EthernetIEEE1588Class::TimerChannelModes::kPulseHighOnCompare);
     qindesign::network::EthernetIEEE1588.setChannelOutputPulseWidth(1, 25);
 
@@ -160,6 +156,12 @@ void setup()
     sine.setAmplitude(.5f);
     // pulseTrain.setWidth(4);
     pulseTrain.setFrequency(60.f);
+
+    Serial.println("Clock authority");
+    Serial.printf("Mac address:   %02X:%02X:%02X:%02X:%02X:%02X\n", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+    Serial.print("IP:            ");
+    Serial.println(qindesign::network::Ethernet.localIP());
+    Serial.println();
 }
 
 bool sync = false;
@@ -220,7 +222,7 @@ static void interrupt_1588_timer()
     }
     qindesign::network::EthernetIEEE1588.getChannelCompareValue(1, t);
 
-    t = ((NanoTime) t + NS_PER_S - 60) % NS_PER_S;
+    t %= NS_PER_S;
 
     timespec ts{};
     qindesign::network::EthernetIEEE1588.readTimer(ts);
@@ -243,19 +245,22 @@ static void interrupt_1588_timer()
     // Start audio at t = 10s
     shouldEnableAudio = interrupt_s >= 10;
 
-    const NanoTime now{interrupt_s * NS_PER_S + interrupt_ns};
+    const NanoTime enetCompareTime{interrupt_s * NS_PER_S + interrupt_ns},
+            now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
+
+    // ananas::Utils::printTime(now); Serial.println();
 
     if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
         audioSystemManager.startClock();
         Serial.print("Authority start audio clock ");
-        ananas::Utils::printTime(now);
+        ananas::Utils::printTime(enetCompareTime);
         Serial.println();
     } else if (!shouldEnableAudio && audioSystemManager.isClockRunning()) {
-        audioSystemManager.stopClock();
-        ananas::Utils::printTime(now);
-        Serial.println();
+        // audioSystemManager.stopClock();
+        // ananas::Utils::printTime(now);
+        // Serial.println();
     } else if (audioSystemManager.isClockRunning()) {
-        // ananasServer.adjustBufferReadIndex(now);
+        ananasServer.adjustBufferReadIndex(now);
     }
 
     // Change frequency once per second.

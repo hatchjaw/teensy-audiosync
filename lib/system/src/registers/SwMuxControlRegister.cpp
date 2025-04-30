@@ -13,14 +13,15 @@ void SwMuxControlRegister::reset() const
 
 bool SwMuxControlRegister::setSoftwareInputOnField(const SoftwareInputStatus siOn) const
 {
-    switch (siOn) {
-        case SoftwareInputStatus::Disabled:
-            write(getValue() & ~((int) siOn << 0x04));
-            break;
-        case SoftwareInputStatus::Enabled:
-            write(getValue() | ((int) siOn << 0x04));
-            break;
-    }
+    writeMask(siOn == SoftwareInputStatus::Enabled, (int) siOn << 0x04);
+    // switch (siOn) {
+    //     case SoftwareInputStatus::Disabled:
+    //         write(getValue() & ~((int) siOn << 0x04));
+    //         break;
+    //     case SoftwareInputStatus::Enabled:
+    //         write(getValue() | ((int) siOn << 0x04));
+    //         break;
+    // }
     return true;
 }
 

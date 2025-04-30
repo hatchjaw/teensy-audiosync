@@ -8,14 +8,7 @@ bool GeneralPurposeRegister1::begin()
 
 bool GeneralPurposeRegister1::setSai1MclkDirection(const SignalDirection direction) const
 {
-    switch (direction) {
-        case SignalDirection::Input:
-            write(getValue() & ~IOMUXC_GPR_GPR1_SAI1_MCLK_DIR);
-            break;
-        case SignalDirection::Output:
-            write(getValue() | IOMUXC_GPR_GPR1_SAI1_MCLK_DIR);
-            break;
-    }
+    writeMask(direction == SignalDirection::Output, IOMUXC_GPR_GPR1_SAI1_MCLK_DIR);
     return true;
 }
 

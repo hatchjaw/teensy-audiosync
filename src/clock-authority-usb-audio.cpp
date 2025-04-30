@@ -8,26 +8,26 @@
  * - a network of Teensies running as PTP clock subscribers *and* as recipients
  * for data transmitted by the multicast audio server.
  */
+// #include <AnanasServer.h>
 #include <Audio.h>
 #include <t41-ptp.h>
 #include <QNEthernet.h>
 #include <TimeLib.h>
-#include <NetAudioServer.h>
 
 void syncInterrupt();
 
 void announceInterrupt();
 
-void interrupt_1588_timer();
+static void interrupt_1588_timer();
 
 AudioControlSGTL5000 audioShield;
 AudioInputUSB usb;
 AudioOutputI2S out;
-NetAudioServer server;
+// ananas::AudioServer server;
 AudioConnection c1(usb, 0, out, 0);
 AudioConnection c2(usb, 1, out, 1);
-AudioConnection c3(usb, 0, server, 0);
-AudioConnection c4(usb, 1, server, 1);
+// AudioConnection c3(usb, 0, server, 0);
+// AudioConnection c4(usb, 1, server, 1);
 float prevVol{0.f};
 
 byte mac[6];
@@ -58,7 +58,7 @@ void setup()
     Serial.begin(0);
 
     // Setup networking
-    qindesign::network::Ethernet.setHostname("t41ptpmaster");
+    qindesign::network::Ethernet.setHostname("t41ptpauthority");
     qindesign::network::Ethernet.macAddress(mac);
     staticIP[2] = mac[4];
     staticIP[3] = mac[5];
@@ -72,7 +72,7 @@ void setup()
             ptp.begin();
             syncTimer.begin(syncInterrupt, 1000000);
             announceTimer.begin(announceInterrupt, 1000000);
-            server.connect();
+            // server.connect();
         }
     });
 
@@ -148,5 +148,5 @@ void loop()
     }
     ptp.update();
 
-    server.send();
+    // server.send();
 }

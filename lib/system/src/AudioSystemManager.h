@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 #include <AudioProcessor.h>
-#include <Config.h>
+#include <AudioSystemConfig.h>
 #include <DMAChannel.h>
 #include <SGTL5000.h>
 #include <Utils.h>
@@ -16,7 +16,7 @@
 #include <registers/SerialClockMultiplexerRegister1.h>
 #include <registers/SwMuxControlRegister.h>
 
-class AudioSystemManager
+class AudioSystemManager : public Printable
 {
 public:
     explicit AudioSystemManager(AudioSystemConfig config);
@@ -32,6 +32,8 @@ public:
     volatile bool isClockRunning() const;
 
     static void setAudioProcessor(AudioProcessor *processor);
+
+    size_t printTo(Print &p) const override;
 
 private:
     struct ClockDividers final : Printable

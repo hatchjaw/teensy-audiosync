@@ -3,7 +3,7 @@
 # Reboots all connected Teensies.
 
 if ! command -v tycmd &>/dev/null; then
-  echo -e "Error: requires tytools, which were not found https://github.com/Koromix/tytools\n" >&2
+  echo -e "Error: requires tytools, but tycmd was not found in you path. https://github.com/Koromix/tytools\n" >&2
   exit 1
 fi
 

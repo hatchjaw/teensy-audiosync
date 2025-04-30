@@ -1,5 +1,5 @@
 #include "ClockDividerRegister1.h"
-#include "Config.h"
+#include "AudioSystemConfig.h"
 
 bool ClockDividerRegister1::begin()
 {

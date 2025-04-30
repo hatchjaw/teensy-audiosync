@@ -26,7 +26,7 @@ namespace ananas
                 if (nWrite > 5000) {
                     timespec now{};
                     qindesign::network::EthernetIEEE1588.readTimer(now);
-                    const auto ns{now.tv_sec * 1'000'000'000 + now.tv_nsec};
+                    const auto ns{now.tv_sec * Constants::kNanoSecondsPerSecond + now.tv_nsec};
 
                     const int64_t diff{ns - prevTime};
                     if (prevTime != 0) {
@@ -45,10 +45,19 @@ namespace ananas
         socket.beginMulticast({224, 4, 224, 4}, 49152);
     }
 
-    void AudioClient::prepare(uint sampleRate)
+    void AudioClient::prepare(const uint sampleRate)
     {
         this->sampleRate = sampleRate;
         packetBuffer.clear();
+    }
+
+    size_t AudioClient::printTo(Print &p) const
+    {
+        return p.printf("Packets received: %" PRIu16 " Average reception interval: %e ns\n",
+                        nWrite,
+                        static_cast<double>(totalTime) / (nWrite - 5000))
+               + p.print(packetBuffer)
+               + p.printf("Packet offset: %" PRId64 " ns, Sample offset: %" PRId32 "\n", packetOffset, sampleOffset);
     }
 
     void AudioClient::processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples)
@@ -83,14 +92,6 @@ namespace ananas
         memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numSamples);
     }
 
-    void AudioClient::printStats() const
-    {
-        Serial.print(packetBuffer);
-        Serial.printf("Packets received: %" PRIu16 " Average reception interval: %e ns\n",
-                      nWrite,
-                      static_cast<double>(totalTime) / (nWrite - 5000));
-    }
-
     void AudioClient::adjustBufferReadIndex(const NanoTime now)
     {
         const auto idx{packetBuffer.getReadIndex()},
@@ -112,8 +113,9 @@ namespace ananas
             // Serial.printf(", Read index: %" PRIu32 "\nPacket time:  ", packetBuffer.getReadIndex());
             // Utils::printTime(packetTime);
             // Serial.printf(", diff: %" PRId64 "\n", diff, kMaxDiff);
+            Serial.printf("Read index: %" PRIu32 "\n", packetBuffer.getReadIndex());
         }
+        packetOffset = diff;
         sampleOffset = diff / static_cast<int64_t>(1e9 / sampleRate);
-        // Serial.printf("Packet offset: %" PRId64 " ns, Sample offset: %" PRId32 "\n", diff, sampleOffset);
     }
 }

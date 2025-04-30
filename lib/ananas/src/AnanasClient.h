@@ -9,12 +9,10 @@
 
 namespace ananas
 {
-    /**
-     * TODO: inherit from `Component`, which should provide virtual `begin` and `loop` methods.
-     */
     class AudioClient final : public AudioProcessor,
                               public ProgramComponent,
-                              public NetworkProcessor
+                              public NetworkProcessor,
+                              public Printable
     {
     public:
         void begin() override;
@@ -25,11 +23,11 @@ namespace ananas
 
         void processAudio(int16_t *buffer, size_t numChannels, size_t numSamples) override;
 
-        void printStats() const;
-
         void adjustBufferReadIndex(NanoTime now);
 
         void prepare(uint sampleRate) override;
+
+        size_t printTo(Print &p) const override;
 
     private:
         static constexpr size_t kNumChannels{2};
@@ -41,6 +39,7 @@ namespace ananas
         Packet rxPacket{};
         PacketBuffer packetBuffer;
         int sampleOffset{0};
+        int64_t packetOffset{0};
 
         uint nWrite{0}, nRead{0};
         NanoTime prevTime{0}, totalTime{0};

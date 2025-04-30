@@ -16,6 +16,7 @@ AudioSystemConfig config{
 AudioSystemManager audioSystemManager{config};
 ananas::AudioClient ananasClient;
 
+uint32_t sn;
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
 IPAddress subnetMask{255, 255, 255, 0};
@@ -30,6 +31,17 @@ l2PTP ptp(
     p2p
 );
 
+/**
+ * Get this Teensy's USB serial number.
+ * @return
+ */
+uint32_t getSerialNumber()
+{
+    uint32_t num{HW_OCOTP_MAC0 & 0xFFFFFF};
+    if (num < 10000000) num *= 10;
+    return num;
+}
+
 void setup()
 {
 #ifdef WAIT_FOR_SERIAL
@@ -38,6 +50,8 @@ void setup()
 
     Serial.begin(2000000);
     pinMode(13, OUTPUT);
+
+    sn = getSerialNumber();
 
     // Setup networking
     qindesign::network::Ethernet.setHostname("t41ptpsubscriber");
@@ -55,6 +69,17 @@ void setup()
             ptp.begin();
             ananasClient.connect();
         }
+    });
+
+    ptp.onControllerUpdated([](double nspsAdjust)
+    {
+        // 500 too big; 1000 too small. Some success with 625, 650, 700. 633 best so far (45-min within
+        // 1 us). These are attempts at manual correction...
+        constexpr double kDenom{633.}, kScalingFactor{1. - 1. / kDenom};
+
+        const auto scaled{nspsAdjust * kScalingFactor};
+        audioSystemManager.adjustClock(nspsAdjust);
+        // Serial.printf("Adjust: %.9f, scaled: %.9f\n", nspsAdjust, scaled);
     });
 
     // PPS Out
@@ -88,6 +113,9 @@ NanoTime interrupt_ns = 0;
 
 int numRead{0};
 
+elapsedMillis elapsed;
+static constexpr int reportInterval{500};
+
 void loop()
 {
     ptp.update();
@@ -96,6 +124,16 @@ void loop()
     digitalWrite(13, ptp.getLockCount() > 5 ? HIGH : LOW);
 
     ananasClient.run();
+
+    if (elapsed > reportInterval) {
+        elapsed = 0;
+        Serial.print("IP: ");
+        Serial.print(qindesign::network::Ethernet.localIP());
+        Serial.printf(" | MAC: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
+        Serial.printf(" | SN: %" PRIu32 "\n", sn);
+        Serial.println(audioSystemManager);
+        Serial.println(ananasClient);
+    }
 }
 
 static void interrupt_1588_timer()
@@ -130,6 +168,13 @@ static void interrupt_1588_timer()
 
     interrupt_ns = t;
 
+    // audioSystemManager.adjustClock(ptp.getAdjust());
+    // audioSystemManager.adjustClock(ptp.getAdjust() * .998375);
+    // audioSystemManager.adjustClock(ptp.getAdjust() * .998333333);
+    // audioSystemManager.adjustClock(ptp.getAdjust() - ptp.getAccumulatedOffset());
+    // audioSystemManager.adjustClock(ptp.getAdjust() + (double) ptp.getOffset());
+    // audioSystemManager.adjustClock(ptp.getAdjust() - .00166 * ptp.getDrift());
+
     // Serial.printf("Adjust: %f\n"
     //               "Accum: %d\n"
     //               "Drift: %f\n"
@@ -141,17 +186,16 @@ static void interrupt_1588_timer()
     //               ptp.getDelay(),
     //               ptp.getOffset());
 
-    audioSystemManager.adjustClock(ptp.getAdjust() + (double) ptp.getOffset());
-    // audioSystemManager.adjustClock(ptp.getAdjust() - 5e-4 * ptp.getDrift());
-    // audioSystemManager.adjustClock(ptp.getAdjust());
-
     // Start audio at t = 10s
     // Only works if started at *around the same time* as the clock authority.
     // For arbitrary start times, it'll be necessary to measure the initial
     // offset, i.e. first large time adjustment.
     // shouldEnableAudio = interrupt_s >= 10;
     // const auto offset{ptp.getOffset()};
-    shouldEnableAudio = ptp.getLockCount() > 0; // ptp.getDelay() != 0 && offset < 1000 && offset > -1000;
+
+    // Start audio the first time two consecutive PTP locks (offset < 100 ns)
+    // are reported.
+    shouldEnableAudio = ptp.getLockCount() > 0; // Formerly 1 // ptp.getDelay() != 0 && offset < 1000 && offset > -1000;
 
     const NanoTime enetCompareTime{interrupt_s * NS_PER_S + interrupt_ns},
             now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
@@ -167,7 +211,6 @@ static void interrupt_1588_timer()
         // ananas::Utils::printTime(now);
         // Serial.println();
     } else if (audioSystemManager.isClockRunning()) {
-        //        ananasClient.printStats();
         ananasClient.adjustBufferReadIndex(now);
     }
 

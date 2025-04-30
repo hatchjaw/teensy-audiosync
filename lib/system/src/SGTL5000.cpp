@@ -509,13 +509,71 @@ void SGTL5000::setAddress(uint8_t level)
     }
 }
 
+void SGTL5000::begin()
+{
+    const auto cycles{ARM_DWT_CYCCNT};
+    Wire.begin();
+    while (ARM_DWT_CYCCNT - cycles < 100'000) {}
+
+    //==========================================================================
+    // Set all registers to default values.
+    //==========================================================================
+
+    write(CHIP_DIG_POWER, 0x0000);
+    // write(CHIP_CLK_CTRL, 0x0008);
+    // write(CHIP_I2S_CTRL, 0x0010);
+    // write(CHIP_SSS_CTRL, 0x0010);
+    // write(CHIP_ADCDAC_CTRL, 0x020C);
+    // write(CHIP_DAC_VOL, 0x3C3C);
+    // write(CHIP_PAD_STRENGTH, 0x015F);
+    // write(CHIP_ANA_ADC_CTRL, 0x0000);
+    // write(CHIP_ANA_HP_CTRL, 0x1818);
+    // write(CHIP_ANA_CTRL, 0x0111);
+    // write(CHIP_LINREG_CTRL, 0x0000);
+    // write(CHIP_REF_CTRL, 0x0000);
+    // write(CHIP_MIC_CTRL, 0x0000);
+    // write(CHIP_LINE_OUT_CTRL, 0x0000);
+    // write(CHIP_LINE_OUT_VOL, 0x0404);
+    // write(CHIP_ANA_POWER, 0x7060);
+    // write(CHIP_PLL_CTRL, 0x5000);
+    // write(CHIP_CLK_TOP_CTRL, 0x0000);
+    // write(CHIP_ANA_TEST1, 0x01C0);
+    // write(CHIP_ANA_TEST2, 0x0000);
+    // write(CHIP_SHORT_CTRL, 0x0000);
+    // write(DAP_CONTROL, 0x0000);
+    // write(DAP_PEQ, 0x0000);
+    // write(DAP_BASS_ENHANCE, 0x0040);
+    // write(DAP_BASS_ENHANCE_CTRL, 0x051F);
+    // write(DAP_AUDIO_EQ, 0x0000);
+    // write(DAP_SGTL_SURROUND, 0x0040);
+    // write(DAP_FILTER_COEF_ACCESS, 0x0000);
+    // write(DAP_COEF_WR_B0_MSB, 0x0000);
+    // write(DAP_COEF_WR_B0_LSB, 0x0000);
+    // write(DAP_AUDIO_EQ_BASS_BAND0, 0x002F);
+    // write(DAP_AUDIO_EQ_BAND1, 0x002F);
+    // write(DAP_AUDIO_EQ_BAND2, 0x002F);
+    // write(DAP_AUDIO_EQ_BAND3, 0x002F);
+    // write(DAP_AUDIO_EQ_TREBLE_BAND4, 0x002F);
+    // write(DAP_MAIN_CHAN, 0x8000);
+    // write(DAP_MIX_CHAN, 0x0000);
+    // write(DAP_AVC_CTRL, 0x5100);
+    // write(DAP_AVC_THRESHOLD, 0x1473);
+    // write(DAP_AVC_ATTACK, 0x0028);
+    // write(DAP_AVC_DECAY, 0x0050);
+    // write(DAP_COEF_WR_B1_MSB, 0x0000);
+    // write(DAP_COEF_WR_B1_LSB, 0x0000);
+    // write(DAP_COEF_WR_B2_MSB, 0x0000);
+    // write(DAP_COEF_WR_B2_LSB, 0x0000);
+    // write(DAP_COEF_WR_A1_MSB, 0x0000);
+    // write(DAP_COEF_WR_A1_LSB, 0x0000);
+    // write(DAP_COEF_WR_A2_MSB, 0x0000);
+    // write(DAP_COEF_WR_A2_LSB, 0x0000);
+}
+
 bool SGTL5000::enable()
 {
     cycStart = ARM_DWT_CYCCNT;
 
-    Wire.begin();
-    // delay(5);
-    while (ARM_DWT_CYCCNT - cycStart < 100'000) {}
 
     cycPostBegin = ARM_DWT_CYCCNT;
 
@@ -526,6 +584,65 @@ bool SGTL5000::enable()
     //delay(5);
     //unsigned int n = read(CHIP_ID);
     //Serial.println(n, HEX);
+
+    auto cycles{ARM_DWT_CYCCNT};
+    Wire.begin();
+    while (ARM_DWT_CYCCNT - cycles < 100'000) {}
+
+    // Make sure digital power is down in case a soft reset just occurred.
+    cycles = ARM_DWT_CYCCNT;
+    write(CHIP_DIG_POWER, 0x0000);
+    while (ARM_DWT_CYCCNT - cycles < 500'000) {}
+
+    // Set default values for all other registers.
+    write(CHIP_CLK_CTRL, 0x0008);
+    write(CHIP_I2S_CTRL, 0x0010);
+    write(CHIP_SSS_CTRL, 0x0010);
+    write(CHIP_ADCDAC_CTRL, 0x020C);
+    write(CHIP_DAC_VOL, 0x3C3C);
+    write(CHIP_PAD_STRENGTH, 0x015F);
+    write(CHIP_ANA_ADC_CTRL, 0x0000);
+    write(CHIP_ANA_HP_CTRL, 0x1818);
+    write(CHIP_ANA_CTRL, 0x0111);
+    write(CHIP_LINREG_CTRL, 0x0000);
+    write(CHIP_REF_CTRL, 0x0000);
+    write(CHIP_MIC_CTRL, 0x0000);
+    write(CHIP_LINE_OUT_CTRL, 0x0000);
+    write(CHIP_LINE_OUT_VOL, 0x0404);
+    write(CHIP_ANA_POWER, 0x7060);
+    write(CHIP_PLL_CTRL, 0x5000);
+    write(CHIP_CLK_TOP_CTRL, 0x0000);
+    write(CHIP_ANA_TEST1, 0x01C0);
+    write(CHIP_ANA_TEST2, 0x0000);
+    write(CHIP_SHORT_CTRL, 0x0000);
+    write(DAP_CONTROL, 0x0000);
+    write(DAP_PEQ, 0x0000);
+    write(DAP_BASS_ENHANCE, 0x0040);
+    write(DAP_BASS_ENHANCE_CTRL, 0x051F);
+    write(DAP_AUDIO_EQ, 0x0000);
+    write(DAP_SGTL_SURROUND, 0x0040);
+    write(DAP_FILTER_COEF_ACCESS, 0x0000);
+    write(DAP_COEF_WR_B0_MSB, 0x0000);
+    write(DAP_COEF_WR_B0_LSB, 0x0000);
+    write(DAP_AUDIO_EQ_BASS_BAND0, 0x002F);
+    write(DAP_AUDIO_EQ_BAND1, 0x002F);
+    write(DAP_AUDIO_EQ_BAND2, 0x002F);
+    write(DAP_AUDIO_EQ_BAND3, 0x002F);
+    write(DAP_AUDIO_EQ_TREBLE_BAND4, 0x002F);
+    write(DAP_MAIN_CHAN, 0x8000);
+    write(DAP_MIX_CHAN, 0x0000);
+    write(DAP_AVC_CTRL, 0x5100);
+    write(DAP_AVC_THRESHOLD, 0x1473);
+    write(DAP_AVC_ATTACK, 0x0028);
+    write(DAP_AVC_DECAY, 0x0050);
+    write(DAP_COEF_WR_B1_MSB, 0x0000);
+    write(DAP_COEF_WR_B1_LSB, 0x0000);
+    write(DAP_COEF_WR_B2_MSB, 0x0000);
+    write(DAP_COEF_WR_B2_LSB, 0x0000);
+    write(DAP_COEF_WR_A1_MSB, 0x0000);
+    write(DAP_COEF_WR_A1_LSB, 0x0000);
+    write(DAP_COEF_WR_A2_MSB, 0x0000);
+    write(DAP_COEF_WR_A2_LSB, 0x0000);
 
     muted = true;
 
@@ -544,9 +661,9 @@ bool SGTL5000::enable()
 
     cycPostAnPwr = ARM_DWT_CYCCNT;
 
+    const auto cyclesSincePowerUp{ARM_DWT_CYCCNT};
     write(CHIP_DIG_POWER, 0x0073); // power up all digital stuff
-    // delay(400);
-    while (ARM_DWT_CYCCNT - cycPostAnPwr < 500'000) {} //240'000'000) {}
+    while (ARM_DWT_CYCCNT - cyclesSincePowerUp < 500'000) {} //240'000'000) {}
 
     cycPostDgPwr = ARM_DWT_CYCCNT;
 
@@ -555,7 +672,6 @@ bool SGTL5000::enable()
     cycPostLnOut = ARM_DWT_CYCCNT;
 
     //SGTL is I2S Slave
-    // write(CHIP_CLK_CTRL, 0x0004); // 44.1 kHz, 256*Fs
     write(CHIP_CLK_CTRL, 0x0008); // 48 kHz, 256*Fs
     write(CHIP_I2S_CTRL, 0x0030); // SCLK=64*Fs, 16bit, I2S format
 

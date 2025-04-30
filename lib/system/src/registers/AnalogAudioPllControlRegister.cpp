@@ -1,5 +1,5 @@
 #include "AnalogAudioPllControlRegister.h"
-#include "Config.h"
+#include "AudioSystemConfig.h"
 
 bool AnalogAudioPllControlRegister::begin()
 {

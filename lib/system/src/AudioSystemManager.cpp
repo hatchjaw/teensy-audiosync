@@ -55,6 +55,8 @@ bool AudioSystemManager::begin()
     m_SAI1ReceiveConfig5Register.begin();
     m_SAI1ReceiveControlRegister.begin();
 
+    // m_AudioShield.begin();
+
     cycPostReg = ARM_DWT_CYCCNT;
 
     // setupPins();
@@ -361,11 +363,11 @@ void AudioSystemManager::startClock()
     m_AnalogAudioPllControlRegister.setBypass(false);
     m_AnalogAudioPllControlRegister.setEnable(true);
 
-    m_SAI1TransmitControlRegister.setTransmitterEnable(true);
     m_SAI1TransmitControlRegister.setBitClockEnable(true);
     m_SAI1TransmitControlRegister.setFIFORequestDMAEnable(true);
-    m_SAI1ReceiveControlRegister.setReceiverEnable(true);
+    m_SAI1TransmitControlRegister.setTransmitterEnable(true);
     m_SAI1ReceiveControlRegister.setBitClockEnable(true);
+    m_SAI1ReceiveControlRegister.setReceiverEnable(true);
 
     m_AudioShield.enable();
     m_AudioShield.volume(m_Config.k_Volume);
@@ -394,21 +396,30 @@ void AudioSystemManager::setAudioProcessor(AudioProcessor *processor)
     s_AudioProcessor = processor;
 }
 
+size_t AudioSystemManager::printTo(Print &p) const
+{
+    return p.println(m_Config) + p.print(m_ClockDividers);
+}
+
 void AudioSystemManager::adjustClock(const double nspsDiscrepancy)
 {
+    // const auto cycles{ARM_DWT_CYCCNT};
     const double proportionalAdjustment{
-        1. + nspsDiscrepancy /
-        (double) ClockConstants::k_NanosecondsPerSecond
+        1. + nspsDiscrepancy * ClockConstants::k_Nanosecond
+        // 1. + nspsDiscrepancy * .998375 * ClockConstants::k_Nanosecond
+        // 1. + (nspsDiscrepancy - 25) * ClockConstants::k_Nanosecond
     };
 
     m_Config.setExactSampleRate(proportionalAdjustment);
     m_ClockDividers.calculateFine(m_Config.getExactSampleRate());
     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
 
+    // Serial.printf("Fs update took %" PRIu32 " ns\n", ananas::Utils::cyclesToNs(ARM_DWT_CYCCNT - cycles));
+
     // Serial.println(m_Config);
 
     // Serial.printf("Skew (nsps): %*.*f\n", 26, 8, nspsDiscrepancy);
-    // Serial.printf("Proportional adjustment: %*.*f\n", 14, 8, proportionalAdjustment);
+    // Serial.printf("Proportional adjustment: %*.*f\n", 14, 12, proportionalAdjustment);
 }
 
 // TODO: move these into the class.
@@ -524,7 +535,7 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
 
     const auto sai1WordOsc{(double) ClockConstants::k_AudioWordSize * m_Sai1Pre * m_Sai1Post / ClockConstants::k_OscMHz};
     const auto num{targetSampleRate * sai1WordOsc - orderOfMagnitude * m_Pll4Div};
-    const auto numInt{(int32_t) (num * (m_Pll4Denom / orderOfMagnitude))};
+    const auto numInt{(int32_t) round(num * (m_Pll4Denom / orderOfMagnitude))};
 
     if (numInt < 0 || (uint32_t) numInt > m_Pll4Denom) {
         Serial.printf("Invalid PLL4 numerator %" PRId32 " "
@@ -543,11 +554,11 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
 
 size_t AudioSystemManager::ClockDividers::printTo(Print &p) const
 {
-    return p.printf("PLL4 DIV: %" PRIu8 "\n"
-                    "PLL4 NUM: %" PRId32 "\n"
-                    "PLL4 DENOM: %" PRIu32 "\n"
-                    "SAI1 PRED: %" PRIu8 "\n"
-                    "SAI1 PODF: %" PRIu8 "\n",
+    return p.printf("PLL4 DIV: %" PRIu8
+                    ", NUM: %" PRId32
+                    ", DENOM: %" PRIu32
+                    "; SAI1 PRED: %" PRIu8
+                    ", PODF: %" PRIu8,
                     m_Pll4Div,
                     m_Pll4Num,
                     m_Pll4Denom,

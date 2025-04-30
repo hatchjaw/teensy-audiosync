@@ -25,14 +25,19 @@ namespace ananas
 
         void prepare(uint sampleRate) override;
 
+        void adjustBufferReadIndex(NanoTime now);
+
     private:
         void send();
 
-        static constexpr int64_t kPacketReproductionOffsetNs{Constants::kNanoSecondsPerSecond / 10};
+        static constexpr int64_t kPacketReproductionOffsetNs{Constants::kNanoSecondsPerSecond / 20};
+        static constexpr size_t kNumFrames{Constants::kAudioBlockFrames};
 
         bool connected{false};
         Packet txPacket = {};
         PacketBuffer packetBuffer;
+        PacketBuffer playbackPacketBuffer;
+        uint sampleRate{0};
     };
 } // ananas
 

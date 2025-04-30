@@ -1,12 +1,12 @@
 #include "PulseTrain.h"
 
-void PulseTrain::prepare(uint sampleRate)
+void PulseTrain::prepare(const uint sampleRate)
 {
     phasor.prepare(sampleRate);
     remainingWidth = -1;
 }
 
-void PulseTrain::processAudio(int16_t *buffer, size_t numChannels, size_t numSamples)
+void PulseTrain::processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples)
 {
     for (size_t n{0}; n < numSamples; ++n) {
         if (phasor.getNextSample() < phasor.getPrevSample()) {

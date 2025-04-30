@@ -44,6 +44,7 @@ public:
 
     void setAddress(uint8_t level);
 
+    void begin();
     bool enable() override;
     bool disable() override { return false; }
     bool volume(const float n) override { return volumeInteger(n * 129 + 0.499f); }

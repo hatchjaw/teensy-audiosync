@@ -92,6 +92,8 @@ struct ClockConstants
      * Nanoseconds per second.
      */
     static constexpr int64_t k_NanosecondsPerSecond{1'000'000'000};
+
+    static constexpr double k_Nanosecond{1e-9};
 };
 
 struct AudioSystemConfig : Printable
@@ -120,7 +122,7 @@ struct AudioSystemConfig : Printable
 
     void setExactSampleRate(const double proportionalAdjustment)
     {
-        m_SampleRateExact = proportionalAdjustment * k_SampleRate;
+        m_SampleRateExact = proportionalAdjustment * (double) k_SampleRate;
     }
 
     double getExactSampleRate() const { return m_SampleRateExact; }
