@@ -36,6 +36,8 @@ namespace ananas
         static constexpr size_t kHeaderSize{sizeof(NanoTime)};
         static constexpr size_t kPacketSize{kNumChannels * kNumFrames * kSampleSize + kHeaderSize};
 
+        static constexpr uint kReportThreshold{5000};
+
         Packet rxPacket{};
         PacketBuffer packetBuffer;
         int sampleOffset{0};

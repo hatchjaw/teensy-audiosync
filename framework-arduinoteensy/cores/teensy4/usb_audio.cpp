@@ -35,6 +35,8 @@
 
 #ifdef AUDIO_INTERFACE
 
+#define FEEDBACK_ACCUMULATOR 805306368 // 48 * 2^24
+
 bool AudioInputUSB::update_responsibility;
 audio_block_t * AudioInputUSB::incoming_left;
 audio_block_t * AudioInputUSB::incoming_right;
@@ -94,7 +96,7 @@ void usb_audio_configure(void)
 	printf("usb_audio_configure\n");
 	usb_audio_underrun_count = 0;
 	usb_audio_overrun_count = 0;
-	feedback_accumulator = 739875226; // 44.1 * 2^24
+	feedback_accumulator = FEEDBACK_ACCUMULATOR;
 	if (usb_high_speed) {
 		usb_audio_sync_nbytes = 4;
 		usb_audio_sync_rshift = 8;
@@ -258,7 +260,8 @@ void AudioInputUSB::update(void)
 	if (!left || !right) {
 		usb_audio_underrun_count++;
 		//printf("#"); // buffer underrun - PC sending too slow
-		if (f) feedback_accumulator += 3500;
+		// TODO: investigate this value
+		if (f) feedback_accumulator += 3800; //3500
 	}
 	if (left) {
 		transmit(left, 0);
@@ -269,22 +272,6 @@ void AudioInputUSB::update(void)
 		release(right);
 	}
 }
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
 
 #if 1
 bool AudioOutputUSB::update_responsibility;
@@ -393,12 +380,24 @@ unsigned int usb_audio_transmit_callback(void)
 	uint32_t avail, num, target, offset, len=0;
 	audio_block_t *left, *right;
 
+	// (The following note bears specific relevance to the Ananas project.)
+	// It may appear that these values should correspond roughly with Fs/1000,
+	// but using 48/49 instead of 44/45 resulted in network-client buffer
+	// underruns. In fact, 44/45 (at 48 kHz) also cause what appeared to be a
+	// gradual reduction in the number of available (networked audio) packets.
+	// This suggests the server not requesting USB data at a sufficient rate.
+	// In the end (preliminarily at least), dropping to 43/44 appears to result
+	// in a rate of USB data exchange that's more consistent with the t41-ptp
+	// group. Weirdly, so does 39/40.
 	if (++count < 10) {   // TODO: dynamic adjust to match USB rate
-		target = 44;
+		// target = 44;
+		target = 40;
 	} else {
 		count = 0;
-		target = 45;
+		// target = 45;
+		target = 41;
 	}
+
 	while (len < target) {
 		num = target - len;
 		left = AudioOutputUSB::left_1st;

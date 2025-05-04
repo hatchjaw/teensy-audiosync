@@ -114,7 +114,7 @@ NanoTime interrupt_ns = 0;
 int numRead{0};
 
 elapsedMillis elapsed;
-static constexpr int reportInterval{500};
+static constexpr int reportInterval{1000};
 
 void loop()
 {
@@ -135,6 +135,8 @@ void loop()
         Serial.println(ananasClient);
     }
 }
+
+bool didAdjust{false};
 
 static void interrupt_1588_timer()
 {
@@ -210,8 +212,9 @@ static void interrupt_1588_timer()
         // audioSystemManager.stopClock();
         // ananas::Utils::printTime(now);
         // Serial.println();
-    } else if (audioSystemManager.isClockRunning()) {
+    } else if (audioSystemManager.isClockRunning() && !didAdjust) {
         ananasClient.adjustBufferReadIndex(now);
+        // didAdjust = true;
     }
 
     // Allow write to complete so the interrupt doesn't fire twice

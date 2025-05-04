@@ -23,7 +23,7 @@ namespace ananas
                 //     Utils::hexDump(rxPacket->rawData(), size);
                 // }
 
-                if (nWrite > 5000) {
+                if (nWrite > kReportThreshold) {
                     timespec now{};
                     qindesign::network::EthernetIEEE1588.readTimer(now);
                     const auto ns{now.tv_sec * Constants::kNanoSecondsPerSecond + now.tv_nsec};
@@ -53,9 +53,11 @@ namespace ananas
 
     size_t AudioClient::printTo(Print &p) const
     {
-        return p.printf("Packets received: %" PRIu16 " Average reception interval: %e ns\n",
-                        nWrite,
-                        static_cast<double>(totalTime) / (nWrite - 5000))
+        return (nWrite < kReportThreshold
+                    ? p.printf("Packets received: %" PRIu32 "\n", nWrite)
+                    : p.printf("Packets received: %" PRIu32 " Average reception interval: %e ns\n",
+                               nWrite,
+                               static_cast<double>(totalTime) / (nWrite - kReportThreshold)))
                + p.print(packetBuffer)
                + p.printf("Packet offset: %" PRId64 " ns, Sample offset: %" PRId32 "\n", packetOffset, sampleOffset);
     }
@@ -113,7 +115,8 @@ namespace ananas
             // Serial.printf(", Read index: %" PRIu32 "\nPacket time:  ", packetBuffer.getReadIndex());
             // Utils::printTime(packetTime);
             // Serial.printf(", diff: %" PRId64 "\n", diff, kMaxDiff);
-            Serial.printf("Read index: %" PRIu32 "\n", packetBuffer.getReadIndex());
+
+            // Serial.printf("Read index: %" PRIu32 "\n", packetBuffer.getReadIndex());
         }
         packetOffset = diff;
         sampleOffset = diff / static_cast<int64_t>(1e9 / sampleRate);

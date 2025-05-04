@@ -542,6 +542,7 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
                       "for target sample rate %f "
                       "and denominator %" PRIu32 "\n",
                       numInt, targetSampleRate, m_Pll4Denom);
+        // TODO: Stop audio and reset PTP. Complicated by the need to restart the SGTL5000 too.
         return;
     }
 
