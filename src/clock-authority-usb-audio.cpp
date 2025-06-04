@@ -34,7 +34,7 @@ IPAddress gateway{192, 168, 10, 1};
 IntervalTimer syncTimer;
 IntervalTimer announceTimer;
 bool clockAuthority{true}, clockSubscriber{false}, p2p{false};
-l2PTP ptp{clockAuthority, clockSubscriber, p2p};
+l3PTP ptp{clockAuthority, clockSubscriber, p2p};
 qindesign::network::EthernetUDP socket;
 
 bool sync = false;

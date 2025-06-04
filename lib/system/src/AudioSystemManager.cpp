@@ -296,14 +296,16 @@ void AudioSystemManager::setupI2S() const
     I2S1_RCR5 = I2S_RCR5_WNW((32 - 1)) | I2S_RCR5_W0W((32 - 1)) | I2S_RCR5_FBT((32 - 1));
 }
 
+FLASHMEM
 void AudioSystemManager::setupDMA() const
 {
     s_DMA.begin(true);
 
+    // TODO: why do two interrupts per buffer?
     s_DMA.TCD->SADDR = s_I2sTxBuffer; //source address
     s_DMA.TCD->SOFF = 2; // source buffer address increment per transfer in bytes
-    s_DMA.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1); // specifies 16 bit source and destination
-    s_DMA.TCD->NBYTES_MLNO = 2; // bytes to transfer for each service request///////////////////////////////////////////////////////////////////
+    s_DMA.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1); // 16 bit source and destination
+    s_DMA.TCD->NBYTES_MLNO = 2; // bytes to transfer for each service request
     s_DMA.TCD->SLAST = -sizeof(s_I2sTxBuffer); // last source address adjustment
     s_DMA.TCD->DOFF = 0; // increments at destination
     s_DMA.TCD->CITER_ELINKNO = sizeof(s_I2sTxBuffer) / 2;
@@ -324,38 +326,38 @@ void AudioSystemManager::setupDMA() const
     // );
 }
 
-FLASHMEM
-void AudioSystemManager::setClock()
-{
-    // m_ClockDividers.calculateCoarse(m_Config.k_SampleRate);
-    // Serial.print(m_ClockDividers);
-
-    m_ClockGatingRegister5.enableSai1Clock();
-
-    m_MiscellaneousRegister2.setAudioPostDiv(m_ClockDividers.k_AudioPostDiv);
-
-    m_SerialClockMultiplexerRegister1.setSai1ClkSel(SerialClockMultiplexerRegister1::Sai1ClkSel::DeriveClockFromPll4);
-
-    m_ClockDividerRegister1.setSai1ClkPred(m_ClockDividers.m_Sai1Pre);
-    m_ClockDividerRegister1.setSai1ClkPodf(m_ClockDividers.m_Sai1Post);
-
-    m_GeneralPurposeRegister1.setSai1MclkDirection(GeneralPurposeRegister1::SignalDirection::Output);
-    m_GeneralPurposeRegister1.setSai1MclkSource(GeneralPurposeRegister1::Sai1MclkSource::CcmSai1ClkRoot);
-
-    m_AnalogAudioPllControlRegister.setBypassClockSource(AnalogAudioPllControlRegister::BypassClockSource::RefClk24M);
-    m_AnalogAudioPllControlRegister.setPostDivSelect(m_ClockDividers.k_Pll4PostDiv);
-    m_AnalogAudioPllControlRegister.setDivSelect(m_ClockDividers.m_Pll4Div);
-    m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
-    m_AudioPllDenominatorRegister.set(m_ClockDividers.m_Pll4Denom);
-
-    // These have to be present. Not necessarily in this order, but if not here
-    // the audio subsystem appears to work, but not the audio shield.
-    m_AnalogAudioPllControlRegister.setEnable(true);
-    m_AnalogAudioPllControlRegister.setPowerDown(false);
-    m_AnalogAudioPllControlRegister.setBypass(false);
-
-    // Serial.println(m_AnalogAudioPllControlRegister);
-}
+// FLASHMEM
+// void AudioSystemManager::setClock()
+// {9
+//     // m_ClockDividers.calculateCoarse(m_Config.k_SampleRate);
+//     // Serial.print(m_ClockDividers);
+//
+//     m_ClockGatingRegister5.enableSai1Clock();
+//
+//     m_MiscellaneousRegister2.setAudioPostDiv(m_ClockDividers.k_AudioPostDiv);
+//
+//     m_SerialClockMultiplexerRegister1.setSai1ClkSel(SerialClockMultiplexerRegister1::Sai1ClkSel::DeriveClockFromPll4);
+//
+//     m_ClockDividerRegister1.setSai1ClkPred(m_ClockDividers.m_Sai1Pre);
+//     m_ClockDividerRegister1.setSai1ClkPodf(m_ClockDividers.m_Sai1Post);
+//
+//     m_GeneralPurposeRegister1.setSai1MclkDirection(GeneralPurposeRegister1::SignalDirection::Output);
+//     m_GeneralPurposeRegister1.setSai1MclkSource(GeneralPurposeRegister1::Sai1MclkSource::CcmSai1ClkRoot);
+//
+//     m_AnalogAudioPllControlRegister.setBypassClockSource(AnalogAudioPllControlRegister::BypassClockSource::RefClk24M);
+//     m_AnalogAudioPllControlRegister.setPostDivSelect(m_ClockDividers.k_Pll4PostDiv);
+//     m_AnalogAudioPllControlRegister.setDivSelect(m_ClockDividers.m_Pll4Div);
+//     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
+//     m_AudioPllDenominatorRegister.set(m_ClockDividers.m_Pll4Denom);
+//
+//     // These have to be present. Not necessarily in this order, but if not here
+//     // the audio subsystem appears to work, but not the audio shield.
+//     m_AnalogAudioPllControlRegister.setEnable(true);
+//     m_AnalogAudioPllControlRegister.setPowerDown(false);
+//     m_AnalogAudioPllControlRegister.setBypass(false);
+//
+//     // Serial.println(m_AnalogAudioPllControlRegister);
+// }
 
 void AudioSystemManager::startClock()
 {
@@ -391,6 +393,7 @@ volatile bool AudioSystemManager::isClockRunning() const
     return m_AnalogAudioPllControlRegister.isClockRunning();
 }
 
+FLASHMEM
 void AudioSystemManager::setAudioProcessor(AudioProcessor *processor)
 {
     s_AudioProcessor = processor;
@@ -401,13 +404,13 @@ size_t AudioSystemManager::printTo(Print &p) const
     return p.println(m_Config) + p.print(m_ClockDividers);
 }
 
-void AudioSystemManager::adjustClock(const double nspsDiscrepancy)
+void AudioSystemManager::adjustClock(const double nspsAdjust)
 {
-    // const auto cycles{ARM_DWT_CYCCNT};
+    const auto cycles{ARM_DWT_CYCCNT};
     const double proportionalAdjustment{
-        1. + nspsDiscrepancy * ClockConstants::k_Nanosecond
-        // 1. + nspsDiscrepancy * .998375 * ClockConstants::k_Nanosecond
-        // 1. + (nspsDiscrepancy - 25) * ClockConstants::k_Nanosecond
+        1. + nspsAdjust * ClockConstants::k_Nanosecond
+        // 1. + nspsAdjust * .998375 * ClockConstants::k_Nanosecond
+        // 1. + (nspsAdjust - 25) * ClockConstants::k_Nanosecond
     };
 
     m_Config.setExactSampleRate(proportionalAdjustment);
@@ -435,6 +438,8 @@ void AudioSystemManager::isr()
     // Bloody hell, I'm not sure why this works. Fill the second half of the I2S
     // buffer with the first half of the source buffer?..
     if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
+        // TODO: Is it necessary to proces the whole buffer here?
+        // That's what AudioOutputI2S::isr does... sort of, it delegates to a software ISR, no?
         s_AudioProcessor->processAudio(buff, 2, k_I2sBufferSizeFrames);
         // DMA is transmitting the first half of the buffer; fill the second half.
         destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSizeFrames / 2];
@@ -528,7 +533,6 @@ void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSam
     }
 }
 
-FLASHMEM
 void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleRate)
 {
     constexpr auto orderOfMagnitude{1e6};
@@ -542,7 +546,8 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
                       "for target sample rate %f "
                       "and denominator %" PRIu32 "\n",
                       numInt, targetSampleRate, m_Pll4Denom);
-        // TODO: Stop audio and reset PTP. Complicated by the need to restart the SGTL5000 too.
+        // TODO: (Stop audio and) reset PTP. (Maybe) complicated by the need to restart the SGTL5000 too.
+        // TODO: Actually, this should be doable by checking targetSampleRate before we even get here.
         return;
     }
 

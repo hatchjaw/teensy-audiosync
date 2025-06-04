@@ -53,17 +53,20 @@ namespace ananas
 
     size_t AudioClient::printTo(Print &p) const
     {
-        return (nWrite < kReportThreshold
-                    ? p.printf("Packets received: %" PRIu32 "\n", nWrite)
-                    : p.printf("Packets received: %" PRIu32 " Average reception interval: %e ns\n",
-                               nWrite,
-                               static_cast<double>(totalTime) / (nWrite - kReportThreshold)))
+        return AudioProcessor::printTo(p)
+               + (nWrite < kReportThreshold
+                      ? p.printf("\nPackets received: %" PRIu32 "\n", nWrite)
+                      : p.printf("\nPackets received: %" PRIu32 " Average reception interval: %e ns\n",
+                                 nWrite,
+                                 static_cast<double>(totalTime) / (nWrite - kReportThreshold)))
                + p.print(packetBuffer)
-               + p.printf("Packet offset: %" PRId64 " ns, Sample offset: %" PRId32 "\n", packetOffset, sampleOffset);
+               + p.printf("Packet offset: %" PRId64 " ns, Sample offset: %" PRId32, packetOffset, sampleOffset);
     }
 
     void AudioClient::processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples)
     {
+        uint32_t cycles = ARM_DWT_CYCCNT;
+
         nRead++;
 
         // // const auto audio{packetBuffer.read().audio()};
@@ -92,6 +95,12 @@ namespace ananas
         // }
 
         memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numSamples);
+
+        cycles = (ARM_DWT_CYCCNT - cycles) >> 6;
+        currentCycles = cycles;
+        if (currentCycles > maxCycles) {
+            maxCycles = currentCycles;
+        }
     }
 
     void AudioClient::adjustBufferReadIndex(const NanoTime now)

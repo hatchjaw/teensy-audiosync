@@ -4,6 +4,7 @@
 #include <TimeLib.h>
 #include <AudioSystemManager.h>
 #include <AnanasClient.h>
+#include "audio_processors/NetworkAuraliser.h"
 
 static void interrupt_1588_timer();
 
@@ -15,6 +16,8 @@ AudioSystemConfig config{
 };
 AudioSystemManager audioSystemManager{config};
 ananas::AudioClient ananasClient;
+Convolver convolver;
+NetworkAuraliser networkAuraliser{ananasClient, convolver};
 
 uint32_t sn;
 byte mac[6];
@@ -25,7 +28,7 @@ IPAddress gateway{192, 168, 10, 1};
 bool connected{false};
 bool p2p = false;
 
-l2PTP ptp(
+l3PTP ptp(
     config.k_ClockRole == AudioSystemConfig::ClockRole::Authority,
     config.k_ClockRole == AudioSystemConfig::ClockRole::Subscriber,
     p2p
@@ -45,7 +48,8 @@ uint32_t getSerialNumber()
 void setup()
 {
 #ifdef WAIT_FOR_SERIAL
-    while (!Serial) {}
+    while (!Serial) {
+    }
 #endif
 
     Serial.begin(2000000);
@@ -73,12 +77,13 @@ void setup()
 
     ptp.onControllerUpdated([](double nspsAdjust)
     {
-        // 500 too big; 1000 too small. Some success with 625, 650, 700. 633 best so far (45-min within
-        // 1 us). These are attempts at manual correction...
-        constexpr double kDenom{633.}, kScalingFactor{1. - 1. / kDenom};
+        // Attempts at correction for lingering PPB drift.
+        // 500 too big; 1000 too small. Some success with 625, 650, 700.
+        // 633 best so far (45-min within 1 us).
+        constexpr double kDenom{2500.}, kScalingFactor{1. - 1. / kDenom};
 
         const auto scaled{nspsAdjust * kScalingFactor};
-        audioSystemManager.adjustClock(nspsAdjust);
+        audioSystemManager.adjustClock(scaled);
         // Serial.printf("Adjust: %.9f, scaled: %.9f\n", nspsAdjust, scaled);
     });
 
@@ -96,7 +101,8 @@ void setup()
     NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
 
     // Set up audio
-    AudioSystemManager::setAudioProcessor(&ananasClient);
+    // AudioSystemManager::setAudioProcessor(&ananasClient);
+    AudioSystemManager::setAudioProcessor(&networkAuraliser);
     audioSystemManager.begin();
     ananasClient.begin();
 
@@ -127,12 +133,20 @@ void loop()
 
     if (elapsed > reportInterval) {
         elapsed = 0;
-        Serial.print("IP: ");
+        Serial.print("\n"
+            "=============================================================================="
+            "\nIP: ");
         Serial.print(qindesign::network::Ethernet.localIP());
         Serial.printf(" | MAC: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
         Serial.printf(" | SN: %" PRIu32 "\n", sn);
         Serial.println(audioSystemManager);
+        Serial.print("Ananas Client:     ");
         Serial.println(ananasClient);
+        Serial.print("Convolver:         ");
+        Serial.println(convolver);
+        Serial.print("Network Auraliser: ");
+        Serial.println(networkAuraliser);
+        Serial.println("==============================================================================");
     }
 }
 

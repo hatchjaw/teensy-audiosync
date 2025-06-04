@@ -23,7 +23,7 @@ public:
 
     bool begin();
 
-    void adjustClock(double nspsDiscrepancy);
+    void adjustClock(double nspsAdjust);
 
     void startClock();
 
@@ -68,7 +68,7 @@ private:
         uint32_t getCurrentSai1ClkRootFreq() const;
     };
 
-    void setClock();
+    // void setClock();
 
     void setupPins() const;
 

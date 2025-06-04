@@ -1,0 +1,107 @@
+#include "Convolver.h"
+
+#include <sys/unistd.h>
+
+extern "C" uint8_t external_psram_size;
+EXTMEM float convBuffer[Convolver::kBufferSize][Convolver::kNumChannels]{};
+EXTMEM float irBuffer[Convolver::kBufferSize]{};
+
+void Convolver::prepare(uint sampleRate)
+{
+    if (external_psram_size <= 0) {
+        Serial.println("Convolver: no external PSRAM found; no processing will be applied.");
+        return;
+    }
+
+    const float frequency = 22 * 24 / (float) (((CCM_CBCMR >> 29) & 7) + 1);
+    Serial.printf("\nCCM_CBCMR=%08X (%.1f MHz)\n", CCM_CBCMR, frequency);
+
+    Serial.printf("\nConvolver: IR buffer at address 0x%X\n"
+                  "Convolver: input buffer at address 0x%X\n",
+                  irBuffer, convBuffer);
+
+    memset(convBuffer, 0, sizeof(convBuffer));
+
+    fifo.prepare();
+
+    memset(irBuffer, 0, sizeof(irBuffer));
+    for (size_t i{0}; i < kBufferSize; i++) {
+        irBuffer[i] = 0.f;
+    }
+    irBuffer[0] = .5f;
+    irBuffer[1] = 1.f;
+}
+
+void Convolver::processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples)
+{
+    if (external_psram_size <= 0) return;
+
+    uint32_t cycles = ARM_DWT_CYCCNT;
+
+    // Do naïve time-domain convolution
+
+    // Each output sample for each channel needs to be the sum of the product
+    // of that sample with the first sample of the IR, the previous sample with
+    // the second sample of the IR, etc.
+    //
+    // y[n] = s[n]h[0] + s[n-1]h[1] + s[n-2]h[2] + ... + s[n - (M - 1)]h[M - 1]
+    //
+    for (size_t n{0}; n < numSamples; n++) {
+        // Get the write index to the input/convolution buffer.
+        const auto writeIndex{fifo.getWriteIndex()};
+        // Set the read index equal to the write index; counting backwards will
+        // yield delayed input samples.
+        fifo.resetReadIndex();
+
+        // It's *so much more efficient* to avoid iterating.
+        convBuffer[writeIndex][0] = buffer[n * numChannels] / static_cast<float>(INT16_MAX);
+        convBuffer[writeIndex][1] = buffer[n * numChannels + 1] / static_cast<float>(INT16_MAX);
+
+        auto sampleL{0.f}, sampleR{0.f};
+        for (size_t i{0}; i < kBufferSize; i++) {
+            const auto readIndex{fifo.getReadIndex()};
+            const auto irSample{irBuffer[i]};
+            sampleL += irSample * convBuffer[readIndex][0];
+            sampleR += irSample * convBuffer[readIndex][1];
+        }
+        buffer[n * numChannels] = static_cast<int16_t>(INT16_MAX * sampleL);
+        buffer[n * numChannels + 1] = static_cast<int16_t>(INT16_MAX * sampleR);
+    }
+
+    cycles = (ARM_DWT_CYCCNT - cycles) >> 6;
+    currentCycles = cycles;
+    if (currentCycles > maxCycles) {
+        maxCycles = currentCycles;
+    }
+}
+
+void Convolver::FIFO::prepare()
+{
+    readIndex = 0;
+    writeIndex = 0;
+}
+
+size_t Convolver::FIFO::getReadIndex()
+{
+    const auto current{readIndex};
+    if (readIndex == 0) {
+        readIndex = kBufferSize;
+    }
+    --readIndex;
+    return current;
+}
+
+size_t Convolver::FIFO::getWriteIndex()
+{
+    const auto current{writeIndex};
+    ++writeIndex;
+    if (writeIndex > kBufferSize - 1) {
+        writeIndex = 0;
+    }
+    return current;
+}
+
+void Convolver::FIFO::resetReadIndex()
+{
+    readIndex = writeIndex;
+}

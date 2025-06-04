@@ -11,8 +11,7 @@ namespace ananas
 {
     class AudioClient final : public AudioProcessor,
                               public ProgramComponent,
-                              public NetworkProcessor,
-                              public Printable
+                              public NetworkProcessor
     {
     public:
         void begin() override;
