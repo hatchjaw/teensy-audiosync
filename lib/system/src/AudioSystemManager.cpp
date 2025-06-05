@@ -326,39 +326,6 @@ void AudioSystemManager::setupDMA() const
     // );
 }
 
-// FLASHMEM
-// void AudioSystemManager::setClock()
-// {9
-//     // m_ClockDividers.calculateCoarse(m_Config.k_SampleRate);
-//     // Serial.print(m_ClockDividers);
-//
-//     m_ClockGatingRegister5.enableSai1Clock();
-//
-//     m_MiscellaneousRegister2.setAudioPostDiv(m_ClockDividers.k_AudioPostDiv);
-//
-//     m_SerialClockMultiplexerRegister1.setSai1ClkSel(SerialClockMultiplexerRegister1::Sai1ClkSel::DeriveClockFromPll4);
-//
-//     m_ClockDividerRegister1.setSai1ClkPred(m_ClockDividers.m_Sai1Pre);
-//     m_ClockDividerRegister1.setSai1ClkPodf(m_ClockDividers.m_Sai1Post);
-//
-//     m_GeneralPurposeRegister1.setSai1MclkDirection(GeneralPurposeRegister1::SignalDirection::Output);
-//     m_GeneralPurposeRegister1.setSai1MclkSource(GeneralPurposeRegister1::Sai1MclkSource::CcmSai1ClkRoot);
-//
-//     m_AnalogAudioPllControlRegister.setBypassClockSource(AnalogAudioPllControlRegister::BypassClockSource::RefClk24M);
-//     m_AnalogAudioPllControlRegister.setPostDivSelect(m_ClockDividers.k_Pll4PostDiv);
-//     m_AnalogAudioPllControlRegister.setDivSelect(m_ClockDividers.m_Pll4Div);
-//     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
-//     m_AudioPllDenominatorRegister.set(m_ClockDividers.m_Pll4Denom);
-//
-//     // These have to be present. Not necessarily in this order, but if not here
-//     // the audio subsystem appears to work, but not the audio shield.
-//     m_AnalogAudioPllControlRegister.setEnable(true);
-//     m_AnalogAudioPllControlRegister.setPowerDown(false);
-//     m_AnalogAudioPllControlRegister.setBypass(false);
-//
-//     // Serial.println(m_AnalogAudioPllControlRegister);
-// }
-
 void AudioSystemManager::startClock()
 {
     m_AnalogAudioPllControlRegister.setPowerDown(false);
@@ -406,22 +373,35 @@ size_t AudioSystemManager::printTo(Print &p) const
 
 void AudioSystemManager::adjustClock(const double nspsAdjust)
 {
-    const auto cycles{ARM_DWT_CYCCNT};
+    // Attempts at correction for lingering PPB drift.
+    // kDenom may be dependent on the characteristics of the XO of the
+    // clock authority; proceed with caution.
+    constexpr double kDenom{3000.}, kScalingFactor{1. - 1. / kDenom};
+    const auto scaled{nspsAdjust * kScalingFactor};
+
     const double proportionalAdjustment{
-        1. + nspsAdjust * ClockConstants::k_Nanosecond
-        // 1. + nspsAdjust * .998375 * ClockConstants::k_Nanosecond
-        // 1. + (nspsAdjust - 25) * ClockConstants::k_Nanosecond
+        // Plain adjustment value.
+        // 1. + nspsAdjust * ClockConstants::k_Nanosecond
+        // Adjustment value scaled by `kDenom` (above).
+        1. + scaled * ClockConstants::k_Nanosecond
     };
 
     m_Config.setExactSampleRate(proportionalAdjustment);
     m_ClockDividers.calculateFine(m_Config.getExactSampleRate());
-    m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
 
+    // Tends to take on the order of 28 ns.
+    // const auto cycles{ARM_DWT_CYCCNT};
+    m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
     // Serial.printf("Fs update took %" PRIu32 " ns\n", ananas::Utils::cyclesToNs(ARM_DWT_CYCCNT - cycles));
 
-    // Serial.println(m_Config);
+    // static int numUpdates{0};
+    // static double totalDiff{0}, avgDiff{0};
+    // totalDiff += nspsAdjust - scaled;
+    // avgDiff = totalDiff / ++numUpdates;
+    // Serial.printf("Adjust: %.9f, scaled: %.9f, avg. diff: %.9f\n", nspsAdjust, scaled, avgDiff);
 
-    // Serial.printf("Skew (nsps): %*.*f\n", 26, 8, nspsDiscrepancy);
+    // Serial.println(m_Config);
+    // Serial.printf("Skew (nsps): %*.*f\n", 26, 8, nspsAdjust);
     // Serial.printf("Proportional adjustment: %*.*f\n", 14, 12, proportionalAdjustment);
 }
 
@@ -539,7 +519,7 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
 
     const auto sai1WordOsc{(double) ClockConstants::k_AudioWordSize * m_Sai1Pre * m_Sai1Post / ClockConstants::k_OscMHz};
     const auto num{targetSampleRate * sai1WordOsc - orderOfMagnitude * m_Pll4Div};
-    const auto numInt{(int32_t) round(num * (m_Pll4Denom / orderOfMagnitude))};
+    const auto numInt{(int32_t) floor(num * (m_Pll4Denom / orderOfMagnitude))}; // floor seems to be best...
 
     if (numInt < 0 || (uint32_t) numInt > m_Pll4Denom) {
         Serial.printf("Invalid PLL4 numerator %" PRId32 " "

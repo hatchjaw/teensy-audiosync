@@ -20,10 +20,37 @@ void announceInterrupt();
 
 static void interrupt_1588_timer();
 
+class PulsePerSecond : public AudioStream
+{
+public:
+    PulsePerSecond() : AudioStream(0, nullptr)
+    {
+    }
+
+private:
+    void update() override
+    {
+        if (++numBuffers == kBuffersPerSec) {
+            numBuffers = 0;
+            if (auto *block{allocate()}) {
+                memset(block->data, 0, sizeof(block->data));
+                block->data[0] = INT16_MAX - 1; // Trigger logic analyser at value 0x7FFE
+                transmit(block, 0);
+                release(block);
+            }
+        }
+    }
+
+    static constexpr uint kBuffersPerSec{AUDIO_SAMPLE_RATE_EXACT / AUDIO_BLOCK_SAMPLES};
+    uint numBuffers{0};
+};
+
 AudioControlSGTL5000 audioShield;
 AudioInputUSB usb;
 AudioOutputI2S out;
-AudioConnection c1(usb, 0, out, 0);
+PulsePerSecond pps;
+AudioConnection c0(pps, 0, out, 0);
+// AudioConnection c1(usb, 0, out, 0);
 AudioConnection c2(usb, 1, out, 1);
 float prevVol{0.f};
 
@@ -80,10 +107,6 @@ void setup()
     qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(1, true);
     attachInterruptVector(IRQ_ENET_TIMER, interrupt_1588_timer); //Configure Interrupt Handler
     NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
-
-    AudioMemory(12);
-    audioShield.enable();
-    audioShield.volume(0.5);
 }
 
 void syncInterrupt()

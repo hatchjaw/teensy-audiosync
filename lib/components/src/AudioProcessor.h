@@ -3,7 +3,7 @@
 
 #include <Arduino.h>
 
-#define CYCLE_COUNTER_APPROX_PERCENT(n) (((float)((uint32_t)(n) * 6400u) * (float)(AUDIO_SAMPLE_RATE_EXACT / 128)) / (float)(F_CPU_ACTUAL))
+#define CYCLES_TO_APPROX_PERCENT(cycles) (((float)((uint32_t)(cycles) * 6400u) * (float)(AUDIO_SAMPLE_RATE_EXACT / 128)) / (float)(F_CPU_ACTUAL))
 
 class AudioProcessor : public Printable
 {
@@ -17,8 +17,8 @@ public:
     size_t printTo(Print &p) const override
     {
         return p.printf("%% CPU: %f (max %f)",
-                        CYCLE_COUNTER_APPROX_PERCENT(currentCycles),
-                        CYCLE_COUNTER_APPROX_PERCENT(maxCycles)
+                        CYCLES_TO_APPROX_PERCENT(currentCycles),
+                        CYCLES_TO_APPROX_PERCENT(maxCycles)
         );
     }
 

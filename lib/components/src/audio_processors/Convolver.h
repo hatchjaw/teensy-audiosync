@@ -19,11 +19,11 @@ private:
     public:
         void prepare();
 
-        size_t getReadIndex();
+        size_t getNextReadIndex();
 
-        size_t getWriteIndex();
+        size_t getNextWriteIndex();
 
-        void resetReadIndex();
+        void prepareReadIndex();
 
     private:
         size_t readIndex{0}, writeIndex{0};

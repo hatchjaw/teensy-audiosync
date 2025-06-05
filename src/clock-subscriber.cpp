@@ -77,14 +77,7 @@ void setup()
 
     ptp.onControllerUpdated([](double nspsAdjust)
     {
-        // Attempts at correction for lingering PPB drift.
-        // 500 too big; 1000 too small. Some success with 625, 650, 700.
-        // 633 best so far (45-min within 1 us).
-        constexpr double kDenom{2500.}, kScalingFactor{1. - 1. / kDenom};
-
-        const auto scaled{nspsAdjust * kScalingFactor};
-        audioSystemManager.adjustClock(scaled);
-        // Serial.printf("Adjust: %.9f, scaled: %.9f\n", nspsAdjust, scaled);
+        audioSystemManager.adjustClock(nspsAdjust);
     });
 
     // PPS Out

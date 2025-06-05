@@ -1,8 +1,7 @@
 #!/bin/bash
 
-# Compiles PTP clock-authority and clock subscriber environments.
-# Prompts for a device to which to upload the clock-authority-usb-audio
-# environment; uploads the clock subscriber environment to any others present.
+# Compiles PTP clock-authority-with-USB-audio environment.
+# Prompts for selection of a device to which to upload.
 
 if ! command -v tycmd &>/dev/null; then
   echo "Error: requires tytools, which were not found https://github.com/Koromix/tytools" >&2
@@ -12,11 +11,9 @@ fi
 
 flags=${*:1}
 
-# Build
 cd "$(dirname "$(realpath "$0")")"/.. || exit 1
-# Run
+# Build
 pio run -e clock-authority-usb-audio $flags
-pio run -e clock-subscriber $flags
 # GTFO if pio exited unhappily
 if [ $? -eq 1 ]; then
     exit 1
@@ -40,19 +37,8 @@ else
     authority="$t"
     echo "Uploading clock-authority."
     tycmd upload .pio/build/clock-authority-usb-audio/firmware.hex -B "$authority"
-
-    # Filter the array so only subscribers remain:
-    for i in "${!teensies[@]}"; do
-      if [ "${teensies[i]}" != "$authority" ]; then
-        subscribers+=("${teensies[i]}")
-      fi
-    done
     break
   done
 
-  for i in "${!subscribers[@]}"; do
-      echo "Uploading clock-subscriber $((i + 1)) of ${#subscribers[@]}."
-      tycmd upload .pio/build/clock-subscriber/firmware.hex -B "${subscribers[$i]}"
-  done
   echo "Done!"
 fi

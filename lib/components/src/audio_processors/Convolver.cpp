@@ -3,6 +3,9 @@
 #include <sys/unistd.h>
 
 extern "C" uint8_t external_psram_size;
+
+// It's more efficient to convert to float, calculate, then convert back to
+// int16 than it is to cast to int32, calculate, then cast back to int16.
 EXTMEM float convBuffer[Convolver::kBufferSize][Convolver::kNumChannels]{};
 EXTMEM float irBuffer[Convolver::kBufferSize]{};
 
@@ -28,8 +31,8 @@ void Convolver::prepare(uint sampleRate)
     for (size_t i{0}; i < kBufferSize; i++) {
         irBuffer[i] = 0.f;
     }
-    irBuffer[0] = .5f;
-    irBuffer[1] = 1.f;
+    irBuffer[0] = 1.f;
+    irBuffer[kBufferSize - 1] = .9f;
 }
 
 void Convolver::processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples)
@@ -46,20 +49,23 @@ void Convolver::processAudio(int16_t *buffer, const size_t numChannels, const si
     //
     // y[n] = s[n]h[0] + s[n-1]h[1] + s[n-2]h[2] + ... + s[n - (M - 1)]h[M - 1]
     //
+    size_t pos{0};
     for (size_t n{0}; n < numSamples; n++) {
         // Get the write index to the input/convolution buffer.
-        const auto writeIndex{fifo.getWriteIndex()};
+        const auto writeIndex{fifo.getNextWriteIndex()};
+
         // Set the read index equal to the write index; counting backwards will
         // yield delayed input samples.
-        fifo.resetReadIndex();
+        fifo.prepareReadIndex();
 
+        // Write the current sample for each channel to the input buffer.
         // It's *so much more efficient* to avoid iterating.
         convBuffer[writeIndex][0] = buffer[n * numChannels] / static_cast<float>(INT16_MAX);
         convBuffer[writeIndex][1] = buffer[n * numChannels + 1] / static_cast<float>(INT16_MAX);
 
         auto sampleL{0.f}, sampleR{0.f};
         for (size_t i{0}; i < kBufferSize; i++) {
-            const auto readIndex{fifo.getReadIndex()};
+            const auto readIndex= fifo.getNextReadIndex();
             const auto irSample{irBuffer[i]};
             sampleL += irSample * convBuffer[readIndex][0];
             sampleR += irSample * convBuffer[readIndex][1];
@@ -81,7 +87,7 @@ void Convolver::FIFO::prepare()
     writeIndex = 0;
 }
 
-size_t Convolver::FIFO::getReadIndex()
+size_t Convolver::FIFO::getNextReadIndex()
 {
     const auto current{readIndex};
     if (readIndex == 0) {
@@ -91,7 +97,7 @@ size_t Convolver::FIFO::getReadIndex()
     return current;
 }
 
-size_t Convolver::FIFO::getWriteIndex()
+size_t Convolver::FIFO::getNextWriteIndex()
 {
     const auto current{writeIndex};
     ++writeIndex;
@@ -101,7 +107,7 @@ size_t Convolver::FIFO::getWriteIndex()
     return current;
 }
 
-void Convolver::FIFO::resetReadIndex()
+void Convolver::FIFO::prepareReadIndex()
 {
-    readIndex = writeIndex;
+    readIndex = writeIndex == 0 ? kBufferSize - 1 : writeIndex - 1;
 }

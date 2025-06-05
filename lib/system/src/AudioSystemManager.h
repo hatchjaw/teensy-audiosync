@@ -68,8 +68,6 @@ private:
         uint32_t getCurrentSai1ClkRootFreq() const;
     };
 
-    // void setClock();
-
     void setupPins() const;
 
     void setupI2S() const;
