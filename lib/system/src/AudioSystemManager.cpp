@@ -11,6 +11,7 @@ DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k
 AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
     : m_Config(config)
 {
+    srand(static_cast<unsigned>(time(nullptr)));
 }
 
 FLASHMEM
@@ -371,19 +372,21 @@ size_t AudioSystemManager::printTo(Print &p) const
     return p.println(m_Config) + p.print(m_ClockDividers);
 }
 
-void AudioSystemManager::adjustClock(const double nspsAdjust)
+void AudioSystemManager::adjustClock(const double adjust, const double drift)
 {
     // Attempts at correction for lingering PPB drift.
     // kDenom may be dependent on the characteristics of the XO of the
     // clock authority; proceed with caution.
     constexpr double kDenom{3000.}, kScalingFactor{1. - 1. / kDenom};
-    const auto scaled{nspsAdjust * kScalingFactor};
+    const auto scaled{adjust * kScalingFactor};
+    const auto randomised{adjust * kScalingFactor + rand() % 21 - 10};
+    const auto combined{adjust - drift * 2.5e-4};
 
     const double proportionalAdjustment{
         // Plain adjustment value.
         // 1. + nspsAdjust * ClockConstants::k_Nanosecond
         // Adjustment value scaled by `kDenom` (above).
-        1. + scaled * ClockConstants::k_Nanosecond
+        1. + combined * ClockConstants::k_Nanosecond
     };
 
     m_Config.setExactSampleRate(proportionalAdjustment);
@@ -393,6 +396,8 @@ void AudioSystemManager::adjustClock(const double nspsAdjust)
     // const auto cycles{ARM_DWT_CYCCNT};
     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
     // Serial.printf("Fs update took %" PRIu32 " ns\n", ananas::Utils::cyclesToNs(ARM_DWT_CYCCNT - cycles));
+
+    // Serial.printf("Drift: %f :: Adjust: %f :: Combined: %f :: Diff: %f\n", drift, adjust, combined, adjust - combined);
 
     // static int numUpdates{0};
     // static double totalDiff{0}, avgDiff{0};
@@ -519,7 +524,7 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
 
     const auto sai1WordOsc{(double) ClockConstants::k_AudioWordSize * m_Sai1Pre * m_Sai1Post / ClockConstants::k_OscMHz};
     const auto num{targetSampleRate * sai1WordOsc - orderOfMagnitude * m_Pll4Div};
-    const auto numInt{(int32_t) floor(num * (m_Pll4Denom / orderOfMagnitude))}; // floor seems to be best...
+    const auto numInt{(int32_t) round(num * (m_Pll4Denom / orderOfMagnitude))};
 
     if (numInt < 0 || (uint32_t) numInt > m_Pll4Denom) {
         Serial.printf("Invalid PLL4 numerator %" PRId32 " "

@@ -4,6 +4,7 @@
 #include <TimeLib.h>
 #include <AudioSystemManager.h>
 #include <AnanasClient.h>
+
 #include "audio_processors/NetworkAuraliser.h"
 
 static void interrupt_1588_timer();
@@ -17,7 +18,8 @@ AudioSystemConfig config{
 AudioSystemManager audioSystemManager{config};
 ananas::AudioClient ananasClient;
 Convolver convolver;
-NetworkAuraliser networkAuraliser{ananasClient, convolver};
+FFT fft;
+NetworkAuraliser networkAuraliser{ananasClient, convolver, fft};
 
 uint32_t sn;
 byte mac[6];
@@ -75,9 +77,9 @@ void setup()
         }
     });
 
-    ptp.onControllerUpdated([](double nspsAdjust)
+    ptp.onControllerUpdated([](const double adjust, const double drift)
     {
-        audioSystemManager.adjustClock(nspsAdjust);
+        audioSystemManager.adjustClock(adjust, drift);
     });
 
     // PPS Out
@@ -139,6 +141,8 @@ void loop()
         Serial.println(convolver);
         Serial.print("Network Auraliser: ");
         Serial.println(networkAuraliser);
+        Serial.print("FFT:               ");
+        Serial.println(fft);
         Serial.println("==============================================================================");
     }
 }

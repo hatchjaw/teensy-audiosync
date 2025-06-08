@@ -2,13 +2,15 @@
 #define NETWORKAURALISER_H
 
 #include <audio_processors/Convolver.h>
+#include <audio_processors/FFT.h>
 
 class NetworkAuraliser final : public AudioProcessor
 {
 public:
-    NetworkAuraliser(ananas::AudioClient &client, Convolver &convolver)
+    NetworkAuraliser(AudioProcessor &client, AudioProcessor &convolver, AudioProcessor &fft)
         : client(client),
-          convolver(convolver)
+          convolver(convolver),
+          fft(fft)
     {
     }
 
@@ -23,7 +25,8 @@ public:
         uint32_t cycles = ARM_DWT_CYCCNT;
 
         client.processAudio(buffer, numChannels, numSamples);
-        convolver.processAudio(buffer, numChannels, numSamples);
+        // convolver.processAudio(buffer, numChannels, numSamples);
+        fft.processAudio(buffer, numChannels, numSamples);
 
         cycles = (ARM_DWT_CYCCNT - cycles) >> 6;
         currentCycles = cycles;
@@ -33,8 +36,9 @@ public:
     }
 
 private:
-    ananas::AudioClient &client;
-    Convolver &convolver;
+    AudioProcessor &client;
+    AudioProcessor &convolver;
+    AudioProcessor &fft;
 };
 
 

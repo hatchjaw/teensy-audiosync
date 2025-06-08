@@ -31,9 +31,6 @@ private:
 
     FIFO fifo;
     uint sampleCount{0};
-
-    // float irBuffer[Convolver::kBufferSize]{};
-    // float convBuffer[Convolver::kBufferSize][Convolver::kNumChannels]{};
 };
 
 #endif //CONVOLVER_H

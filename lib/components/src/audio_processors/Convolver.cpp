@@ -65,7 +65,7 @@ void Convolver::processAudio(int16_t *buffer, const size_t numChannels, const si
 
         auto sampleL{0.f}, sampleR{0.f};
         for (size_t i{0}; i < kBufferSize; i++) {
-            const auto readIndex= fifo.getNextReadIndex();
+            const auto readIndex = fifo.getNextReadIndex();
             const auto irSample{irBuffer[i]};
             sampleL += irSample * convBuffer[readIndex][0];
             sampleR += irSample * convBuffer[readIndex][1];

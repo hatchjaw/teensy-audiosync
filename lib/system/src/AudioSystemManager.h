@@ -23,7 +23,7 @@ public:
 
     bool begin();
 
-    void adjustClock(double nspsAdjust);
+    void adjustClock(double adjust, double drift);
 
     void startClock();
 
