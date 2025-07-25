@@ -4,8 +4,13 @@
 #include <TimeLib.h>
 #include <AudioSystemManager.h>
 #include <AnanasClient.h>
-
+#include <audio_processors/Convolver.h>
+#include <audio_processors/ConvolverFFT.h>
+#include <audio_processors/ConvolverCMSISDSPConv.h>
+#include <audio_processors/FFT.h>
 #include "audio_processors/NetworkAuraliser.h"
+
+extern "C" uint8_t external_psram_size;
 
 static void interrupt_1588_timer();
 
@@ -17,7 +22,7 @@ AudioSystemConfig config{
 };
 AudioSystemManager audioSystemManager{config};
 ananas::AudioClient ananasClient;
-Convolver convolver;
+ConvolverCMSISDSPConv convolver;
 FFT fft;
 NetworkAuraliser networkAuraliser{ananasClient, convolver, fft};
 
@@ -96,8 +101,8 @@ void setup()
     NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
 
     // Set up audio
-    // AudioSystemManager::setAudioProcessor(&ananasClient);
-    AudioSystemManager::setAudioProcessor(&networkAuraliser);
+    AudioSystemManager::setAudioProcessor(&ananasClient);
+    // AudioSystemManager::setAudioProcessor(&networkAuraliser);
     audioSystemManager.begin();
     ananasClient.begin();
 
@@ -133,7 +138,8 @@ void loop()
             "\nIP: ");
         Serial.print(qindesign::network::Ethernet.localIP());
         Serial.printf(" | MAC: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-        Serial.printf(" | SN: %" PRIu32 "\n", sn);
+        Serial.printf(" | SN: %" PRIu32, sn);
+        Serial.printf(external_psram_size ? " | PSRAM: %" PRIu8 " MB\n" : "\n", external_psram_size);
         Serial.println(audioSystemManager);
         Serial.print("Ananas Client:     ");
         Serial.println(ananasClient);

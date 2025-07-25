@@ -4,7 +4,8 @@
 
 FFT::FFT() : window(AudioWindowHanning1024)
 {
-    // Initialise the CFFT instance. Has to happen here in the constructor.
+    // Initialise the CFFT instance. Seems to be necessary to do this here in
+    // the constructor.
     arm_cfft_radix4_init_q15(&cfftInstance, 1024, 0, 1);
 }
 

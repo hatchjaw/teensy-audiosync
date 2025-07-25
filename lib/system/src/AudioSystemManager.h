@@ -120,6 +120,9 @@ private:
     static AudioProcessor *s_AudioProcessor;
 
     static bool s_FirstInterrupt;
+    static uint16_t s_NumInterrupts;
+    static long s_FirstInterruptNS;
+    static long s_AudioPTPOffset;
     static DMAChannel s_DMA;
 
     static constexpr uint16_t k_I2sBufferSizeFrames{ananas::Constants::kAudioBlockFrames};

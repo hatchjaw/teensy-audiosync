@@ -1,9 +1,6 @@
 #ifndef NETWORKAURALISER_H
 #define NETWORKAURALISER_H
 
-#include <audio_processors/Convolver.h>
-#include <audio_processors/FFT.h>
-
 class NetworkAuraliser final : public AudioProcessor
 {
 public:

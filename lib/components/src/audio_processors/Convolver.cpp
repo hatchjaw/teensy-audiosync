@@ -1,7 +1,5 @@
 #include "Convolver.h"
 
-#include <sys/unistd.h>
-
 extern "C" uint8_t external_psram_size;
 
 // It's more efficient to convert to float, calculate, then convert back to
@@ -49,7 +47,6 @@ void Convolver::processAudio(int16_t *buffer, const size_t numChannels, const si
     //
     // y[n] = s[n]h[0] + s[n-1]h[1] + s[n-2]h[2] + ... + s[n - (M - 1)]h[M - 1]
     //
-    size_t pos{0};
     for (size_t n{0}; n < numSamples; n++) {
         // Get the write index to the input/convolution buffer.
         const auto writeIndex{fifo.getNextWriteIndex()};

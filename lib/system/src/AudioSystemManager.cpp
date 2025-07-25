@@ -5,6 +5,9 @@
 
 DMAChannel AudioSystemManager::s_DMA{false};
 bool AudioSystemManager::s_FirstInterrupt{false};
+uint16_t AudioSystemManager::s_NumInterrupts{0};
+long AudioSystemManager::s_FirstInterruptNS{0};
+long AudioSystemManager::s_AudioPTPOffset{0};
 AudioProcessor *AudioSystemManager::s_AudioProcessor = nullptr;
 DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k_I2sBufferSizeFrames];
 
@@ -180,6 +183,8 @@ bool AudioSystemManager::begin()
     s_DMA.attachInterrupt(isr);
 
     s_FirstInterrupt = true;
+    s_NumInterrupts = 0;
+    s_FirstInterruptNS = 0;
 
     cycPostDMA = ARM_DWT_CYCCNT;
 
@@ -323,7 +328,7 @@ void AudioSystemManager::setupDMA() const
 
     s_DMA.attachInterrupt(isr);
     // isr,
-    // 64 // 128 is the default, i.e. the priority assigned if none is provided.
+    // 64 // 128 is the default.
     // );
 }
 
@@ -343,6 +348,8 @@ void AudioSystemManager::startClock()
     m_AudioShield.volume(m_Config.k_Volume);
 
     s_FirstInterrupt = true;
+    s_NumInterrupts = 0;
+    s_FirstInterruptNS = 0;
 }
 
 void AudioSystemManager::stopClock()
@@ -354,6 +361,8 @@ void AudioSystemManager::stopClock()
     m_AnalogAudioPllControlRegister.setBypass(true);
 
     s_FirstInterrupt = true;
+    s_NumInterrupts = 0;
+    s_FirstInterruptNS = 0;
 }
 
 volatile bool AudioSystemManager::isClockRunning() const
@@ -369,24 +378,15 @@ void AudioSystemManager::setAudioProcessor(AudioProcessor *processor)
 
 size_t AudioSystemManager::printTo(Print &p) const
 {
-    return p.println(m_Config) + p.print(m_ClockDividers);
+    return p.println(m_Config)
+           + p.print(m_ClockDividers)
+           + p.printf("\nAudio-PTP offset: %" PRId32 " ns", s_AudioPTPOffset);
 }
 
 void AudioSystemManager::adjustClock(const double adjust, const double drift)
 {
-    // Attempts at correction for lingering PPB drift.
-    // kDenom may be dependent on the characteristics of the XO of the
-    // clock authority; proceed with caution.
-    constexpr double kDenom{3000.}, kScalingFactor{1. - 1. / kDenom};
-    const auto scaled{adjust * kScalingFactor};
-    const auto randomised{adjust * kScalingFactor + rand() % 21 - 10};
-    const auto combined{adjust - drift * 2.5e-4};
-
     const double proportionalAdjustment{
-        // Plain adjustment value.
-        // 1. + nspsAdjust * ClockConstants::k_Nanosecond
-        // Adjustment value scaled by `kDenom` (above).
-        1. + combined * ClockConstants::k_Nanosecond
+        1. + (adjust + s_AudioPTPOffset) * ClockConstants::k_Nanosecond
     };
 
     m_Config.setExactSampleRate(proportionalAdjustment);
@@ -396,18 +396,6 @@ void AudioSystemManager::adjustClock(const double adjust, const double drift)
     // const auto cycles{ARM_DWT_CYCCNT};
     m_AudioPllNumeratorRegister.set(m_ClockDividers.m_Pll4Num);
     // Serial.printf("Fs update took %" PRIu32 " ns\n", ananas::Utils::cyclesToNs(ARM_DWT_CYCCNT - cycles));
-
-    // Serial.printf("Drift: %f :: Adjust: %f :: Combined: %f :: Diff: %f\n", drift, adjust, combined, adjust - combined);
-
-    // static int numUpdates{0};
-    // static double totalDiff{0}, avgDiff{0};
-    // totalDiff += nspsAdjust - scaled;
-    // avgDiff = totalDiff / ++numUpdates;
-    // Serial.printf("Adjust: %.9f, scaled: %.9f, avg. diff: %.9f\n", nspsAdjust, scaled, avgDiff);
-
-    // Serial.println(m_Config);
-    // Serial.printf("Skew (nsps): %*.*f\n", 26, 8, nspsAdjust);
-    // Serial.printf("Proportional adjustment: %*.*f\n", 14, 12, proportionalAdjustment);
 }
 
 // TODO: move these into the class.
@@ -416,6 +404,33 @@ static uint count{0};
 
 void AudioSystemManager::isr()
 {
+    if (s_FirstInterrupt) {
+        s_FirstInterrupt = false;
+        timespec ts{};
+        qindesign::network::EthernetIEEE1588.readTimer(ts);
+        const auto ns{ts.tv_sec * ClockConstants::k_NanosecondsPerSecond + ts.tv_nsec};
+        Serial.print("First interrupt time: ");
+        ananas::Utils::printTime(ns);
+        Serial.println();
+    }
+
+    // TODO: replace with 2 * Fs/blockSize.
+    if (++s_NumInterrupts >= 750) {
+        s_NumInterrupts = 0;
+        timespec ts{};
+        qindesign::network::EthernetIEEE1588.readTimer(ts);
+
+        // Get a reference nanosecond figure to use for comparison.
+        if (s_FirstInterruptNS == 0) {
+            s_FirstInterruptNS = ts.tv_nsec;
+        }
+
+        // Each second, compare the number of nanoseconds with the reference.
+        // TODO: check for zero-wraparound, e.g. if first NS is 999,999,999, and
+        //   a later timer read gives 1, this will break...
+        s_AudioPTPOffset = ts.tv_nsec - s_FirstInterruptNS;
+    }
+
     int16_t *destination, *source;
     const auto sourceAddress = (uint32_t) s_DMA.TCD->SADDR;
     s_DMA.clearInterrupt();
@@ -424,7 +439,7 @@ void AudioSystemManager::isr()
     // buffer with the first half of the source buffer?..
     if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
         // TODO: Is it necessary to proces the whole buffer here?
-        // That's what AudioOutputI2S::isr does... sort of, it delegates to a software ISR, no?
+        //   That's what AudioOutputI2S::isr does... sort of, it delegates to a software ISR, no?
         s_AudioProcessor->processAudio(buff, 2, k_I2sBufferSizeFrames);
         // DMA is transmitting the first half of the buffer; fill the second half.
         destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSizeFrames / 2];
@@ -445,16 +460,6 @@ void AudioSystemManager::isr()
     memcpy(destination, source, k_I2sBufferSizeBytes); // Actually number of bytes over two?
 
     arm_dcache_flush_delete(destination, sizeof(s_I2sTxBuffer) / 2);
-
-    if (s_FirstInterrupt) {
-        s_FirstInterrupt = false;
-        timespec ts{};
-        qindesign::network::EthernetIEEE1588.readTimer(ts);
-        const auto ns{ts.tv_sec * ClockConstants::k_NanosecondsPerSecond + ts.tv_nsec};
-        Serial.print("First interrupt time: ");
-        ananas::Utils::printTime(ns);
-        Serial.println();
-    }
 }
 
 FLASHMEM
