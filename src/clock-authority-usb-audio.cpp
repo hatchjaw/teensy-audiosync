@@ -107,6 +107,10 @@ void setup()
     qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(1, true);
     attachInterruptVector(IRQ_ENET_TIMER, interrupt_1588_timer); //Configure Interrupt Handler
     NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
+
+    AudioMemory(10);
+    audioShield.enable();
+    audioShield.volume(.5f);
 }
 
 void syncInterrupt()

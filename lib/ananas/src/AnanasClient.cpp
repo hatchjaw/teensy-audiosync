@@ -13,8 +13,7 @@ namespace ananas
         if (const auto size{socket.parsePacket()}; size > 0) {
             if (size == kPacketSize) {
                 nWrite++;
-                // socket.read(rxPacket->rawData(), size);
-                // packetBuffer.write(rxPacket);
+
                 socket.read(rxPacket.rawData(), size);
                 packetBuffer.write(rxPacket);
 
@@ -42,7 +41,7 @@ namespace ananas
 
     void AudioClient::connect()
     {
-        socket.beginMulticast({224, 4, 224, 4}, 49152);
+        socket.beginMulticast( Constants::kMulticastIP, Constants::kAudioPort);
     }
 
     void AudioClient::prepare(const uint sampleRate)
@@ -63,10 +62,8 @@ namespace ananas
                + p.printf("Packet offset: %" PRId64 " ns, Sample offset: %" PRId32, packetOffset, sampleOffset);
     }
 
-    void AudioClient::processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples)
+    void AudioClient::processImpl(int16_t *buffer, const size_t numChannels, const size_t numSamples)
     {
-        uint32_t cycles = ARM_DWT_CYCCNT;
-
         nRead++;
 
         // // const auto audio{packetBuffer.read().audio()};
@@ -95,12 +92,6 @@ namespace ananas
         // }
 
         memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numSamples);
-
-        cycles = (ARM_DWT_CYCCNT - cycles) >> 6;
-        currentCycles = cycles;
-        if (currentCycles > maxCycles) {
-            maxCycles = currentCycles;
-        }
     }
 
     void AudioClient::adjustBufferReadIndex(const NanoTime now)

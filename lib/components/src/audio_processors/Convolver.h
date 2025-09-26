@@ -8,10 +8,11 @@ class Convolver final : public AudioProcessor
 public:
     void prepare(uint sampleRate) override;
 
-    void processAudio(int16_t *buffer, size_t numChannels, size_t numSamples) override;
-
     static constexpr size_t kBufferSize{750};
     static constexpr size_t kNumChannels{2};
+
+protected:
+    void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) override;
 
 private:
     class FIFO

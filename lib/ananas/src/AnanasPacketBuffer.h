@@ -22,10 +22,13 @@ namespace ananas
         virtual ~PacketBuffer() = default;
 
         void write(const Packet &packet);
+        void writeV2(const PacketV2 &packet);
 
         Packet &read();
+        PacketV2 &readV2();
 
         Packet &peek();
+        PacketV2 &peekV2();
 
         size_t printTo(Print &p) const override;
 
@@ -42,6 +45,7 @@ namespace ananas
     private:
         size_t writeIndex{0}, readIndex{0};
         Packet buffer[kPacketBufferSize] = {};
+        PacketV2 bufferV2[kPacketBufferSize] = {};
     };
 } // ananas
 

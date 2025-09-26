@@ -34,11 +34,9 @@ void ConvolverCMSISDSPConv::prepare(uint sampleRate)
     memset(rightChannel, 0, sizeof(rightChannel));
 }
 
-void ConvolverCMSISDSPConv::processAudio(int16_t *buffer, size_t numChannels, const size_t numSamples)
+void ConvolverCMSISDSPConv::processImpl(int16_t *buffer, size_t numChannels, size_t numSamples)
 {
     if (external_psram_size <= 0) return;
-
-    uint32_t cycles = ARM_DWT_CYCCNT;
 
     // Temporary buffers for each channel
     q15_t leftOutput[numSamples + kIRSize - 1];
@@ -62,10 +60,4 @@ void ConvolverCMSISDSPConv::processAudio(int16_t *buffer, size_t numChannels, co
 
     memcpy(stateL, leftOutput + numSamples, (kStateSize - numSamples) * sizeof(q15_t));
     memcpy(stateR, rightOutput + numSamples, (kStateSize - numSamples) * sizeof(q15_t));
-
-    cycles = (ARM_DWT_CYCCNT - cycles) >> 6;
-    currentCycles = cycles;
-    if (currentCycles > maxCycles) {
-        maxCycles = currentCycles;
-    }
 }

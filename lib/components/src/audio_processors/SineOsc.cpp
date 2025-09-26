@@ -10,6 +10,17 @@ void SineOsc::setAmplitude(const float amplitude)
     this->amplitude = amplitude;
 }
 
+void SineOsc::processImpl(int16_t *buffer, size_t numChannels, size_t numSamples)
+{
+    for (size_t n{0}; n < numSamples; ++n) {
+        const auto phase{phasor.getNextSample()},
+                sample{amplitude * INT16_MAX * sinf(M_PI * 2.f * phase)};
+        for (size_t ch{0}; ch < numChannels; ++ch) {
+            buffer[n * numChannels + ch] = static_cast<int16_t>(sample);
+        }
+    }
+}
+
 // void SineWaveGenerator::generate(int16_t *buffer, const size_t numChannels, const size_t numSamples)
 // {
 //     for (size_t i{0}; i < numSamples; ++i) {
@@ -24,17 +35,6 @@ void SineOsc::setAmplitude(const float amplitude)
 //         m_Phase += m_PhaseIncrement;
 //     }
 // }
-
-void SineOsc::processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples)
-{
-    for (size_t n{0}; n < numSamples; ++n) {
-        const auto phase{phasor.getNextSample()},
-          sample{amplitude * INT16_MAX * sinf(M_PI * 2.f * phase)};
-        for (size_t ch{0}; ch < numChannels; ++ch) {
-            buffer[n * numChannels + ch] = static_cast<int16_t>(sample);
-        }
-    }
-}
 
 void SineOsc::prepare(const uint sampleRate)
 {

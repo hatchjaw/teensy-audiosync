@@ -42,10 +42,8 @@ float FFT::readBin(const uint bindex) const
     return (float) (output[bindex]) * (1.f / 16384.f);
 }
 
-void FFT::processAudio(int16_t *buffer, size_t numChannels, const size_t numSamples)
+void FFT::processImpl(int16_t *buffer, size_t numChannels, size_t numSamples)
 {
-    uint32_t cycles = ARM_DWT_CYCCNT;
-
     switch (state) {
         case 0:
             bufferOfBuffers[0] = buffer;
@@ -118,11 +116,5 @@ void FFT::processAudio(int16_t *buffer, size_t numChannels, const size_t numSamp
         // Serial.println();
 
             break;
-    }
-
-    cycles = (ARM_DWT_CYCCNT - cycles) >> 6;
-    currentCycles = cycles;
-    if (currentCycles > maxCycles) {
-        maxCycles = currentCycles;
     }
 }

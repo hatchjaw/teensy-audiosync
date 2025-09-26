@@ -20,13 +20,14 @@ namespace ananas
 
         void connect() override;
 
-        void processAudio(int16_t *buffer, size_t numChannels, size_t numSamples) override;
-
         void adjustBufferReadIndex(NanoTime now);
 
         void prepare(uint sampleRate) override;
 
         size_t printTo(Print &p) const override;
+
+    protected:
+        void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) override;
 
     private:
         static constexpr size_t kNumChannels{2};

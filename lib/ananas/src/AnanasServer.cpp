@@ -31,7 +31,16 @@ namespace ananas
         packetBuffer.clear();
     }
 
-    void AudioServer::processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples)
+    void AudioServer::send()
+    {
+        if (packetBuffer.isEmpty()) return;
+
+        socket.beginPacket({224, 4, 224, 4}, 49152);
+        socket.write(packetBuffer.read().rawData(), sizeof(Packet));
+        socket.endPacket();
+    }
+
+    void AudioServer::processImpl(int16_t *buffer, size_t numChannels, size_t numSamples)
     {
         if (!connected) return;
 
@@ -50,15 +59,6 @@ namespace ananas
 
         auto [packetTime, audioData]{playbackPacketBuffer.read()};
         memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numSamples);
-    }
-
-    void AudioServer::send()
-    {
-        if (packetBuffer.isEmpty()) return;
-
-        socket.beginPacket({224, 4, 224, 4}, 49152);
-        socket.write(packetBuffer.read().rawData(), sizeof(Packet));
-        socket.endPacket();
     }
 
     void AudioServer::adjustBufferReadIndex(const NanoTime now)

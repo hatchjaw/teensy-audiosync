@@ -33,11 +33,9 @@ void Convolver::prepare(uint sampleRate)
     irBuffer[kBufferSize - 1] = .9f;
 }
 
-void Convolver::processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples)
+void Convolver::processImpl(int16_t *buffer, const size_t numChannels, const size_t numSamples)
 {
     if (external_psram_size <= 0) return;
-
-    uint32_t cycles = ARM_DWT_CYCCNT;
 
     // Do naïve time-domain convolution
 
@@ -69,12 +67,6 @@ void Convolver::processAudio(int16_t *buffer, const size_t numChannels, const si
         }
         buffer[n * numChannels] = static_cast<int16_t>(INT16_MAX * sampleL);
         buffer[n * numChannels + 1] = static_cast<int16_t>(INT16_MAX * sampleR);
-    }
-
-    cycles = (ARM_DWT_CYCCNT - cycles) >> 6;
-    currentCycles = cycles;
-    if (currentCycles > maxCycles) {
-        maxCycles = currentCycles;
     }
 }
 

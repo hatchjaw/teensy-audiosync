@@ -17,20 +17,13 @@ public:
         convolver.prepare(sampleRate);
     }
 
-    void processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples) override
+protected:
+    void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) override
     {
-        uint32_t cycles = ARM_DWT_CYCCNT;
-
         client.processAudio(buffer, numChannels, numSamples);
         // convolver.processAudio(buffer, numChannels, numSamples);
         fft.processAudio(buffer, numChannels, numSamples);
-
-        cycles = (ARM_DWT_CYCCNT - cycles) >> 6;
-        currentCycles = cycles;
-        if (currentCycles > maxCycles) {
-            maxCycles = currentCycles;
-        }
-    }
+    };
 
 private:
     AudioProcessor &client;

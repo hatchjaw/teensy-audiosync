@@ -22,9 +22,9 @@ AudioSystemConfig config{
 };
 AudioSystemManager audioSystemManager{config};
 ananas::AudioClient ananasClient;
-ConvolverCMSISDSPConv convolver;
-FFT fft;
-NetworkAuraliser networkAuraliser{ananasClient, convolver, fft};
+// ConvolverCMSISDSPConv convolver;
+// FFT fft;
+// NetworkAuraliser networkAuraliser{ananasClient, convolver, fft};
 
 uint32_t sn;
 byte mac[6];
@@ -143,12 +143,12 @@ void loop()
         Serial.println(audioSystemManager);
         Serial.print("Ananas Client:     ");
         Serial.println(ananasClient);
-        Serial.print("Convolver:         ");
-        Serial.println(convolver);
-        Serial.print("Network Auraliser: ");
-        Serial.println(networkAuraliser);
-        Serial.print("FFT:               ");
-        Serial.println(fft);
+        // Serial.print("Convolver:         ");
+        // Serial.println(convolver);
+        // Serial.print("Network Auraliser: ");
+        // Serial.println(networkAuraliser);
+        // Serial.print("FFT:               ");
+        // Serial.println(fft);
         Serial.println("==============================================================================");
     }
 }

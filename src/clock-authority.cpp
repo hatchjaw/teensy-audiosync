@@ -37,7 +37,8 @@ public:
         server.prepare(sampleRate);
     }
 
-    void processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples) override
+protected:
+    void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) override
     {
         sine.processAudio(buffer, numChannels, numSamples);
         server.processAudio(buffer, numChannels, numSamples);
@@ -63,7 +64,8 @@ public:
         server.prepare(sampleRate);
     }
 
-    void processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples) override
+protected:
+    void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) override
     {
         pulseTrain.processAudio(buffer, numChannels, numSamples);
         server.processAudio(buffer, numChannels, numSamples);

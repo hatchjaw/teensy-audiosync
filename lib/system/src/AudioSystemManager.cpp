@@ -4,8 +4,8 @@
 #include <Utils.h>
 
 DMAChannel AudioSystemManager::s_DMA{false};
-bool AudioSystemManager::s_FirstInterrupt{false};
-uint16_t AudioSystemManager::s_NumInterrupts{0};
+uint16_t AudioSystemManager::s_InterruptsPerSecond{0};
+int16_t AudioSystemManager::s_NumInterrupts{-1};
 long AudioSystemManager::s_FirstInterruptNS{0};
 long AudioSystemManager::s_AudioPTPOffset{0};
 AudioProcessor *AudioSystemManager::s_AudioProcessor = nullptr;
@@ -14,7 +14,7 @@ DMAMEM __attribute__((aligned(32))) uint32_t AudioSystemManager::s_I2sTxBuffer[k
 AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
     : m_Config(config)
 {
-    srand(static_cast<unsigned>(time(nullptr)));
+    s_InterruptsPerSecond = static_cast<uint16_t>(2 * m_Config.k_SampleRate / m_Config.k_BufferSize);
 }
 
 FLASHMEM
@@ -182,8 +182,7 @@ bool AudioSystemManager::begin()
     //
     s_DMA.attachInterrupt(isr);
 
-    s_FirstInterrupt = true;
-    s_NumInterrupts = 0;
+    s_NumInterrupts = -1;
     s_FirstInterruptNS = 0;
 
     cycPostDMA = ARM_DWT_CYCCNT;
@@ -347,8 +346,7 @@ void AudioSystemManager::startClock()
     m_AudioShield.enable();
     m_AudioShield.volume(m_Config.k_Volume);
 
-    s_FirstInterrupt = true;
-    s_NumInterrupts = 0;
+    s_NumInterrupts = -1;
     s_FirstInterruptNS = 0;
 }
 
@@ -360,8 +358,7 @@ void AudioSystemManager::stopClock()
     m_AnalogAudioPllControlRegister.setPowerDown(true);
     m_AnalogAudioPllControlRegister.setBypass(true);
 
-    s_FirstInterrupt = true;
-    s_NumInterrupts = 0;
+    s_NumInterrupts = -1;
     s_FirstInterruptNS = 0;
 }
 
@@ -404,8 +401,8 @@ static uint count{0};
 
 void AudioSystemManager::isr()
 {
-    if (s_FirstInterrupt) {
-        s_FirstInterrupt = false;
+    if (s_NumInterrupts == -1) {
+        s_NumInterrupts = 0;
         timespec ts{};
         qindesign::network::EthernetIEEE1588.readTimer(ts);
         const auto ns{ts.tv_sec * ClockConstants::k_NanosecondsPerSecond + ts.tv_nsec};
@@ -414,8 +411,7 @@ void AudioSystemManager::isr()
         Serial.println();
     }
 
-    // TODO: replace with 2 * Fs/blockSize.
-    if (++s_NumInterrupts >= 750) {
+    if (++s_NumInterrupts >= s_InterruptsPerSecond) {
         s_NumInterrupts = 0;
         timespec ts{};
         qindesign::network::EthernetIEEE1588.readTimer(ts);
@@ -428,6 +424,8 @@ void AudioSystemManager::isr()
         // Each second, compare the number of nanoseconds with the reference.
         // TODO: check for zero-wraparound, e.g. if first NS is 999,999,999, and
         //   a later timer read gives 1, this will break...
+        // TODO: sometimes settles into an oscillating pattern with an amplitude
+        //   of a couple a few hundred ns. Would a PI controller help?
         s_AudioPTPOffset = ts.tv_nsec - s_FirstInterruptNS;
     }
 
@@ -439,7 +437,8 @@ void AudioSystemManager::isr()
     // buffer with the first half of the source buffer?..
     if (sourceAddress < (uint32_t) s_I2sTxBuffer + sizeof(s_I2sTxBuffer) / 2) {
         // TODO: Is it necessary to proces the whole buffer here?
-        //   That's what AudioOutputI2S::isr does... sort of, it delegates to a software ISR, no?
+        //   That's what AudioOutputI2S::isr does... sort of, it delegates to a
+        //   software ISR, no?
         s_AudioProcessor->processAudio(buff, 2, k_I2sBufferSizeFrames);
         // DMA is transmitting the first half of the buffer; fill the second half.
         destination = (int16_t *) &s_I2sTxBuffer[k_I2sBufferSizeFrames / 2];
@@ -536,8 +535,10 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
                       "for target sample rate %f "
                       "and denominator %" PRIu32 "\n",
                       numInt, targetSampleRate, m_Pll4Denom);
-        // TODO: (Stop audio and) reset PTP. (Maybe) complicated by the need to restart the SGTL5000 too.
-        // TODO: Actually, this should be doable by checking targetSampleRate before we even get here.
+        // TODO: (Stop audio and) reset PTP. (Maybe) complicated by the need to
+        //   restart the SGTL5000 too.
+        // TODO: Actually, this should be doable by checking targetSampleRate
+        //   before we even get here.
         return;
     }
 

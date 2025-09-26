@@ -12,8 +12,10 @@ public:
 
     void prepare(uint sampleRate) override;
 
-    void processAudio(int16_t *buffer, size_t numChannels, size_t numSamples) override;
+protected:
+    void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) override;
 
+public:
     /**
      * It doesn't appear to be possible to go any higher than 256. I tried
      * convolving by blocks (of 128 and 256) but to no avail. 10% CPU time @256.

@@ -21,8 +21,6 @@ namespace ananas
 
         void connect() override;
 
-        void processAudio(int16_t *buffer, size_t numChannels, size_t numSamples) override;
-
         void prepare(uint sampleRate) override;
 
         void adjustBufferReadIndex(NanoTime now);
@@ -30,6 +28,10 @@ namespace ananas
     private:
         void send();
 
+    protected:
+        void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) override;
+
+    private:
         static constexpr int64_t kPacketReproductionOffsetNs{Constants::kNanoSecondsPerSecond / 20};
         static constexpr size_t kNumFrames{Constants::kAudioBlockFrames};
 

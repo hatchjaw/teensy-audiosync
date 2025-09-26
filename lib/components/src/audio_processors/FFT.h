@@ -26,9 +26,10 @@ public:
 
     void prepare(uint sampleRate) override;
 
-    void processAudio(int16_t *buffer, size_t numChannels, size_t numSamples) override;
-
     float readBin(uint bindex) const;
+
+protected:
+    void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) override;
 
 private:
     const int16_t *window{nullptr};

@@ -2,6 +2,7 @@
 #define UTILS_H
 
 #include <Arduino.h>
+#include <IPAddress.h>
 #include <TimeLib.h>
 #include <t41-ptp.h>
 
@@ -13,12 +14,11 @@ namespace ananas
 {
     struct Constants
     {
-        /**
-         * Doesn't belong here.
-         */
         static constexpr int64_t kNanoSecondsPerSecond{1'000'000'000};
-        static constexpr float kNanoSecondsPerCpuCycle{10.f/6.f};
+        static constexpr float kNanoSecondsPerCpuCycle{10.f / 6.f};
         static constexpr size_t kAudioBlockFrames{AUDIO_BLOCK_SAMPLES};
+        static const IPAddress kMulticastIP;
+        static constexpr uint16_t kAudioPort{49152};
     };
 
     class Utils
@@ -40,9 +40,6 @@ namespace ananas
             Serial.println(F("\n"));
         }
 
-        /**
-         * Doesn't belong here.
-         */
         static void printTime(const NanoTime t)
         {
             NanoTime x = t;

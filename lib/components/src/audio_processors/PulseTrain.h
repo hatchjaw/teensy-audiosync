@@ -10,13 +10,14 @@ class PulseTrain : public AudioProcessor
 public:
     void prepare(uint sampleRate) override;
 
-    void processAudio(int16_t *buffer, size_t numChannels, size_t numSamples) override;
-
     void setFrequency(float freq);
 
     void setAmplitude(float amplitude);
 
     void setWidth(uint16_t width);
+
+protected:
+    void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) override;
 
 private:
     Phasor phasor;

@@ -1,6 +1,7 @@
 #include "AnanasPacketBuffer.h"
 
-namespace ananas {
+namespace ananas
+{
     void PacketBuffer::write(const Packet &packet)
     {
         // memcpy(&packetBuffer[writeIndex], packet->rawData(), sizeof(NanoTime) + (128 << 2));
@@ -13,6 +14,12 @@ namespace ananas {
         // }
     }
 
+    void PacketBuffer::writeV2(const PacketV2 &packet)
+    {
+        bufferV2[writeIndex] = packet;
+        writeIndex = (writeIndex + 1) % kPacketBufferSize;
+    }
+
     Packet &PacketBuffer::read()
     {
         auto &packet{peek()};
@@ -20,9 +27,21 @@ namespace ananas {
         return packet;
     }
 
+    PacketV2 &PacketBuffer::readV2()
+    {
+        auto &packet{peekV2()};
+        incrementReadIndex();
+        return packet;
+    }
+
     Packet &PacketBuffer::peek()
     {
         return buffer[readIndex];
+    }
+
+    PacketV2 &PacketBuffer::peekV2()
+    {
+        return bufferV2[readIndex];
     }
 
     size_t PacketBuffer::printTo(Print &p) const

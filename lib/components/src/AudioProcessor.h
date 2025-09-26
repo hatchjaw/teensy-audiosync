@@ -12,7 +12,18 @@ public:
 
     virtual void prepare(uint sampleRate) = 0;
 
-    virtual void processAudio(int16_t *buffer, size_t numChannels, size_t numSamples) = 0;
+    virtual void processAudio(int16_t *buffer, const size_t numChannels, const size_t numSamples) final
+    {
+        uint32_t cycles = ARM_DWT_CYCCNT;
+
+        processImpl(buffer, numChannels, numSamples);
+
+        cycles = (ARM_DWT_CYCCNT - cycles) >> 6;
+        currentCycles = cycles;
+        if (currentCycles > maxCycles) {
+            maxCycles = currentCycles;
+        }
+    }
 
     size_t printTo(Print &p) const override
     {
@@ -23,6 +34,9 @@ public:
     }
 
 protected:
+    virtual void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) = 0;
+
+private:
     uint16_t currentCycles{0}, maxCycles{0};
 };
 
