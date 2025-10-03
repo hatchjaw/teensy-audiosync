@@ -5,7 +5,8 @@ class NetworkAuraliser final : public AudioProcessor
 {
 public:
     NetworkAuraliser(AudioProcessor &client, AudioProcessor &convolver, AudioProcessor &fft)
-        : client(client),
+        : AudioProcessor(2, 2),
+          client(client),
           convolver(convolver),
           fft(fft)
     {

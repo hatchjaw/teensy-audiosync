@@ -122,6 +122,7 @@ bool SAI1TransmitConfig1Register::setWatermarkLevel(uint const level) const
         return false;
     }
 
+    // TODO: pretty sure this only works if called first.
     write(level);
     return true;
 }

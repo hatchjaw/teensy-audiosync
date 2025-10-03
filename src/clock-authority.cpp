@@ -94,8 +94,8 @@ IntervalTimer announceTimer;
 bool connected{false};
 
 l2PTP ptp(
-    config.k_ClockRole == AudioSystemConfig::ClockRole::Authority,
-    config.k_ClockRole == AudioSystemConfig::ClockRole::Subscriber,
+    config.kClockRole == AudioSystemConfig::ClockRole::Authority,
+    config.kClockRole == AudioSystemConfig::ClockRole::Subscriber,
     false
 );
 

@@ -10,7 +10,7 @@ bool ClockDividerRegister1::begin()
 
 bool ClockDividerRegister1::setSai1ClkPred(uint8_t divider) const
 {
-    if (divider == 0 || divider > ClockConstants::k_Sai1PreMax) {
+    if (divider == 0 || divider > ClockConstants::Sai1PreMax) {
         Serial.printf("Invalid value provided for SAI1_CLK_PRED: "
                       "%" PRIu8 "\n",
                       divider);
@@ -23,7 +23,7 @@ bool ClockDividerRegister1::setSai1ClkPred(uint8_t divider) const
 
 bool ClockDividerRegister1::setSai1ClkPodf(uint8_t divider) const
 {
-    if (divider == 0 || divider > ClockConstants::k_Sai1PostMax) {
+    if (divider == 0 || divider > ClockConstants::Sai1PostMax) {
         Serial.printf("Invalid value provided for SAI1_CLK_PODF: "
                       "%" PRIu8 "\n",
                       divider);

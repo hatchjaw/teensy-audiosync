@@ -36,8 +36,8 @@ bool connected{false};
 bool p2p = false;
 
 l3PTP ptp(
-    config.k_ClockRole == AudioSystemConfig::ClockRole::Authority,
-    config.k_ClockRole == AudioSystemConfig::ClockRole::Subscriber,
+    config.kClockRole == AudioSystemConfig::ClockRole::Authority,
+    config.kClockRole == AudioSystemConfig::ClockRole::Subscriber,
     p2p
 );
 
@@ -84,7 +84,7 @@ void setup()
 
     ptp.onControllerUpdated([](const double adjust, const double drift)
     {
-        audioSystemManager.adjustClock(adjust, drift);
+        audioSystemManager.adjustClock(adjust);
     });
 
     // PPS Out
@@ -153,8 +153,6 @@ void loop()
     }
 }
 
-bool didAdjust{false};
-
 static void interrupt_1588_timer()
 {
     uint32_t t;
@@ -187,51 +185,20 @@ static void interrupt_1588_timer()
 
     interrupt_ns = t;
 
-    // audioSystemManager.adjustClock(ptp.getAdjust());
-    // audioSystemManager.adjustClock(ptp.getAdjust() * .998375);
-    // audioSystemManager.adjustClock(ptp.getAdjust() * .998333333);
-    // audioSystemManager.adjustClock(ptp.getAdjust() - ptp.getAccumulatedOffset());
-    // audioSystemManager.adjustClock(ptp.getAdjust() + (double) ptp.getOffset());
-    // audioSystemManager.adjustClock(ptp.getAdjust() - .00166 * ptp.getDrift());
-
-    // Serial.printf("Adjust: %f\n"
-    //               "Accum: %d\n"
-    //               "Drift: %f\n"
-    //               "Delay: %" PRId64 "\n"
-    //               "Offset: %" PRId64 "\n",
-    //               ptp.getAdjust(),
-    //               ptp.getAccumulatedOffset(),
-    //               ptp.getDrift(),
-    //               ptp.getDelay(),
-    //               ptp.getOffset());
-
-    // Start audio at t = 10s
-    // Only works if started at *around the same time* as the clock authority.
-    // For arbitrary start times, it'll be necessary to measure the initial
-    // offset, i.e. first large time adjustment.
-    // shouldEnableAudio = interrupt_s >= 10;
-    // const auto offset{ptp.getOffset()};
-
     // Start audio the first time two consecutive PTP locks (offset < 100 ns)
     // are reported.
-    shouldEnableAudio = ptp.getLockCount() > 0; // Formerly 1 // ptp.getDelay() != 0 && offset < 1000 && offset > -1000;
+    shouldEnableAudio = ptp.getLockCount() > 0;
 
     const NanoTime enetCompareTime{interrupt_s * NS_PER_S + interrupt_ns},
             now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
 
     if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
-        // audioSystemManager.begin();
         audioSystemManager.startClock();
         Serial.print("Subscriber start audio clock ");
-        ananas::Utils::printTime(enetCompareTime);
+        printTime(enetCompareTime);
         Serial.println();
-    } else if (!shouldEnableAudio && audioSystemManager.isClockRunning()) {
-        // audioSystemManager.stopClock();
-        // ananas::Utils::printTime(now);
-        // Serial.println();
-    } else if (audioSystemManager.isClockRunning() && !didAdjust) {
+    } else if (audioSystemManager.isClockRunning()) {
         ananasClient.adjustBufferReadIndex(now);
-        // didAdjust = true;
     }
 
     // Allow write to complete so the interrupt doesn't fire twice

@@ -1,9 +1,15 @@
 #include "AnanasClient.h"
+
+#include <AnanasPacketBuffer.h>
 #include <QNEthernet.h>
-#include "Utils.h"
+#include <AnanasUtils.h>
 
 namespace ananas
 {
+    AudioClient::AudioClient(): AudioProcessor(0, Constants::MaxChannels)
+    {
+    }
+
     void AudioClient::begin()
     {
     }
@@ -11,37 +17,54 @@ namespace ananas
     void AudioClient::run()
     {
         if (const auto size{socket.parsePacket()}; size > 0) {
-            if (size == kPacketSize) {
-                nWrite++;
+            // if (size == kPacketSize) {
+            //     nWrite++;
+            //
+            //     socket.read(rxPacket.rawData(), size);
+            //     packetBuffer.write(rxPacket);
+            //
+            //     // if (nWrite % 1000 == 0) {
+            //     //     Serial.println("Received packet:");
+            //     //     Utils::hexDump(rxPacket->rawData(), size);
+            //     // }
+            //
+            //     if (nWrite > kReportThreshold) {
+            //         timespec now{};
+            //         qindesign::network::EthernetIEEE1588.readTimer(now);
+            //         const auto ns{now.tv_sec * Constants::kNanoSecondsPerSecond + now.tv_nsec};
+            //
+            //         const int64_t diff{ns - prevTime};
+            //         if (prevTime != 0) {
+            //             totalTime += diff;
+            //         }
+            //         prevTime = ns;
+            //     }
+            // } else {
+            //     Serial.printf("\n*** Received malformed packet of %d bytes.\n", size);
+            // }
 
-                socket.read(rxPacket.rawData(), size);
-                packetBuffer.write(rxPacket);
+            nWrite++;
 
-                // if (nWrite % 1000 == 0) {
-                //     Serial.println("Received packet:");
-                //     Utils::hexDump(rxPacket->rawData(), size);
-                // }
+            socket.read(rxPacketV2.rawData(), size);
+            packetBuffer.writeV2(rxPacketV2);
 
-                if (nWrite > kReportThreshold) {
-                    timespec now{};
-                    qindesign::network::EthernetIEEE1588.readTimer(now);
-                    const auto ns{now.tv_sec * Constants::kNanoSecondsPerSecond + now.tv_nsec};
+            if (nWrite > Constants::ClientReportThreshold) {
+                timespec now{};
+                qindesign::network::EthernetIEEE1588.readTimer(now);
+                const auto ns{now.tv_sec * Constants::NanosecondsPerSecond + now.tv_nsec};
 
-                    const int64_t diff{ns - prevTime};
-                    if (prevTime != 0) {
-                        totalTime += diff;
-                    }
-                    prevTime = ns;
+                const int64_t diff{ns - prevTime};
+                if (prevTime != 0) {
+                    totalTime += diff;
                 }
-            } else {
-                Serial.printf("\n*** Received malformed packet of %d bytes.\n", size);
+                prevTime = ns;
             }
         }
     }
 
     void AudioClient::connect()
     {
-        socket.beginMulticast( Constants::kMulticastIP, Constants::kAudioPort);
+        socket.beginMulticast(Constants::MulticastIP, Constants::AudioPort);
     }
 
     void AudioClient::prepare(const uint sampleRate)
@@ -53,62 +76,55 @@ namespace ananas
     size_t AudioClient::printTo(Print &p) const
     {
         return AudioProcessor::printTo(p)
-               + (nWrite < kReportThreshold
+               + (nWrite < Constants::ClientReportThreshold
                       ? p.printf("\nPackets received: %" PRIu32 "\n", nWrite)
                       : p.printf("\nPackets received: %" PRIu32 " Average reception interval: %e ns\n",
                                  nWrite,
-                                 static_cast<double>(totalTime) / (nWrite - kReportThreshold)))
+                                 static_cast<double>(totalTime) / (nWrite - Constants::ClientReportThreshold)))
                + p.print(packetBuffer)
                + p.printf("Packet offset: %" PRId64 " ns, Sample offset: %" PRId32, packetOffset, sampleOffset);
     }
 
-    void AudioClient::processImpl(int16_t *buffer, const size_t numChannels, const size_t numSamples)
+    void AudioClient::processImpl(int16_t *buffer, const size_t numChannels, const size_t numFrames)
     {
-        nRead++;
+        // auto [packetTime, audioData]{packetBuffer.read()};
+        auto [header, audioData]{packetBuffer.readV2()};
 
-        // // const auto audio{packetBuffer.read().audio()};
+        memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numFrames);
+    }
 
-        auto [packetTime, audioData]{packetBuffer.read()};
+    void AudioClient::processImplV2(const size_t numFrames)
+    {
+        size_t frame{0};
+        while (frame < numFrames) {
+            auto packet{packetBuffer.readV2()};
 
-        // if (nRead % 1000 <= 1) {
-        //     Serial.println("Read audio:");
-        //     Utils::hexDump(reinterpret_cast<uint8_t *>(audio), sizeof(int16_t) * numChannels * numSamples);
-        // }
+            const size_t numChannels{min(packet.header.numChannels, numOutputs)};
+            const auto audioData{packet.audio()};
 
-        // timespec ts{};
-        // qindesign::network::EthernetIEEE1588.readTimer(ts);
-        // const NanoTime now{ts.tv_sec * 1'000'000'000 + ts.tv_nsec}, diff{now - packetTime};
-        // if (abs(diff) > 2'666'666) {
-        //     if (std::signbit(diff)) {
-        //         packetBuffer.decrementReadIndex();
-        //     } else {
-        //         packetBuffer.incrementReadIndex();
-        //     }
-        //     Serial.print("Current time: ");
-        //     Utils::printTime(now);
-        //     Serial.printf(", Read index: %" PRIu32 "\nPacket time:  ", packetBuffer.getReadIndex());
-        //     Utils::printTime(packetTime);
-        //     Serial.printf(", diff: %" PRId64 "\n", diff);
-        // }
-
-        memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numSamples);
+            for (size_t i{0}; i < packet.header.numFrames; ++i, ++frame) {
+                for (size_t channel{0}; channel < numChannels; ++channel) {
+                    outputBuffer[channel][frame] = audioData[frame * numChannels + channel];
+                }
+            }
+        }
     }
 
     void AudioClient::adjustBufferReadIndex(const NanoTime now)
     {
-        const auto idx{packetBuffer.getReadIndex()},
-                initialReadIndex{(idx + PacketBuffer::kPacketBufferSize - 1) % PacketBuffer::kPacketBufferSize};
-        auto packetTime{packetBuffer.peek().time};
+        const auto idx{packetBuffer.getReadIndexV2()};
+        const auto initialReadIndex{(idx + Constants::PacketBufferCapacity - 1) % Constants::PacketBufferCapacity};
+        auto packetTime{packetBuffer.peekV2().header.time};
         auto diff{now - packetTime};
-        const auto kMaxDiff{static_cast<int64_t>(1e9 * kNumFrames / sampleRate)};
+        const auto kMaxDiff{(Constants::NanosecondsPerSecond * Constants::AudioBlockFrames / sampleRate)};
         // while (abs(diff) > kMaxDiff && initialReadIndex != packetBuffer.getReadIndex()) {
-        while ((diff > kMaxDiff / 2 || diff < -kMaxDiff / 2) && initialReadIndex != packetBuffer.getReadIndex()) {
+        while ((diff > kMaxDiff / 2 || diff < -kMaxDiff / 2) && initialReadIndex != packetBuffer.getReadIndexV2()) {
             // if (std::signbit(diff)) {
             //     packetBuffer.decrementReadIndex();
             // } else {
-            packetBuffer.incrementReadIndex();
+            packetBuffer.incrementReadIndexV2();
             // }
-            packetTime = packetBuffer.peek().time;
+            packetTime = packetBuffer.peekV2().header.time;
             diff = now - packetTime;
             // Serial.print("Current time: ");
             // Utils::printTime(now);

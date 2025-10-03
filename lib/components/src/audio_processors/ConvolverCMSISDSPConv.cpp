@@ -5,7 +5,7 @@ extern "C" uint8_t external_psram_size;
 // Size: smallest multiple of 128 greater than kIRSize.
 EXTMEM q15_t irBuffer[ConvolverCMSISDSPConv::kIRSize] __attribute__ ((aligned (4)));
 
-ConvolverCMSISDSPConv::ConvolverCMSISDSPConv()
+ConvolverCMSISDSPConv::ConvolverCMSISDSPConv() : AudioProcessor(2, 2)
 {
 }
 

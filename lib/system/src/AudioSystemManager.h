@@ -6,7 +6,7 @@
 #include <AudioSystemConfig.h>
 #include <DMAChannel.h>
 #include <SGTL5000.h>
-#include <Utils.h>
+#include <AnanasUtils.h>
 #include <registers/AnalogAudioPllControlRegister.h>
 #include <registers/ClockDividerRegister1.h>
 #include <registers/ClockGatingRegister5.h>
@@ -16,14 +16,14 @@
 #include <registers/SerialClockMultiplexerRegister1.h>
 #include <registers/SwMuxControlRegister.h>
 
-class AudioSystemManager : public Printable
+class AudioSystemManager final : public Printable
 {
 public:
     explicit AudioSystemManager(AudioSystemConfig config);
 
     bool begin();
 
-    void adjustClock(double adjust, double drift);
+    void adjustClock(double adjust);
 
     void startClock();
 
@@ -38,13 +38,13 @@ public:
 private:
     struct ClockDividers final : Printable
     {
-        uint8_t m_Pll4Div{ClockConstants::k_Pll4DivMin};
-        int32_t m_Pll4Num{0};
-        uint32_t m_Pll4Denom{1};
-        uint8_t m_Sai1Pre{1};
-        uint8_t m_Sai1Post{1};
-        const MiscellaneousRegister2::AudioPostDiv k_AudioPostDiv{MiscellaneousRegister2::AudioPostDiv::DivideBy1};
-        const AnalogAudioPllControlRegister::PostDivSelect k_Pll4PostDiv{AnalogAudioPllControlRegister::PostDivSelect::DivideBy1};
+        uint8_t pll4Div{ClockConstants::Pll4DivMin};
+        int32_t pll4Num{0};
+        uint32_t pll4Denom{1};
+        uint8_t sai1Pre{1};
+        uint8_t sai1Post{1};
+        constexpr static MiscellaneousRegister2::AudioPostDiv kAudioPostDiv{MiscellaneousRegister2::AudioPostDiv::DivideBy1};
+        constexpr static AnalogAudioPllControlRegister::PostDivSelect kPll4PostDiv{AnalogAudioPllControlRegister::PostDivSelect::DivideBy1};
 
         size_t printTo(Print &p) const override;
 
@@ -68,66 +68,58 @@ private:
         uint32_t getCurrentSai1ClkRootFreq() const;
     };
 
-    void setupPins() const;
-
-    void setupI2S() const;
-
-    void setupDMA() const;
-
     static void isr();
 
+    static void triggerAudioProcessing();
+
+    static void softwareISR();
+
     uint32_t cycPreReg{0},
-            cycPostReg{0},
-            cycPostPin{0},
-            cycPostClk{0},
-            cycPostI2S{0},
-            cycPostDMA{0},
-            cycPostSGTL{0},
             cycPostStop{0};
 
-    AudioSystemConfig m_Config;
-    ClockDividers m_ClockDividers;
+    AudioSystemConfig config;
+    ClockDividers clockDividers;
 
-    AnalogAudioPllControlRegister m_AnalogAudioPllControlRegister;
-    AudioPllNumeratorRegister m_AudioPllNumeratorRegister;
-    AudioPllDenominatorRegister m_AudioPllDenominatorRegister;
-    ClockDividerRegister1 m_ClockDividerRegister1;
-    SerialClockMultiplexerRegister1 m_SerialClockMultiplexerRegister1;
-    MiscellaneousRegister2 m_MiscellaneousRegister2;
-    ClockGatingRegister5 m_ClockGatingRegister5;
-    GeneralPurposeRegister1 m_GeneralPurposeRegister1;
-    Pin7SwMuxControlRegister m_Pin7SwMuxControlRegister;
-    Pin20SwMuxControlRegister m_Pin20SwMuxControlRegister;
-    Pin21SwMuxControlRegister m_Pin21SwMuxControlRegister;
-    Pin23SwMuxControlRegister m_Pin23SwMuxControlRegister;
-    SAI1TransmitControlRegister m_SAI1TransmitControlRegister;
-    SAI1TransmitConfig1Register m_SAI1TransmitConfig1Register;
-    SAI1TransmitConfig2Register m_SAI1TransmitConfig2Register;
-    SAI1TransmitConfig3Register m_SAI1TransmitConfig3Register;
-    SAI1TransmitConfig4Register m_SAI1TransmitConfig4Register;
-    SAI1TransmitConfig5Register m_SAI1TransmitConfig5Register;
-    SAI1TransmitMaskRegister m_SAI1TransmitMaskRegister;
-    SAI1ReceiveControlRegister m_SAI1ReceiveControlRegister;
-    SAI1ReceiveConfig1Register m_SAI1ReceiveConfig1Register;
-    SAI1ReceiveConfig2Register m_SAI1ReceiveConfig2Register;
-    SAI1ReceiveConfig3Register m_SAI1ReceiveConfig3Register;
-    SAI1ReceiveConfig4Register m_SAI1ReceiveConfig4Register;
-    SAI1ReceiveConfig5Register m_SAI1ReceiveConfig5Register;
-    SAI1ReceiveMaskRegister m_SAI1ReceiveMaskRegister;
+    AnalogAudioPllControlRegister analogAudioPllControlRegister;
+    AudioPllNumeratorRegister audioPllNumeratorRegister;
+    AudioPllDenominatorRegister audioPllDenominatorRegister;
+    ClockDividerRegister1 clockDividerRegister1;
+    SerialClockMultiplexerRegister1 serialClockMultiplexerRegister1;
+    MiscellaneousRegister2 miscellaneousRegister2;
+    ClockGatingRegister5 clockGatingRegister5;
+    GeneralPurposeRegister1 generalPurposeRegister1;
+    Pin7SwMuxControlRegister pin7SwMuxControlRegister;
+    Pin20SwMuxControlRegister pin20SwMuxControlRegister;
+    Pin21SwMuxControlRegister pin21SwMuxControlRegister;
+    Pin23SwMuxControlRegister pin23SwMuxControlRegister;
+    SAI1TransmitControlRegister sai1TransmitControlRegister;
+    SAI1TransmitConfig1Register sai1TransmitConfig1Register;
+    SAI1TransmitConfig2Register sai1TransmitConfig2Register;
+    SAI1TransmitConfig3Register sai1TransmitConfig3Register;
+    SAI1TransmitConfig4Register sai1TransmitConfig4Register;
+    SAI1TransmitConfig5Register sai1TransmitConfig5Register;
+    SAI1TransmitMaskRegister sai1TransmitMaskRegister;
+    SAI1ReceiveControlRegister sai1ReceiveControlRegister;
+    SAI1ReceiveConfig1Register sai1ReceiveConfig1Register;
+    SAI1ReceiveConfig2Register sai1ReceiveConfig2Register;
+    SAI1ReceiveConfig3Register sai1ReceiveConfig3Register;
+    SAI1ReceiveConfig4Register sai1ReceiveConfig4Register;
+    SAI1ReceiveConfig5Register sai1ReceiveConfig5Register;
+    SAI1ReceiveMaskRegister sai1ReceiveMaskRegister;
 
-    SGTL5000 m_AudioShield;
+    SGTL5000 audioShield;
 
-    static AudioProcessor *s_AudioProcessor;
+    inline static AudioProcessor *sAudioProcessor{nullptr};
 
-    static uint16_t s_InterruptsPerSecond;
-    static int16_t s_NumInterrupts;
-    static long s_FirstInterruptNS;
-    static long s_AudioPTPOffset;
-    static DMAChannel s_DMA;
+    inline static uint16_t sInterruptsPerSecond{0};
+    inline static int16_t sNumInterrupts{-1};
+    inline static long sFirstInterruptNS{0};
+    inline static long sAudioPTPOffset{0};
+    inline static DMAChannel sDMA{false};
 
-    static constexpr uint16_t k_I2sBufferSizeFrames{ananas::Constants::kAudioBlockFrames};
-    static constexpr size_t k_I2sBufferSizeBytes{k_I2sBufferSizeFrames * sizeof(int16_t)};
-    DMAMEM __attribute__((aligned(32))) static uint32_t s_I2sTxBuffer[k_I2sBufferSizeFrames];
+    inline static int16_t sAudioBuffer[ananas::Constants::AudioBlockFrames * ananas::Constants::NumOutputChannels]{};
+
+    DMAMEM __attribute__((aligned(32))) inline static uint32_t sI2sTxBuffer[ananas::Constants::AudioBlockFrames]{};
 };
 
 #endif //AUDIOSYSTEMMANGER_H

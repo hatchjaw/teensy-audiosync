@@ -14,6 +14,8 @@ namespace ananas
                               public NetworkProcessor
     {
     public:
+        AudioClient();
+
         void begin() override;
 
         void run() override;
@@ -27,18 +29,16 @@ namespace ananas
         size_t printTo(Print &p) const override;
 
     protected:
-        void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) override;
+        void processImpl(int16_t *buffer, size_t numChannels, size_t numFrames) override;
+
+        void processImplV2(size_t numFrames) override;
 
     private:
         static constexpr size_t kNumChannels{2};
-        static constexpr size_t kNumFrames{Constants::kAudioBlockFrames};
-        static constexpr size_t kSampleSize{sizeof(int16_t)};
-        static constexpr size_t kHeaderSize{sizeof(NanoTime)};
-        static constexpr size_t kPacketSize{kNumChannels * kNumFrames * kSampleSize + kHeaderSize};
-
-        static constexpr uint kReportThreshold{5000};
+        static constexpr size_t kPacketSize{kNumChannels * Constants::AudioBlockFrames * Constants::SampleSizeBytes + sizeof(Packet::time)};
 
         Packet rxPacket{};
+        PacketV2 rxPacketV2{};
         PacketBuffer packetBuffer;
         int sampleOffset{0};
         int64_t packetOffset{0};

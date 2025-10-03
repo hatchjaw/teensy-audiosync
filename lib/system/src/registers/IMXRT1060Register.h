@@ -26,7 +26,7 @@ public:
      */
     size_t printTo(Print &p) const override
     {
-        return p.printf("%s: %X", m_Name, getValue());
+        return p.printf("%s: %X", name, getValue());
     }
 
     /**
@@ -35,18 +35,19 @@ public:
      */
     uint32_t getValue() const
     {
-        return *m_Address;
+        return *address;
     }
 
 protected:
     /**
      *
-     * @param name A name to use when printing the value of this register.
-     * @param address The address of the register, the appropriate offset of an
-     * instance of IMXRT_REGISTER32_t.
+     * @param registerName A name to use when printing the value of this
+     * register.
+     * @param registerAddress The address of the register, the appropriate
+     * offset of an instance of IMXRT_REGISTER32_t.
      */
-    IMXRT1060Register(const char *name, volatile uint32_t *address)
-        : m_Name(name), m_Address(address)
+    IMXRT1060Register(const char *registerName, volatile uint32_t *registerAddress)
+        : name(registerName), address(registerAddress)
     {
     }
 
@@ -55,7 +56,7 @@ protected:
      * the value provided.
      * @param value
      */
-    void write(const uint32_t value) const { *m_Address = value; }
+    void write(const uint32_t value) const { *address = value; }
 
     /**
      * Updates the value of a register by applying a bitmask.
@@ -76,11 +77,11 @@ private:
     /**
      * The name of the register.
      */
-    const char *m_Name;
+    const char *name;
     /**
      * The address of the register.
      */
-    volatile uint32_t *m_Address;
+    volatile uint32_t *address;
 };
 
 //==============================================================================

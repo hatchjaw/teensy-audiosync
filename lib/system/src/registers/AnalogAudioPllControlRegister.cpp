@@ -113,7 +113,7 @@ bool AudioPllNumeratorRegister::begin()
 
 bool AudioPllNumeratorRegister::set(const int32_t num) const
 {
-    if (num < 0 || num > ClockConstants::k_Pll4NumMax) {
+    if (num < 0 || num > ClockConstants::Pll4NumMax) {
         Serial.printf("Invalid value provided for "
                       "CCM_ANALOG_PLL_AUDIO_NUM: %" PRId32 "\n",
                       num);
@@ -133,7 +133,7 @@ bool AudioPllDenominatorRegister::begin()
 
 bool AudioPllDenominatorRegister::set(const uint32_t denom) const
 {
-    if (denom == 0 || denom > ClockConstants::k_Pll4DenomMax) {
+    if (denom == 0 || denom > ClockConstants::Pll4DenomMax) {
         Serial.printf("Invalid value provided for "
                       "CCM_ANALOG_PLL_AUDIO_DENOM: %" PRId32 "\n",
                       denom);

@@ -6,7 +6,8 @@
 #define ANANASPACKET_H
 
 #include <lwip_t41.h>
-#include <Utils.h>
+#include <t41-ptp.h>
+#include <AnanasUtils.h>
 
 namespace ananas
 {
@@ -15,17 +16,22 @@ namespace ananas
         uint8_t *rawData() { return reinterpret_cast<uint8_t *>(this); }
         int16_t *audio() { return reinterpret_cast<int16_t *>(data); }
         NanoTime time;
-        uint8_t data[Constants::kAudioBlockFrames << 2]; // AUDIO_BLOCK_SAMPLES * NUM_CHANNELS * sizeof(int16_t)
+        uint8_t data[Constants::AudioBlockFrames << 2]; // AUDIO_BLOCK_SAMPLES * NUM_CHANNELS * sizeof(int16_t)
     };
 
     struct PacketV2
     {
+        struct alignas(16) Header
+        {
+            NanoTime time;
+            uint8_t numChannels;
+            uint16_t numFrames;
+        };
+
         uint8_t *rawData() { return reinterpret_cast<uint8_t *>(this); }
         int16_t *audio() { return reinterpret_cast<int16_t *>(data); }
-        NanoTime time;
-        uint8_t numChannels;
-        uint8_t numFrames;
-        uint8_t data[MTU - sizeof(numFrames) - sizeof(numChannels) - sizeof(time)];
+        Header header{};
+        uint8_t data[MTU - sizeof(Header)]{};
     };
 }
 

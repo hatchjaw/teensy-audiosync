@@ -2,7 +2,8 @@
 #include <sqrt_integer.h>
 #include <utility/dspinst.h>
 
-FFT::FFT() : window(AudioWindowHanning1024)
+FFT::FFT() : AudioProcessor(2, 2),
+             window(AudioWindowHanning1024)
 {
     // Initialise the CFFT instance. Seems to be necessary to do this here in
     // the constructor.

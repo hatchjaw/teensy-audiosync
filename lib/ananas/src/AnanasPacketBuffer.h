@@ -2,7 +2,6 @@
 #define ANANASPACKETBUFFER_H
 
 #include <AnanasPacket.h>
-#include <Arduino.h>
 
 namespace ananas
 {
@@ -16,8 +15,6 @@ namespace ananas
         // index = (index + 1) & (kPacketBufferSize - 1);
         // That mask requires a power of two buffer size.
         // enum class Operation { Read, Write };
-
-        static constexpr size_t kPacketBufferSize{50};
 
         virtual ~PacketBuffer() = default;
 
@@ -34,18 +31,22 @@ namespace ananas
 
         void incrementReadIndex();
 
+        void incrementReadIndexV2();
+
         void decrementReadIndex();
 
         [[nodiscard]] size_t getReadIndex() const;
+
+        [[nodiscard]] size_t getReadIndexV2() const;
 
         [[nodiscard]] bool isEmpty() const;
 
         void clear();
 
     private:
-        size_t writeIndex{0}, readIndex{0};
-        Packet buffer[kPacketBufferSize] = {};
-        PacketV2 bufferV2[kPacketBufferSize] = {};
+        size_t writeIndex{0}, readIndex{0}, writeIndexV2{0}, readIndexV2{0};
+        Packet buffer[Constants::PacketBufferCapacity] = {};
+        PacketV2 bufferV2[Constants::PacketBufferCapacity] = {};
     };
 } // ananas
 

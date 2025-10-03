@@ -52,7 +52,7 @@ namespace ananas
         qindesign::network::EthernetIEEE1588.readTimer(ts);
         const NanoTime now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
         // Set packet time some way in the future.
-        txPacket.time = now + kPacketReproductionOffsetNs;
+        txPacket.time = now + Constants::PacketReproductionOffsetNs;
 
         packetBuffer.write(txPacket);
         playbackPacketBuffer.write(txPacket);
@@ -64,10 +64,10 @@ namespace ananas
     void AudioServer::adjustBufferReadIndex(const NanoTime now)
     {
         const auto idx{playbackPacketBuffer.getReadIndex()},
-                initialReadIndex{(idx + PacketBuffer::kPacketBufferSize - 1) % PacketBuffer::kPacketBufferSize};
+                initialReadIndex{(idx + Constants::PacketBufferCapacity - 1) % Constants::PacketBufferCapacity};
         auto packetTime{playbackPacketBuffer.peek().time};
         auto diff{now - packetTime};
-        const auto kMaxDiff{static_cast<int64_t>(1e9 * kNumFrames / sampleRate)};
+        const auto kMaxDiff{static_cast<int64_t>(Constants::NanosecondsPerSecond * Constants::AudioBlockFrames / sampleRate)};
         // while (abs(diff) > kMaxDiff && initialReadIndex != packetBuffer.getReadIndex()) {
         while ((diff > kMaxDiff / 2 || diff < -kMaxDiff / 2) && initialReadIndex != playbackPacketBuffer.getReadIndex()) {
             // if (std::signbit(diff)) {
@@ -78,9 +78,9 @@ namespace ananas
             packetTime = playbackPacketBuffer.peek().time;
             diff = now - packetTime;
             Serial.print("Current time: ");
-            Utils::printTime(now);
+            printTime(now);
             Serial.printf(", Read index: %" PRIu32 "\nPacket time:  ", playbackPacketBuffer.getReadIndex());
-            Utils::printTime(packetTime);
+            printTime(packetTime);
             Serial.printf(", diff: %" PRId64 "\n", diff, kMaxDiff);
         }
         // sampleOffset = diff / static_cast<int64_t>(1e9 / sampleRate);
