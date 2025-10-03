@@ -70,7 +70,7 @@ void AudioProcessor::getOutputInterleaved(int16_t *dest, const size_t numChannel
 {
     for (size_t frame{0}; frame < numFrames; frame++) {
         for (size_t channel{0}; channel < numChannels; channel++) {
-            dest[frame * numOutputs + channel] = outputBuffer[channel][frame];
+            dest[frame * numChannels + channel] = outputBuffer[channel][frame];
         }
     }
 }

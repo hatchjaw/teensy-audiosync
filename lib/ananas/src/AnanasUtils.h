@@ -9,7 +9,7 @@
 #endif
 
 #ifndef NUM_SOURCES
-#define NUM_SOURCES 2
+#define NUM_SOURCES 4
 #endif
 
 namespace ananas
