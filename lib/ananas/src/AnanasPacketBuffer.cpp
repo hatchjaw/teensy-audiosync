@@ -98,6 +98,6 @@ namespace ananas
         writeIndex = 0;
         writeIndexV2 = 0;
         memset(buffer, 0, sizeof(buffer));
-        memset(bufferV2, 0, sizeof(bufferV2));
+        memset(bufferV2->data, 0, sizeof(bufferV2->data));
     }
 } // ananas

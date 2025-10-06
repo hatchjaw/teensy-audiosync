@@ -95,16 +95,16 @@ namespace ananas
 
     void AudioClient::processImplV2(const size_t numFrames)
     {
-        size_t frame{0};
-        while (frame < numFrames) {
+        size_t processFrame{0};
+        while (processFrame < numFrames) {
             auto packet{packetBuffer.readV2()};
 
             const size_t numChannels{min(packet.header.numChannels, numOutputs)};
             const auto audioData{packet.audio()};
 
-            for (size_t i{0}; i < packet.header.numFrames; ++i, ++frame) {
+            for (size_t packetFrame{0}; packetFrame < packet.header.numFrames; ++packetFrame, ++processFrame) {
                 for (size_t channel{0}; channel < numChannels; ++channel) {
-                    outputBuffer[channel][frame] = audioData[frame * numChannels + channel];
+                    outputBuffer[channel][processFrame] = audioData[packetFrame * numChannels + channel];
                 }
             }
         }
@@ -112,28 +112,45 @@ namespace ananas
 
     void AudioClient::adjustBufferReadIndex(const NanoTime now)
     {
+        // auto didAdjust{false};
+        // NanoTime minDiff{1'000'000'000}, maxDiff{-1'000'000'000};
+
         const auto idx{packetBuffer.getReadIndexV2()};
         const auto initialReadIndex{(idx + Constants::PacketBufferCapacity - 1) % Constants::PacketBufferCapacity};
         auto packetTime{packetBuffer.peekV2().header.time};
         auto diff{now - packetTime};
-        const auto kMaxDiff{(Constants::NanosecondsPerSecond * Constants::AudioBlockFrames / sampleRate)};
+        // const auto kMaxDiff{(Constants::NanosecondsPerSecond * Constants::AudioBlockFrames / sampleRate)};
+        const auto kMaxDiff{(Constants::NanosecondsPerSecond * Constants::FramesPerPacketExpected / sampleRate) * 3 / 2};
         // while (abs(diff) > kMaxDiff && initialReadIndex != packetBuffer.getReadIndex()) {
-        while ((diff > kMaxDiff / 2 || diff < -kMaxDiff / 2) && initialReadIndex != packetBuffer.getReadIndexV2()) {
-            // if (std::signbit(diff)) {
-            //     packetBuffer.decrementReadIndex();
-            // } else {
+
+        while ((diff > kMaxDiff || diff < -kMaxDiff) && initialReadIndex != packetBuffer.getReadIndexV2()) {
+            // didAdjust = true;
+
             packetBuffer.incrementReadIndexV2();
-            // }
+
             packetTime = packetBuffer.peekV2().header.time;
             diff = now - packetTime;
-            // Serial.print("Current time: ");
-            // Utils::printTime(now);
-            // Serial.printf(", Read index: %" PRIu32 "\nPacket time:  ", packetBuffer.getReadIndex());
-            // Utils::printTime(packetTime);
-            // Serial.printf(", diff: %" PRId64 "\n", diff, kMaxDiff);
 
-            // Serial.printf("Read index: %" PRIu32 "\n", packetBuffer.getReadIndex());
+            // if (diff < minDiff) {
+            //     minDiff = diff;
+            // } else if (diff > maxDiff) {
+            //     maxDiff = diff;
+            // }
+
+            // Serial.print("Current time: ");
+            // printTime(now);
+            // Serial.printf("Packet time:  ");
+            // printTime(packetTime);
+            Serial.printf("Diff: %" PRId64 ", (max allowed ±%" PRId64 ")\n", diff, kMaxDiff);
+            // Serial.printf("Read index: %" PRIu32 "\n", packetBuffer.getReadIndexV2());
         }
+
+        // if (didAdjust && initialReadIndex == packetBuffer.getReadIndexV2()) {
+        //     Serial.printf("\n*** Unable to find a suitable packet! Timestamp range %" PRId64 " to %" PRId64 " ns\n", minDiff, maxDiff);
+        // } else if (didAdjust) {
+        //     Serial.printf("\n*** Changed packet buffer read index from %d to %d\n", initialReadIndex, packetBuffer.getReadIndexV2());
+        // }
+
         packetOffset = diff;
         sampleOffset = diff / static_cast<int64_t>(1e9 / sampleRate);
     }
