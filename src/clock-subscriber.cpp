@@ -22,9 +22,6 @@ AudioSystemConfig config{
 };
 AudioSystemManager audioSystemManager{config};
 ananas::AudioClient ananasClient;
-// ConvolverCMSISDSPConv convolver;
-// FFT fft;
-// NetworkAuraliser networkAuraliser{ananasClient, convolver, fft};
 
 uint32_t sn;
 byte mac[6];
@@ -82,9 +79,16 @@ void setup()
         }
     });
 
-    ptp.onControllerUpdated([](const double adjust, const double drift)
+    ptp.onControllerUpdated([](const double adjust, const double)
     {
         audioSystemManager.adjustClock(adjust);
+    });
+
+    audioSystemManager.onInvalidSamplingRate([]
+    {
+        Serial.printf("Resetting PTP and stopping audio.\n");
+        ptp.reset();
+        audioSystemManager.stopClock();
     });
 
     // PPS Out
@@ -141,14 +145,7 @@ void loop()
         Serial.printf(" | SN: %" PRIu32, sn);
         Serial.printf(external_psram_size ? " | PSRAM: %" PRIu8 " MB\n" : "\n", external_psram_size);
         Serial.println(audioSystemManager);
-        Serial.print("Ananas Client:     ");
         Serial.println(ananasClient);
-        // Serial.print("Convolver:         ");
-        // Serial.println(convolver);
-        // Serial.print("Network Auraliser: ");
-        // Serial.println(networkAuraliser);
-        // Serial.print("FFT:               ");
-        // Serial.println(fft);
         Serial.println("==============================================================================");
     }
 }

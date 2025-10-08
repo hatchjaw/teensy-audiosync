@@ -195,6 +195,9 @@ void AudioSystemManager::stopClock()
     analogAudioPllControlRegister.setPowerDown(true);
     analogAudioPllControlRegister.setBypass(true);
 
+    audioShield.disable();
+    audioShield.volume(0.f);
+
     sNumInterrupts = -1;
     sFirstInterruptNS = 0;
 }
@@ -224,7 +227,12 @@ void AudioSystemManager::adjustClock(const double adjust)
     };
 
     config.setExactSampleRate(proportionalAdjustment);
-    clockDividers.calculateFine(config.getExactSampleRate());
+    if (!clockDividers.calculateFine(config.getExactSampleRate())) {
+        if (invalidSamplingRateCallback != nullptr) {
+            invalidSamplingRateCallback();
+        }
+        return;
+    }
 
     // Tends to take on the order of 28 ns.
     // const auto cycles{ARM_DWT_CYCCNT};
@@ -354,7 +362,7 @@ void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSam
     }
 }
 
-void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleRate)
+bool AudioSystemManager::ClockDividers::calculateFine(const double targetSampleRate)
 {
     constexpr auto orderOfMagnitude{1e6};
 
@@ -367,11 +375,7 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
                       "for target sample rate %f "
                       "and denominator %" PRIu32 "\n",
                       numInt, targetSampleRate, pll4Denom);
-        // TODO: (Stop audio and) reset PTP. (Maybe) complicated by the need to
-        //   restart the SGTL5000 too.
-        // TODO: Actually, this should be doable by checking targetSampleRate
-        //   before we even get here.
-        return;
+        return false;
     }
 
     // Serial.printf("PLL4 numerator: %23" PRId32 "\n"
@@ -379,6 +383,7 @@ void AudioSystemManager::ClockDividers::calculateFine(const double targetSampleR
     //               numInt, pll4Denom);
 
     pll4Num = numInt;
+    return true;
 }
 
 size_t AudioSystemManager::ClockDividers::printTo(Print &p) const

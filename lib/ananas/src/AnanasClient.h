@@ -46,6 +46,9 @@ namespace ananas
         uint nWrite{0}, nRead{0};
         NanoTime prevTime{0}, totalTime{0};
         uint sampleRate{0};
+
+        bool mute{false};
+        uint16_t numPacketBufferReadIndexAdjustments{0};
     };
 }
 

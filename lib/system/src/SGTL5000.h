@@ -45,8 +45,10 @@ public:
     void setAddress(uint8_t level);
 
     void begin();
+    void reset();
     bool enable() override;
-    bool disable() override { return false; }
+    bool disable() override;
+
     bool volume(const float n) override { return volumeInteger(n * 129 + 0.499f); }
     bool inputLevel(float n) override { return false; }
     bool muteHeadphone() { return write(0x0024, ana_ctrl | (1 << 4)); }

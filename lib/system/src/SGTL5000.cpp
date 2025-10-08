@@ -513,7 +513,8 @@ void SGTL5000::begin()
 {
     const auto cycles{ARM_DWT_CYCCNT};
     Wire.begin();
-    while (ARM_DWT_CYCCNT - cycles < 100'000) {}
+    while (ARM_DWT_CYCCNT - cycles < 100'000) {
+    }
 
     //==========================================================================
     // Set all registers to default values.
@@ -570,29 +571,15 @@ void SGTL5000::begin()
     // write(DAP_COEF_WR_A2_LSB, 0x0000);
 }
 
-bool SGTL5000::enable()
+void SGTL5000::reset()
 {
-    cycStart = ARM_DWT_CYCCNT;
-
-
-    cycPostBegin = ARM_DWT_CYCCNT;
-
-    //Check if we are in Master Mode and if the Teensy had a reset:
-    // unsigned int n = read(CHIP_I2S_CTRL);
-
-    //Serial.print("chip ID = ");
-    //delay(5);
-    //unsigned int n = read(CHIP_ID);
-    //Serial.println(n, HEX);
-
     auto cycles{ARM_DWT_CYCCNT};
-    Wire.begin();
-    while (ARM_DWT_CYCCNT - cycles < 100'000) {}
 
     // Make sure digital power is down in case a soft reset just occurred.
     cycles = ARM_DWT_CYCCNT;
     write(CHIP_DIG_POWER, 0x0000);
-    while (ARM_DWT_CYCCNT - cycles < 500'000) {}
+    while (ARM_DWT_CYCCNT - cycles < 500'000) {
+    }
 
     // Set default values for all other registers.
     write(CHIP_CLK_CTRL, 0x0008);
@@ -645,6 +632,28 @@ bool SGTL5000::enable()
     write(DAP_COEF_WR_A2_LSB, 0x0000);
 
     muted = true;
+}
+
+bool SGTL5000::enable()
+{
+    cycStart = ARM_DWT_CYCCNT;
+
+    cycPostBegin = ARM_DWT_CYCCNT;
+
+    //Check if we are in Master Mode and if the Teensy had a reset:
+    // unsigned int n = read(CHIP_I2S_CTRL);
+
+    //Serial.print("chip ID = ");
+    //delay(5);
+    //unsigned int n = read(CHIP_ID);
+    //Serial.println(n, HEX);
+
+    auto cycles{ARM_DWT_CYCCNT};
+    Wire.begin();
+    while (ARM_DWT_CYCCNT - cycles < 100'000) {
+    }
+
+    reset();
 
     int r = write(CHIP_ANA_POWER, 0x4060); // VDDD is externally driven with 1.8V
     if (!r) return false;
@@ -663,7 +672,8 @@ bool SGTL5000::enable()
 
     const auto cyclesSincePowerUp{ARM_DWT_CYCCNT};
     write(CHIP_DIG_POWER, 0x0073); // power up all digital stuff
-    while (ARM_DWT_CYCCNT - cyclesSincePowerUp < 500'000) {} //240'000'000) {}
+    while (ARM_DWT_CYCCNT - cyclesSincePowerUp < 500'000) {
+    } //240'000'000) {}
 
     cycPostDgPwr = ARM_DWT_CYCCNT;
 
@@ -687,6 +697,12 @@ bool SGTL5000::enable()
     cycPostSetup = ARM_DWT_CYCCNT;
 
     semi_automated = true;
+    return true;
+}
+
+bool SGTL5000::disable()
+{
+    reset();
     return true;
 }
 

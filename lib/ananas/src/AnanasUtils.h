@@ -9,7 +9,7 @@
 #endif
 
 #ifndef NUM_SOURCES
-#define NUM_SOURCES 22
+#define NUM_SOURCES 16
 #endif
 
 namespace ananas
@@ -29,7 +29,7 @@ namespace ananas
         static constexpr size_t SampleSizeBytes{sizeof(int16_t)};
         static constexpr size_t PacketBufferCapacity{50};
         static constexpr int64_t PacketReproductionOffsetNs{NanosecondsPerSecond / 20};
-        static constexpr size_t FramesPerPacketExpected{16};
+        static constexpr size_t FramesPerPacketExpected{32};
 
         static constexpr uint ClientReportThreshold{5000};
     };

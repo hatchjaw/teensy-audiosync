@@ -35,6 +35,8 @@ public:
 
     size_t printTo(Print &p) const override;
 
+    void onInvalidSamplingRate(void (*callback)());
+
 private:
     struct ClockDividers final : Printable
     {
@@ -50,7 +52,7 @@ private:
 
         void calculateCoarse(uint32_t targetSampleRate);
 
-        void calculateFine(double targetSampleRate);
+        bool calculateFine(double targetSampleRate);
 
     private:
         double getCurrentSampleRate() const;
@@ -109,6 +111,8 @@ private:
 
     SGTL5000 audioShield;
 
+    void (*invalidSamplingRateCallback)(){nullptr};
+
     inline static AudioProcessor *sAudioProcessor{nullptr};
 
     inline static uint16_t sInterruptsPerSecond{0};
@@ -121,5 +125,10 @@ private:
 
     DMAMEM __attribute__((aligned(32))) inline static uint32_t sI2sTxBuffer[ananas::Constants::AudioBlockFrames]{};
 };
+
+inline void AudioSystemManager::onInvalidSamplingRate(void (*callback)())
+{
+    invalidSamplingRateCallback = callback;
+}
 
 #endif //AUDIOSYSTEMMANGER_H
