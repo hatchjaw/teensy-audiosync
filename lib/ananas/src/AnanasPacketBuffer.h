@@ -1,7 +1,7 @@
 #ifndef ANANASPACKETBUFFER_H
 #define ANANASPACKETBUFFER_H
 
-#include <AnanasPacket.h>
+#include "AnanasPacket.h"
 
 namespace ananas
 {
@@ -18,35 +18,29 @@ namespace ananas
 
         virtual ~PacketBuffer() = default;
 
-        void write(const Packet &packet);
-        void writeV2(const PacketV2 &packet);
+        void write(const AudioPacket &packet);
 
-        Packet &read();
-        PacketV2 &readV2();
+        AudioPacket &read();
 
-        Packet &peek();
-        PacketV2 &peekV2();
+        AudioPacket &peek();
 
         size_t printTo(Print &p) const override;
 
         void incrementReadIndex();
 
-        void incrementReadIndexV2();
-
         void decrementReadIndex();
 
         [[nodiscard]] size_t getReadIndex() const;
-
-        [[nodiscard]] size_t getReadIndexV2() const;
 
         [[nodiscard]] bool isEmpty() const;
 
         void clear();
 
+        uint8_t getFillPercent() const;
+
     private:
-        size_t writeIndex{0}, readIndex{0}, writeIndexV2{0}, readIndexV2{0};
-        Packet buffer[Constants::PacketBufferCapacity] = {};
-        PacketV2 bufferV2[Constants::PacketBufferCapacity] = {};
+        size_t writeIndex{0}, readIndex{0};
+        AudioPacket buffer[Constants::PacketBufferCapacity] = {};
     };
 } // ananas
 

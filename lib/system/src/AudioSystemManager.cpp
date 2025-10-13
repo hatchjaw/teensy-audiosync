@@ -3,21 +3,21 @@
 #include <t41-ptp.h>
 #include <AnanasUtils.h>
 
-AudioSystemManager::AudioSystemManager(const AudioSystemConfig config)
+AudioSystemManager::AudioSystemManager(AudioSystemConfig &config)
     : config(config)
 {
-    sInterruptsPerSecond = static_cast<uint16_t>(2 * config.kSampleRate / config.kBufferSize);
+    sInterruptsPerSecond = static_cast<uint16_t>(2 * config.kSamplingRate / config.kBufferSize);
 }
 
 FLASHMEM
 bool AudioSystemManager::begin()
 {
     // Calculate fundamental values for clock dividers.
-    clockDividers.calculateCoarse(config.kSampleRate);
+    clockDividers.calculateCoarse(config.kSamplingRate);
     Serial.print(clockDividers);
 
     // Set up the audio processor.
-    sAudioProcessor->prepare(config.kSampleRate);
+    sAudioProcessor->prepare(config.kSamplingRate);
 
     cycPreReg = ARM_DWT_CYCCNT;
 
@@ -200,6 +200,7 @@ void AudioSystemManager::stopClock()
 
     sNumInterrupts = -1;
     sFirstInterruptNS = 0;
+    sAudioPTPOffset = 0;
 }
 
 volatile bool AudioSystemManager::isClockRunning() const
@@ -226,8 +227,8 @@ void AudioSystemManager::adjustClock(const double adjust)
         1. + (adjust + sAudioPTPOffset) * ClockConstants::Nanosecond
     };
 
-    config.setExactSampleRate(proportionalAdjustment);
-    if (!clockDividers.calculateFine(config.getExactSampleRate())) {
+    config.setExactSamplingRate(proportionalAdjustment);
+    if (!clockDividers.calculateFine(config.getExactSamplingRate())) {
         if (invalidSamplingRateCallback != nullptr) {
             invalidSamplingRateCallback();
         }
@@ -303,7 +304,7 @@ void AudioSystemManager::softwareISR()
 }
 
 FLASHMEM
-void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSampleRate)
+void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSamplingRate)
 {
     constexpr auto orderOfMagnitude{1e6};
 
@@ -319,18 +320,18 @@ void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSam
         }
 
         while ((uint8_t) floor(divExact / orderOfMagnitude) != pll4Div) {
-            while ((uint32_t) getCurrentSampleRate() > targetSampleRate
+            while ((uint32_t) getCurrentSamplingRate() > targetSamplingRate
                    && sai1Post < ClockConstants::Sai1PostMax) {
                 ++sai1Post;
             }
 
-            if (targetSampleRate > getCurrentMaxPossibleSampleRate() && sai1Pre < ClockConstants::Sai1PreMax) {
+            if (targetSamplingRate > getCurrentMaxPossibleSamplingRate() && sai1Pre < ClockConstants::Sai1PreMax) {
                 ++sai1Pre;
                 sai1Post = 1;
                 continue;
             }
 
-            divExact = (double) targetSampleRate * ClockConstants::AudioWordSize * sai1Pre * sai1Post / ClockConstants::OscMHz;
+            divExact = (double) targetSamplingRate * ClockConstants::AudioWordSize * sai1Pre * sai1Post / ClockConstants::OscMHz;
 
             if ((uint8_t) floor(divExact / orderOfMagnitude) != pll4Div) {
                 if (sai1Pre < ClockConstants::Sai1PreMax) {
@@ -362,19 +363,19 @@ void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSam
     }
 }
 
-bool AudioSystemManager::ClockDividers::calculateFine(const double targetSampleRate)
+bool AudioSystemManager::ClockDividers::calculateFine(const double targetSamplingRate)
 {
     constexpr auto orderOfMagnitude{1e6};
 
     const auto sai1WordOsc{(double) ClockConstants::AudioWordSize * sai1Pre * sai1Post / ClockConstants::OscMHz};
-    const auto num{targetSampleRate * sai1WordOsc - orderOfMagnitude * pll4Div};
+    const auto num{targetSamplingRate * sai1WordOsc - orderOfMagnitude * pll4Div};
     const auto numInt{(int32_t) round(num * (pll4Denom / orderOfMagnitude))};
 
     if (numInt < 0 || (uint32_t) numInt > pll4Denom) {
         Serial.printf("Invalid PLL4 numerator %" PRId32 " "
                       "for target sample rate %f "
                       "and denominator %" PRIu32 "\n",
-                      numInt, targetSampleRate, pll4Denom);
+                      numInt, targetSamplingRate, pll4Denom);
         return false;
     }
 
@@ -423,7 +424,7 @@ uint32_t AudioSystemManager::ClockDividers::getPll4Freq() const
 }
 
 FLASHMEM
-double AudioSystemManager::ClockDividers::getCurrentSampleRate() const
+double AudioSystemManager::ClockDividers::getCurrentSamplingRate() const
 {
     return ClockConstants::CyclesPerWord * getPLL4FractionalDivider() / (sai1Pre * sai1Post);
 }
@@ -435,7 +436,7 @@ double AudioSystemManager::ClockDividers::getPLL4FractionalDivider() const
 }
 
 FLASHMEM
-uint32_t AudioSystemManager::ClockDividers::getCurrentMaxPossibleSampleRate() const
+uint32_t AudioSystemManager::ClockDividers::getCurrentMaxPossibleSamplingRate() const
 {
     const auto result{ClockConstants::CyclesPerWord * (pll4Div + 1) / (sai1Pre * sai1Post)};
     return (uint32_t) result;

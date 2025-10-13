@@ -104,12 +104,12 @@ struct AudioSystemConfig : Printable
         Subscriber
     };
 
-    AudioSystemConfig(const uint16_t bufferSize, const uint32_t sampleRate, const ClockRole clockRole, const float volume = .5f)
-        : kSampleRate(sampleRate),
+    AudioSystemConfig(const uint16_t bufferSize, const uint32_t samplingRate, const ClockRole clockRole, const float volume = .5f)
+        : kSamplingRate(samplingRate),
           kBufferSize(bufferSize),
           kClockRole(clockRole),
           volume(volume),
-          sampleRateExact(sampleRate)
+          samplingRateExact(samplingRate)
     {
     }
 
@@ -117,23 +117,23 @@ struct AudioSystemConfig : Printable
     {
         return p.printf("%s - Frames/Fs: %" PRIu16 "/%" PRIu32 " (%.16f)",
                         kClockRole == ClockRole::Authority ? "Clock Authority" : "Clock Subscriber",
-                        kBufferSize, kSampleRate, sampleRateExact);
+                        kBufferSize, kSamplingRate, samplingRateExact);
     }
 
-    void setExactSampleRate(const double proportionalAdjustment)
+    void setExactSamplingRate(const double proportionalAdjustment)
     {
-        sampleRateExact = proportionalAdjustment * (double) kSampleRate;
+        samplingRateExact = proportionalAdjustment * (double) kSamplingRate;
     }
 
-    double getExactSampleRate() const { return sampleRateExact; }
+    double getExactSamplingRate() const { return samplingRateExact; }
 
-    const uint32_t kSampleRate;
+    const uint32_t kSamplingRate;
     const uint16_t kBufferSize;
     const ClockRole kClockRole;
     float volume;
 
 private:
-    double sampleRateExact;
+    double samplingRateExact;
 };
 
 #endif //TEENSY_AUDIOSYNC_CONFIG_H

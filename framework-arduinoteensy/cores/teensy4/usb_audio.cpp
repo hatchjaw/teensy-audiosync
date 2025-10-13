@@ -125,9 +125,9 @@ void AudioInputUSB::begin(void)
 	receive_flag = 0;
 	// update_responsibility = update_setup();
 	// TODO: update responsibility is tough, partly because the USB
-	// interrupts aren't sychronous to the audio library block size,
-	// but also because the PC may stop transmitting data, which
-	// means we no longer get receive callbacks from usb.c
+	//  interrupts aren't sychronous to the audio library block size,
+	//  but also because the PC may stop transmitting data, which
+	//  means we no longer get receive callbacks from usb.c
 	update_responsibility = false;
 }
 
@@ -260,6 +260,7 @@ void AudioInputUSB::update(void)
 	if (!left || !right) {
 		usb_audio_underrun_count++;
 		//printf("#"); // buffer underrun - PC sending too slow
+		// TODO: trigger network packet...
 		// TODO: investigate this value
 		if (f) feedback_accumulator += 3800; //3500
 	}
@@ -405,6 +406,7 @@ unsigned int usb_audio_transmit_callback(void)
 			// buffer underrun - PC is consuming too quickly
 			memset(usb_audio_transmit_buffer + len, 0, num * 4);
 			//serial_print("%");
+			// TODO: trigger network packet...
 			break;
 		}
 		right = AudioOutputUSB::right_1st;

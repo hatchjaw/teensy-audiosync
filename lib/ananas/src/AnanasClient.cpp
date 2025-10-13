@@ -1,17 +1,18 @@
 #include "AnanasClient.h"
-
-#include <AnanasPacketBuffer.h>
+#include "AnanasPacketBuffer.h"
+#include "AnanasUtils.h"
 #include <QNEthernet.h>
-#include <AnanasUtils.h>
 
 namespace ananas
 {
     AudioClient::AudioClient(): AudioProcessor(0, Constants::MaxChannels)
     {
+        getSerialNumber();
     }
 
     void AudioClient::begin()
     {
+        announcer.begin();
     }
 
     void AudioClient::run()
@@ -19,10 +20,10 @@ namespace ananas
         if (const auto size{socket.parsePacket()}; size > 0) {
             nWrite++;
 
-            socket.read(rxPacketV2.rawData(), size);
-            packetBuffer.writeV2(rxPacketV2);
+            socket.read(rxPacket.rawData(), size);
+            packetBuffer.write(rxPacket);
 
-            if (nWrite > Constants::ClientReportThreshold) {
+            if (nWrite > Constants::ClientReportThresholdPackets) {
                 timespec now{};
                 qindesign::network::EthernetIEEE1588.readTimer(now);
                 const auto ns{now.tv_sec * Constants::NanosecondsPerSecond + now.tv_nsec};
@@ -33,12 +34,18 @@ namespace ananas
                 }
                 prevTime = ns;
             }
+
+            announcer.txPacket.bufferFillPercent = packetBuffer.getFillPercent();
+            announcer.txPacket.percentCPU = getCurrentPercentCPU();
         }
+
+        announcer.run();
     }
 
     void AudioClient::connect()
     {
         socket.beginMulticast(Constants::MulticastIP, Constants::AudioPort);
+        announcer.connect();
     }
 
     void AudioClient::prepare(const uint sampleRate)
@@ -50,20 +57,33 @@ namespace ananas
     size_t AudioClient::printTo(Print &p) const
     {
         return p.print("Ananas Client:     ") + AudioProcessor::printTo(p)
-               + (nWrite < Constants::ClientReportThreshold
+               + (nWrite < Constants::ClientReportThresholdPackets
                       ? p.printf("\nPackets received: %" PRIu32 "\n", nWrite)
                       : p.printf("\nPackets received: %" PRIu32 " Average reception interval: %e ns\n",
                                  nWrite,
-                                 static_cast<double>(totalTime) / (nWrite - Constants::ClientReportThreshold)))
+                                 static_cast<double>(totalTime) / (nWrite - Constants::ClientReportThresholdPackets)))
                + p.print(packetBuffer)
-               + p.printf("Packet offset: %" PRId64 " ns, Sample offset: %" PRId32
-                   ", Times adjusted: %" PRIu16, packetOffset, sampleOffset, numPacketBufferReadIndexAdjustments);
+               + p.printf("Packet offset: %" PRId64 " ns (%" PRId32
+                          " frames), Times adjusted: %" PRIu16,
+                          announcer.txPacket.offsetTime,
+                          announcer.txPacket.offsetFrame,
+                          numPacketBufferReadIndexAdjustments);
+    }
+
+    void AudioClient::setExactSamplingRate(const double samplingRate)
+    {
+        announcer.txPacket.samplingRate = samplingRate;
+    }
+
+    uint32_t AudioClient::getSerialNumber() const
+    {
+        return announcer.txPacket.serial;
     }
 
     void AudioClient::processImpl(int16_t *buffer, const size_t numChannels, const size_t numFrames)
     {
         // auto [packetTime, audioData]{packetBuffer.read()};
-        auto [header, audioData]{packetBuffer.readV2()};
+        auto [header, audioData]{packetBuffer.read()};
 
         memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numFrames);
     }
@@ -79,7 +99,7 @@ namespace ananas
 
         size_t processFrame{0};
         while (processFrame < numFrames) {
-            auto packet{packetBuffer.readV2()};
+            auto packet{packetBuffer.read()};
 
             const size_t numChannels{min(packet.header.numChannels, numOutputs)};
             const auto audioData{packet.audio()};
@@ -96,21 +116,21 @@ namespace ananas
     {
         auto didAdjust{false};
 
-        const auto idx{packetBuffer.getReadIndexV2()};
+        const auto idx{packetBuffer.getReadIndex()};
         const auto initialReadIndex{(idx + Constants::PacketBufferCapacity - 1) % Constants::PacketBufferCapacity};
-        auto packetTime{packetBuffer.peekV2().header.time};
+        auto packetTime{packetBuffer.peek().header.time};
         auto diff{now - packetTime};
         const auto kMaxDiff{(Constants::NanosecondsPerSecond * Constants::FramesPerPacketExpected / sampleRate) * 3 / 2};
 
-        while ((diff > kMaxDiff || diff < -kMaxDiff) && initialReadIndex != packetBuffer.getReadIndexV2()) {
-            didAdjust = true;
+        while ((diff > kMaxDiff || diff < -kMaxDiff) && packetBuffer.getReadIndex() != initialReadIndex) {
+            packetBuffer.incrementReadIndex();
 
-            packetBuffer.incrementReadIndexV2();
-
-            packetTime = packetBuffer.peekV2().header.time;
+            packetTime = packetBuffer.peek().header.time;
             diff = now - packetTime;
 
+            Serial.printf("Current diff %" PRId64 " (readIndex %d, initialReadIndex %d)\n", diff, packetBuffer.getReadIndex(), initialReadIndex);
             Serial.printf("Diff: %" PRId64 ", (max allowed ±%" PRId64 ")\n", diff, kMaxDiff);
+            didAdjust = true;
         }
 
         if (didAdjust) {
@@ -118,7 +138,34 @@ namespace ananas
         }
         mute = didAdjust;
 
-        packetOffset = diff;
-        sampleOffset = diff / static_cast<int64_t>(1e9 / sampleRate);
+        announcer.txPacket.offsetTime = diff;
+        announcer.txPacket.offsetFrame = diff / static_cast<int64_t>(1e9 / sampleRate);
+    }
+
+    //==========================================================================
+    AudioClient::ClientAnnouncer::ClientAnnouncer()
+    {
+        uint32_t num{HW_OCOTP_MAC0 & 0xFFFFFF};
+        if (num < 10000000) num *= 10;
+        txPacket.serial = num;
+    }
+
+    void AudioClient::ClientAnnouncer::begin()
+    {
+    }
+
+    void AudioClient::ClientAnnouncer::run()
+    {
+        if (elapsed > Constants::ClientAnnounceIntervalMs) {
+            socket.beginPacket(Constants::MulticastIP, Constants::AnnouncementPort);
+            socket.write(txPacket.rawData(), sizeof(AnnouncementPacket));
+            socket.endPacket();
+            elapsed = 0;
+        }
+    }
+
+    void AudioClient::ClientAnnouncer::connect()
+    {
+        socket.beginMulticast(Constants::MulticastIP, Constants::AnnouncementPort);
     }
 }

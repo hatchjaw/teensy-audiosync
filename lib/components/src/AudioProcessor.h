@@ -22,6 +22,8 @@ public:
 
     size_t printTo(Print &p) const override;
 
+    float getCurrentPercentCPU() const;
+
 protected:
     virtual void processImpl(int16_t *buffer, size_t numChannels, size_t numFrames) = 0;
 

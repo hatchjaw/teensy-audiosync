@@ -110,7 +110,7 @@ void setup()
 
     AudioMemory(10);
     audioShield.enable();
-    audioShield.volume(.5f);
+    audioShield.volume(.75f);
 }
 
 void syncInterrupt()

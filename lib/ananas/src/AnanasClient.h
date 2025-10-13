@@ -1,11 +1,11 @@
 #ifndef ANANASCLIENT_H
 #define ANANASCLIENT_H
 
+#include "AnanasPacket.h"
+#include "AnanasPacketBuffer.h"
 #include <AudioProcessor.h>
 #include <ProgramComponent.h>
 #include <NetworkProcessor.h>
-#include <AnanasPacket.h>
-#include <AnanasPacketBuffer.h>
 
 namespace ananas
 {
@@ -28,20 +28,34 @@ namespace ananas
 
         size_t printTo(Print &p) const override;
 
+        void setExactSamplingRate(double samplingRate);
+
+        uint32_t getSerialNumber() const;
+
     protected:
         void processImpl(int16_t *buffer, size_t numChannels, size_t numFrames) override;
 
         void processImplV2(size_t numFrames) override;
 
     private:
-        static constexpr size_t kNumChannels{2};
-        static constexpr size_t kPacketSize{kNumChannels * Constants::AudioBlockFrames * Constants::SampleSizeBytes + sizeof(Packet::time)};
+        class ClientAnnouncer final : public ProgramComponent, public NetworkProcessor
+        {
+        public:
+            ClientAnnouncer();
 
-        Packet rxPacket{};
-        PacketV2 rxPacketV2{};
+            void begin() override;
+
+            void run() override;
+
+            void connect() override;
+
+            AnnouncementPacket txPacket{};
+        private:
+            elapsedMillis elapsed;
+        };
+
+        AudioPacket rxPacket{};
         PacketBuffer packetBuffer;
-        int sampleOffset{0};
-        int64_t packetOffset{0};
 
         uint nWrite{0}, nRead{0};
         NanoTime prevTime{0}, totalTime{0};
@@ -49,6 +63,8 @@ namespace ananas
 
         bool mute{false};
         uint16_t numPacketBufferReadIndexAdjustments{0};
+
+        ClientAnnouncer announcer;
     };
 }
 

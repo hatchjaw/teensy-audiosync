@@ -1,12 +1,11 @@
 #ifndef ANANASSERVER_H
 #define ANANASSERVER_H
 
-#include <AnanasPacket.h>
-#include <AnanasPacketBuffer.h>
+#include "AnanasPacket.h"
+#include "AnanasPacketBuffer.h"
 #include <AudioProcessor.h>
 #include <ProgramComponent.h>
 #include <NetworkProcessor.h>
-#include <AnanasUtils.h>
 
 namespace ananas
 {
@@ -33,7 +32,7 @@ namespace ananas
 
     private:
         bool connected{false};
-        Packet txPacket = {};
+        AudioPacket txPacket = {};
         PacketBuffer packetBuffer;
         PacketBuffer playbackPacketBuffer;
         uint sampleRate{0};

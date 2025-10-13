@@ -19,7 +19,7 @@
 class AudioSystemManager final : public Printable
 {
 public:
-    explicit AudioSystemManager(AudioSystemConfig config);
+    explicit AudioSystemManager(AudioSystemConfig &config);
 
     bool begin();
 
@@ -50,12 +50,12 @@ private:
 
         size_t printTo(Print &p) const override;
 
-        void calculateCoarse(uint32_t targetSampleRate);
+        void calculateCoarse(uint32_t targetSamplingRate);
 
-        bool calculateFine(double targetSampleRate);
+        bool calculateFine(double targetSamplingRate);
 
     private:
-        double getCurrentSampleRate() const;
+        double getCurrentSamplingRate() const;
 
         uint32_t getPll4Freq() const;
 
@@ -65,7 +65,7 @@ private:
 
         bool isSai1PostFreqValid() const;
 
-        uint32_t getCurrentMaxPossibleSampleRate() const;
+        uint32_t getCurrentMaxPossibleSamplingRate() const;
 
         uint32_t getCurrentSai1ClkRootFreq() const;
     };
@@ -79,7 +79,7 @@ private:
     uint32_t cycPreReg{0},
             cycPostStop{0};
 
-    AudioSystemConfig config;
+    AudioSystemConfig &config;
     ClockDividers clockDividers;
 
     AnalogAudioPllControlRegister analogAudioPllControlRegister;

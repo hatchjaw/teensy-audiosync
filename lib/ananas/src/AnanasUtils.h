@@ -4,6 +4,10 @@
 #include <Arduino.h>
 #include <IPAddress.h>
 
+#ifndef AUDIO_SAMPLE_RATE_EXACT
+#define AUDIO_SAMPLE_RATE_EXACT 48000
+#endif
+
 #ifndef AUDIO_BLOCK_SAMPLES
 #define AUDIO_BLOCK_SAMPLES  128
 #endif
@@ -25,13 +29,15 @@ namespace ananas
 
         inline static const IPAddress MulticastIP{224, 4, 224, 4};
         static constexpr uint16_t AudioPort{49152};
+        static constexpr uint16_t AnnouncementPort{49153};
 
         static constexpr size_t SampleSizeBytes{sizeof(int16_t)};
         static constexpr size_t PacketBufferCapacity{50};
         static constexpr int64_t PacketReproductionOffsetNs{NanosecondsPerSecond / 20};
         static constexpr size_t FramesPerPacketExpected{32};
 
-        static constexpr uint ClientReportThreshold{5000};
+        static constexpr uint ClientReportThresholdPackets{10000};
+        static constexpr uint ClientAnnounceIntervalMs{500};
     };
 
     class Utils

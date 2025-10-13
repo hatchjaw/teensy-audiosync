@@ -82,3 +82,8 @@ size_t AudioProcessor::printTo(Print &p) const
                     CYCLES_TO_APPROX_PERCENT(maxCycles)
     );
 }
+
+float AudioProcessor::getCurrentPercentCPU() const
+{
+    return CYCLES_TO_APPROX_PERCENT(currentCycles);
+}

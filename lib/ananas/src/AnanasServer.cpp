@@ -1,6 +1,5 @@
 #include "AnanasServer.h"
-
-#include <AnanasPacket.h>
+#include "AnanasPacket.h"
 #include <QNEthernet.h>
 #include <ptp/ptp-base.h>
 
@@ -36,7 +35,7 @@ namespace ananas
         if (packetBuffer.isEmpty()) return;
 
         socket.beginPacket({224, 4, 224, 4}, 49152);
-        socket.write(packetBuffer.read().rawData(), sizeof(Packet));
+        socket.write(packetBuffer.read().rawData(), sizeof(AudioPacket));
         socket.endPacket();
     }
 
@@ -52,12 +51,12 @@ namespace ananas
         qindesign::network::EthernetIEEE1588.readTimer(ts);
         const NanoTime now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
         // Set packet time some way in the future.
-        txPacket.time = now + Constants::PacketReproductionOffsetNs;
+        txPacket.header.time = now + Constants::PacketReproductionOffsetNs;
 
         packetBuffer.write(txPacket);
         playbackPacketBuffer.write(txPacket);
 
-        auto [packetTime, audioData]{playbackPacketBuffer.read()};
+        auto [header, audioData]{playbackPacketBuffer.read()};
         memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numSamples);
     }
 
@@ -65,7 +64,7 @@ namespace ananas
     {
         const auto idx{playbackPacketBuffer.getReadIndex()},
                 initialReadIndex{(idx + Constants::PacketBufferCapacity - 1) % Constants::PacketBufferCapacity};
-        auto packetTime{playbackPacketBuffer.peek().time};
+        auto packetTime{playbackPacketBuffer.peek().header.time};
         auto diff{now - packetTime};
         const auto kMaxDiff{static_cast<int64_t>(Constants::NanosecondsPerSecond * Constants::AudioBlockFrames / sampleRate)};
         // while (abs(diff) > kMaxDiff && initialReadIndex != packetBuffer.getReadIndex()) {
@@ -75,7 +74,7 @@ namespace ananas
             // } else {
             playbackPacketBuffer.incrementReadIndex();
             // }
-            packetTime = playbackPacketBuffer.peek().time;
+            packetTime = playbackPacketBuffer.peek().header.time;
             diff = now - packetTime;
             Serial.print("Current time: ");
             printTime(now);

@@ -1,4 +1,3 @@
-#include <Audio.h>
 #include <t41-ptp.h>
 #include <QNEthernet.h>
 #include <TimeLib.h>
@@ -23,13 +22,11 @@ AudioSystemConfig config{
 AudioSystemManager audioSystemManager{config};
 ananas::AudioClient ananasClient;
 
-uint32_t sn;
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
 IPAddress subnetMask{255, 255, 255, 0};
 IPAddress gateway{192, 168, 10, 1};
 
-bool connected{false};
 bool p2p = false;
 
 l3PTP ptp(
@@ -37,17 +34,6 @@ l3PTP ptp(
     config.kClockRole == AudioSystemConfig::ClockRole::Subscriber,
     p2p
 );
-
-/**
- * Get this Teensy's USB serial number.
- * @return
- */
-uint32_t getSerialNumber()
-{
-    uint32_t num{HW_OCOTP_MAC0 & 0xFFFFFF};
-    if (num < 10000000) num *= 10;
-    return num;
-}
 
 void setup()
 {
@@ -59,8 +45,6 @@ void setup()
     Serial.begin(2000000);
     pinMode(13, OUTPUT);
 
-    sn = getSerialNumber();
-
     // Setup networking
     qindesign::network::Ethernet.setHostname("t41ptpsubscriber");
     qindesign::network::Ethernet.macAddress(mac);
@@ -69,19 +53,19 @@ void setup()
     qindesign::network::Ethernet.begin(staticIP, subnetMask, gateway);
     qindesign::network::EthernetIEEE1588.begin();
 
-    qindesign::network::Ethernet.onLinkState([](bool state)
+    qindesign::network::Ethernet.onLinkState([](const bool state)
     {
-        Serial.printf("[Ethernet] Link %dMbps %s\n", qindesign::network::Ethernet.linkSpeed(), state ? "ON" : "OFF");
-        connected = state;
+        Serial.printf("\n[Ethernet] Link %dMbps %s\n", qindesign::network::Ethernet.linkSpeed(), state ? "ON" : "OFF");
         if (state) {
             ptp.begin();
             ananasClient.connect();
         }
     });
 
-    ptp.onControllerUpdated([](const double adjust, const double)
+    ptp.onControllerUpdated([](const double adjust)
     {
         audioSystemManager.adjustClock(adjust);
+        ananasClient.setExactSamplingRate(config.getExactSamplingRate());
     });
 
     audioSystemManager.onInvalidSamplingRate([]
@@ -142,7 +126,7 @@ void loop()
             "\nIP: ");
         Serial.print(qindesign::network::Ethernet.localIP());
         Serial.printf(" | MAC: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]);
-        Serial.printf(" | SN: %" PRIu32, sn);
+        Serial.printf(" | SN: %" PRIu32, ananasClient.getSerialNumber());
         Serial.printf(external_psram_size ? " | PSRAM: %" PRIu8 " MB\n" : "\n", external_psram_size);
         Serial.println(audioSystemManager);
         Serial.println(ananasClient);

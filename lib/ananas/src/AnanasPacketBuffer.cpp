@@ -2,53 +2,30 @@
 
 namespace ananas
 {
-    void PacketBuffer::write(const Packet &packet)
+    void PacketBuffer::write(const AudioPacket &packet)
     {
         buffer[writeIndex] = packet;
         writeIndex = (writeIndex + 1) % Constants::PacketBufferCapacity;
-        // Might be better to avoid a division...
-        // ++writeIndex;
-        // if (writeIndex >= kPacketBufferSize) {
-        // writeIndex = 0;
-        // }
     }
 
-    void PacketBuffer::writeV2(const PacketV2 &packet)
-    {
-        bufferV2[writeIndex] = packet;
-        writeIndex = (writeIndex + 1) % Constants::PacketBufferCapacity;
-    }
-
-    Packet &PacketBuffer::read()
+    AudioPacket &PacketBuffer::read()
     {
         auto &packet{peek()};
         incrementReadIndex();
         return packet;
     }
 
-    PacketV2 &PacketBuffer::readV2()
-    {
-        auto &packet{peekV2()};
-        incrementReadIndexV2();
-        return packet;
-    }
-
-    Packet &PacketBuffer::peek()
+    AudioPacket &PacketBuffer::peek()
     {
         return buffer[readIndex];
     }
 
-    PacketV2 &PacketBuffer::peekV2()
-    {
-        return bufferV2[readIndexV2];
-    }
-
     size_t PacketBuffer::printTo(Print &p) const
     {
-        return p.printf("Read index: %" PRIu32 ", Write index: %" PRIu32 ", Num packets available: %" PRIu32 "\n",
-                        readIndexV2,
+        return p.printf("Read index: %" PRIu32 ", Write index: %" PRIu32 ", %" PRIu8 " %% full.\n",
+                        readIndex,
                         writeIndex,
-                        writeIndex > readIndexV2 ? writeIndex - readIndexV2 : writeIndex + Constants::PacketBufferCapacity - readIndexV2);
+                        getFillPercent());
     }
 
     void PacketBuffer::incrementReadIndex()
@@ -59,11 +36,6 @@ namespace ananas
         // if (readIndex >= kPacketBufferSize) {
         // readIndex = 0;
         // }
-    }
-
-    void PacketBuffer::incrementReadIndexV2()
-    {
-        readIndexV2 = (readIndexV2 + 1) % Constants::PacketBufferCapacity;
     }
 
     void PacketBuffer::decrementReadIndex()
@@ -81,11 +53,6 @@ namespace ananas
         return readIndex;
     }
 
-    size_t PacketBuffer::getReadIndexV2() const
-    {
-        return readIndexV2;
-    }
-
     bool PacketBuffer::isEmpty() const
     {
         return readIndex == writeIndex;
@@ -94,10 +61,15 @@ namespace ananas
     void PacketBuffer::clear()
     {
         readIndex = 0;
-        readIndexV2 = 0;
+        readIndex = 0;
         writeIndex = 0;
-        writeIndexV2 = 0;
-        memset(buffer, 0, sizeof(buffer));
-        memset(bufferV2->data, 0, sizeof(bufferV2->data));
+        writeIndex = 0;
+        memset(buffer->data, 0, sizeof(buffer->data));
+    }
+
+    uint8_t PacketBuffer::getFillPercent() const
+    {
+        return 100 * (writeIndex > readIndex ? writeIndex - readIndex : writeIndex + Constants::PacketBufferCapacity - readIndex) /
+                        Constants::PacketBufferCapacity;
     }
 } // ananas
