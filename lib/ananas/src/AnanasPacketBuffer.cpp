@@ -53,6 +53,11 @@ namespace ananas
         return readIndex;
     }
 
+    void PacketBuffer::setReadIndex(const size_t newReadIndex)
+    {
+        readIndex = newReadIndex;
+    }
+
     bool PacketBuffer::isEmpty() const
     {
         return readIndex == writeIndex;

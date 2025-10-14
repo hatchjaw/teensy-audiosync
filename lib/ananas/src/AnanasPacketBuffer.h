@@ -32,6 +32,8 @@ namespace ananas
 
         [[nodiscard]] size_t getReadIndex() const;
 
+        void setReadIndex(size_t newReadIndex);
+
         [[nodiscard]] bool isEmpty() const;
 
         void clear();

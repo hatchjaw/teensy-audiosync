@@ -22,7 +22,7 @@ namespace ananas
 
         void connect() override;
 
-        void adjustBufferReadIndex(NanoTime now);
+        void adjustBufferReadIndex(NanoTime ptpNow);
 
         void prepare(uint sampleRate) override;
 

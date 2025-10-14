@@ -112,24 +112,38 @@ namespace ananas
         }
     }
 
-    void AudioClient::adjustBufferReadIndex(const NanoTime now)
+    void AudioClient::adjustBufferReadIndex(const NanoTime ptpNow)
     {
         auto didAdjust{false};
 
-        const auto idx{packetBuffer.getReadIndex()};
-        const auto initialReadIndex{(idx + Constants::PacketBufferCapacity - 1) % Constants::PacketBufferCapacity};
-        auto packetTime{packetBuffer.peek().header.time};
-        auto diff{now - packetTime};
-        const auto kMaxDiff{(Constants::NanosecondsPerSecond * Constants::FramesPerPacketExpected / sampleRate) * 3 / 2};
+        auto diff{ptpNow - packetBuffer.peek().header.time};
+        const auto kMaxDiff{(Constants::NanosecondsPerSecond * Constants::FramesPerPacketExpected / sampleRate)};// * 3 / 2};
 
-        while ((diff > kMaxDiff || diff < -kMaxDiff) && packetBuffer.getReadIndex() != initialReadIndex) {
-            packetBuffer.incrementReadIndex();
+        if (diff < 0 || diff > kMaxDiff) {
+            Serial.printf("\nPresentation time diff %" PRId64 " ns outside of range 0-%" PRId64 " ns\n"
+                          "Seeking closest packet... ", diff, kMaxDiff);
+            auto minDiff{INT64_MAX};
+            size_t readIndex{0};
+            packetBuffer.setReadIndex(readIndex);
 
-            packetTime = packetBuffer.peek().header.time;
-            diff = now - packetTime;
+            // Seek the packet with the smallest positive presentation time
+            // offset with respect to PTP time.
+            for (size_t frame{0}; frame < Constants::PacketBufferCapacity; ++frame, packetBuffer.incrementReadIndex()) {
+                diff = ptpNow - packetBuffer.peek().header.time;
+                if (diff >= 0 && diff <= minDiff) {
+                    minDiff = diff;
+                    readIndex = packetBuffer.getReadIndex();
+                }
+            }
 
-            Serial.printf("Current diff %" PRId64 " (readIndex %d, initialReadIndex %d)\n", diff, packetBuffer.getReadIndex(), initialReadIndex);
-            Serial.printf("Diff: %" PRId64 ", (max allowed ±%" PRId64 ")\n", diff, kMaxDiff);
+            if (minDiff < kMaxDiff) {
+                Serial.printf("Found packet with presentation time diff %" PRId64 " ns (read index %d)\n", minDiff, readIndex);
+                packetBuffer.setReadIndex(readIndex);
+            } else {
+                Serial.printf("Unable to find a packet with a valid presentation time (min %" PRId64 " ns)\n", minDiff);
+                packetBuffer.setReadIndex(0);
+            }
+
             didAdjust = true;
         }
 
