@@ -9,14 +9,17 @@
  * for data transmitted by the multicast audio server.
  */
 
+#include <AnanasPacket.h>
 #include <Audio.h>
 #include <t41-ptp.h>
 #include <QNEthernet.h>
 #include <TimeLib.h>
+#include <Announcer.h>
+#include <ClientListener.h>
 
-void syncInterrupt();
+void ptpSyncInterrupt();
 
-void announceInterrupt();
+void ptpAnnounceInterrupt();
 
 static void interrupt_1588_timer();
 
@@ -46,23 +49,32 @@ private:
 };
 
 AudioControlSGTL5000 audioShield;
-AudioInputUSB usb;
+AudioInputUSB usbIn;
+// AudioOutputUSB usbOut;
 AudioOutputI2S out;
 PulsePerSecond pps;
 AudioConnection c0(pps, 0, out, 0);
 // AudioConnection c1(usb, 0, out, 0);
-AudioConnection c2(usb, 1, out, 1);
+AudioConnection c2(usbIn, 1, out, 1);
 float prevVol{0.f};
 
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
 IPAddress subnetMask{255, 255, 255, 0};
 IPAddress gateway{192, 168, 10, 1};
-IntervalTimer syncTimer;
-IntervalTimer announceTimer;
+IntervalTimer ptpSyncTimer;
+IntervalTimer ptpAnnounceTimer;
 bool clockAuthority{true}, clockSubscriber{false}, p2p{false};
 l3PTP ptp{clockAuthority, clockSubscriber, p2p};
 qindesign::network::EthernetUDP socket;
+
+ananas::Announcer<ananas::AuthorityAnnouncePacket> authorityAnnouncer{
+    ananas::Constants::AuthorityAnnouncePort,
+    ananas::Constants::AuthorityAnnounceIntervalMs
+};
+
+ananas::ClientListener clientListener;
+elapsedMillis rateAdjustInterval;
 
 bool sync = false;
 bool announce = false;
@@ -89,13 +101,15 @@ void setup()
     qindesign::network::Ethernet.begin(staticIP, subnetMask, gateway);
     qindesign::network::EthernetIEEE1588.begin();
 
-    qindesign::network::Ethernet.onLinkState([](bool state)
+    qindesign::network::Ethernet.onLinkState([](const bool state)
     {
         Serial.printf("[Ethernet] Link %dMbps %s\n", qindesign::network::Ethernet.linkSpeed(), state ? "ON" : "OFF");
         if (state) {
             ptp.begin();
-            syncTimer.begin(syncInterrupt, 1000000);
-            announceTimer.begin(announceInterrupt, 1000000);
+            ptpSyncTimer.begin(ptpSyncInterrupt, 1000000);
+            ptpAnnounceTimer.begin(ptpAnnounceInterrupt, 1000000);
+            authorityAnnouncer.connect();
+            clientListener.connect();
         }
     });
 
@@ -111,9 +125,12 @@ void setup()
     AudioMemory(10);
     audioShield.enable();
     audioShield.volume(.75f);
+
+    authorityAnnouncer.begin();
+    clientListener.begin();
 }
 
-void syncInterrupt()
+void ptpSyncInterrupt()
 {
     if (noPPSCount > 5) {
         sync = true;
@@ -122,7 +139,7 @@ void syncInterrupt()
     }
 }
 
-void announceInterrupt()
+void ptpAnnounceInterrupt()
 {
     announce = true;
 }
@@ -170,4 +187,24 @@ void loop()
         ptp.syncMessage();
     }
     ptp.update();
+
+    authorityAnnouncer.run();
+    clientListener.run();
+
+    authorityAnnouncer.txPacket.numClients = clientListener.getNumClients(); // TODO: replace with callback f'n
+    authorityAnnouncer.txPacket.avgBufferFillPercent = clientListener.getAvgBufferFill();
+
+    if (rateAdjustInterval > 1000) {
+        rateAdjustInterval = 0;
+
+        if (clientListener.getAvgBufferFill() > 52) {
+            usbIn.decreaseFeedbackAccumulator();
+        } else if (clientListener.getAvgBufferFill() < 48) {
+            usbIn.increaseFeedbackAccumulator();
+        }
+    }
+
+    authorityAnnouncer.txPacket.numUnderruns = AudioInputUSB::getNumUnderruns();
+    authorityAnnouncer.txPacket.numOverflows = AudioInputUSB::getNumOverflows();
+    authorityAnnouncer.txPacket.usbFeedbackAccumulator = AudioInputUSB::getFeedbackAccumulator();
 }

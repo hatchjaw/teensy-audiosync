@@ -6,6 +6,7 @@
 #include <AudioProcessor.h>
 #include <ProgramComponent.h>
 #include <NetworkProcessor.h>
+#include <Announcer.h>
 
 namespace ananas
 {
@@ -32,28 +33,16 @@ namespace ananas
 
         uint32_t getSerialNumber() const;
 
+        void setIsPtpLocked(bool ptpLock);
+
+        void setAudioPtpOffsetNs(long offset);
+
     protected:
         void processImpl(int16_t *buffer, size_t numChannels, size_t numFrames) override;
 
         void processImplV2(size_t numFrames) override;
 
     private:
-        class ClientAnnouncer final : public ProgramComponent, public NetworkProcessor
-        {
-        public:
-            ClientAnnouncer();
-
-            void begin() override;
-
-            void run() override;
-
-            void connect() override;
-
-            AnnouncementPacket txPacket{};
-        private:
-            elapsedMillis elapsed;
-        };
-
         AudioPacket rxPacket{};
         PacketBuffer packetBuffer;
 
@@ -64,7 +53,7 @@ namespace ananas
         bool mute{false};
         uint16_t numPacketBufferReadIndexAdjustments{0};
 
-        ClientAnnouncer announcer;
+        Announcer<ClientAnnouncePacket> announcer;
     };
 }
 

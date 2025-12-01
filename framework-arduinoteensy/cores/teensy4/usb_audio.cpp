@@ -35,7 +35,30 @@
 
 #ifdef AUDIO_INTERFACE
 
-#define FEEDBACK_ACCUMULATOR 805306368 // 48 * 2^24
+/**
+ * The feedback accumulator is a 12.13 fixed point number that should be
+ * aligned within a 16.16 number (four bytes). The expected value of this
+ * number at 48 kHz should be 0x60000 or thereabouts, (393216 decimal). The
+ * fixed point formats look like this:
+ *
+ * 12.13 =>      0000 0000 0000 . 0000 0000 0000 0
+ * 16.16 => 0000 0000 0000 0000 . 0000 0000 0000 0000
+ *
+ * Introducing the decimal point, 0x6.0000 gives
+ *
+ * 12.13 =>      0000 0000 0110 . 0000 0000 0000 0
+ * 16.16 => 0000 0000 0000 0110 . 0000 0000 0000 0000
+ * Hex   =>     00        06    .     00        00
+ *
+ * 0x60000 is equal to (48 << 13). Left shifting /that/ twelve places gives
+ *
+ * (48 << 13) << 12 = 48 << 25 = 0x60000000 = 1'610'612'736
+ *
+ * So, it should be possible to work with /that/ number, using a right shift of
+ * twelve places to convert back to 12.13 (16.16).
+ */
+#define FEEDBACK_ACCUMULATOR (48 << 25)
+#define FEEDBACK_ACCUMULATOR_DELTA 10000
 
 bool AudioInputUSB::update_responsibility;
 audio_block_t * AudioInputUSB::incoming_left;
@@ -68,6 +91,8 @@ uint32_t feedback_accumulator;
 volatile uint32_t usb_audio_underrun_count;
 volatile uint32_t usb_audio_overrun_count;
 
+bool bufferReady{false};
+uint32_t consecutiveGoodCount{0};
 
 static void rx_event(transfer_t *t)
 {
@@ -99,7 +124,7 @@ void usb_audio_configure(void)
 	feedback_accumulator = FEEDBACK_ACCUMULATOR;
 	if (usb_high_speed) {
 		usb_audio_sync_nbytes = 4;
-		usb_audio_sync_rshift = 8;
+		usb_audio_sync_rshift = 12;
 	} else {
 		usb_audio_sync_nbytes = 3;
 		usb_audio_sync_rshift = 10;
@@ -113,6 +138,8 @@ void usb_audio_configure(void)
 	memset(&tx_transfer, 0, sizeof(tx_transfer));
 	usb_config_tx_iso(AUDIO_TX_ENDPOINT, AUDIO_TX_SIZE, 1, tx_event);
 	tx_event(NULL);
+	bufferReady = false;
+	consecutiveGoodCount = 0;
 }
 
 void AudioInputUSB::begin(void)
@@ -131,9 +158,39 @@ void AudioInputUSB::begin(void)
 	update_responsibility = false;
 }
 
+bool AudioInputUSB::getIsHighSpeed()
+{
+	return usb_high_speed == 1;
+}
+
+int AudioInputUSB::getNumUnderruns()
+{
+	return usb_audio_underrun_count;
+}
+
+int AudioInputUSB::getNumOverflows()
+{
+	return usb_audio_overrun_count;
+}
+
+uint32_t AudioInputUSB::getFeedbackAccumulator()
+{
+	return feedback_accumulator;
+}
+
+void AudioInputUSB::increaseFeedbackAccumulator()
+{
+	feedback_accumulator += 1000;
+}
+
+void AudioInputUSB::decreaseFeedbackAccumulator()
+{
+	feedback_accumulator -= 1000;
+}
+
 static void copy_to_buffers(const uint32_t *src, int16_t *left, int16_t *right, unsigned int len)
 {
-	uint32_t *target = (uint32_t*) src + len; 
+	uint32_t *target = (uint32_t*) src + len;
 	while ((src < target) && (((uintptr_t) left & 0x02) != 0)) {
 		uint32_t n = *src++;
 		*left++ = n & 0xFFFF;
@@ -199,6 +256,7 @@ void usb_audio_receive_callback(unsigned int len)
 				if (len > 0) {
 					usb_audio_overrun_count++;
 					printf("!");
+					feedback_accumulator -= FEEDBACK_ACCUMULATOR_DELTA;
 					//serial_phex(len);
 				}
 				return;
@@ -247,23 +305,38 @@ void AudioInputUSB::update(void)
 	uint8_t f = receive_flag;
 	receive_flag = 0;
 	__enable_irq();
-	if (f) {
-		int diff = AUDIO_BLOCK_SAMPLES/2 - (int)c;
-		feedback_accumulator += diff * 1;
-		//uint32_t feedback = (feedback_accumulator >> 8) + diff * 100;
-		//usb_audio_sync_feedback = feedback;
 
-		//printf(diff >= 0 ? "." : "^");
+	//==========================================================================
+	// Avoid startup transients.
+	// Without this check, Teensy typically reports something on the order of
+	// hundreds of buffer underruns on startup, which increases
+	// feedback_accumulator enormously.
+	//==========================================================================
+	if (left && right && c > AUDIO_BLOCK_SAMPLES/4) {
+		++consecutiveGoodCount;
+		if (consecutiveGoodCount >= 1000) {
+			bufferReady = true;
+		}
+	} else {
+		consecutiveGoodCount = 0;
 	}
-	//serial_phex(c);
-	//serial_print(".");
-	if (!left || !right) {
+
+	if (f && bufferReady) {
+		// If incoming count is low, diff is positive; feedback_accumulator increases.
+		// If incoming count is high, diff is negative; feedback_accumulator decreases.
+		int diff = AUDIO_BLOCK_SAMPLES/2 - (int)c;
+		feedback_accumulator += (uint32_t)((float)diff * 1.f);
+	}
+
+	if ((!left || !right) && bufferReady) {
 		usb_audio_underrun_count++;
-		//printf("#"); // buffer underrun - PC sending too slow
-		// TODO: trigger network packet...
-		// TODO: investigate this value
-		if (f) feedback_accumulator += 3800; //3500
+		// buffer underrun - PC sending too slow
+		if (f) {
+			feedback_accumulator += FEEDBACK_ACCUMULATOR_DELTA;
+		}
 	}
+	//==========================================================================
+
 	if (left) {
 		transmit(left, 0);
 		release(left);
@@ -381,22 +454,13 @@ unsigned int usb_audio_transmit_callback(void)
 	uint32_t avail, num, target, offset, len=0;
 	audio_block_t *left, *right;
 
-	// (The following note bears specific relevance to the Ananas project.)
-	// It may appear that these values should correspond roughly with Fs/1000,
-	// but using 48/49 instead of 44/45 resulted in network-client buffer
-	// underruns. In fact, 44/45 (at 48 kHz) also cause what appeared to be a
-	// gradual reduction in the number of available (networked audio) packets.
-	// This suggests the server not requesting USB data at a sufficient rate.
-	// In the end (preliminarily at least), dropping to 43/44 appears to result
-	// in a rate of USB data exchange that's more consistent with the t41-ptp
-	// group. Weirdly, so does 39/40.
 	if (++count < 10) {   // TODO: dynamic adjust to match USB rate
 		// target = 44;
-		target = 40;
+		target = 47;
 	} else {
 		count = 0;
 		// target = 45;
-		target = 41;
+		target = 48;
 	}
 
 	while (len < target) {
@@ -406,7 +470,6 @@ unsigned int usb_audio_transmit_callback(void)
 			// buffer underrun - PC is consuming too quickly
 			memset(usb_audio_transmit_buffer + len, 0, num * 4);
 			//serial_print("%");
-			// TODO: trigger network packet...
 			break;
 		}
 		right = AudioOutputUSB::right_1st;
@@ -499,7 +562,7 @@ int usb_audio_get_feature(void *stp, uint8_t *data, uint32_t *datalen)
 	return 0;
 }
 
-int usb_audio_set_feature(void *stp, uint8_t *buf) 
+int usb_audio_set_feature(void *stp, uint8_t *buf)
 {
 	struct setup_struct setup = *((struct setup_struct *)stp);
 	if (setup.bmRequestType==0x21) { // should check bRequest, bChannel and UnitID

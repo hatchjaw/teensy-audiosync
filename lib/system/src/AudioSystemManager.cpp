@@ -168,6 +168,14 @@ bool AudioSystemManager::begin()
     return true;
 }
 
+void AudioSystemManager::run() const
+{
+    if (sAudioPTPOffsetChanged && updateAudioPtpOffsetCallback != nullptr) {
+        updateAudioPtpOffsetCallback(sAudioPTPOffset);
+        sAudioPTPOffsetChanged = false;
+    }
+}
+
 void AudioSystemManager::startClock()
 {
     analogAudioPllControlRegister.setPowerDown(false);
@@ -180,6 +188,9 @@ void AudioSystemManager::startClock()
     sai1ReceiveControlRegister.setBitClockEnable(true);
     sai1ReceiveControlRegister.setReceiverEnable(true);
 
+    // sDMA.enable();
+    // sDMA.attachInterrupt(isr);
+
     audioShield.enable();
     audioShield.volume(config.volume);
 
@@ -191,12 +202,16 @@ void AudioSystemManager::stopClock()
 {
     audioShield.volume(0.f);
 
+    // __disable_irq();
+    // sDMA.disable();
+    // sDMA.detachInterrupt();
+    // __enable_irq();
+
     analogAudioPllControlRegister.setEnable(false);
     analogAudioPllControlRegister.setPowerDown(true);
     analogAudioPllControlRegister.setBypass(true);
 
     audioShield.disable();
-    audioShield.volume(0.f);
 
     sNumInterrupts = -1;
     sFirstInterruptNS = 0;
@@ -219,6 +234,16 @@ size_t AudioSystemManager::printTo(Print &p) const
     return p.println(config)
            + p.print(clockDividers)
            + p.printf("\nAudio-PTP offset: %" PRId32 " ns", sAudioPTPOffset);
+}
+
+void AudioSystemManager::onInvalidSamplingRate(void (*callback)())
+{
+    invalidSamplingRateCallback = callback;
+}
+
+void AudioSystemManager::onAudioPtpOffsetChanged(void (*callback)(long))
+{
+    updateAudioPtpOffsetCallback = callback;
 }
 
 void AudioSystemManager::adjustClock(const double adjust)
@@ -269,6 +294,7 @@ void AudioSystemManager::isr()
         // TODO: sometimes settles into an oscillating pattern with an amplitude
         //   of a couple a few hundred ns. Would a PI controller help?
         sAudioPTPOffset = ts.tv_nsec - sFirstInterruptNS;
+        sAudioPTPOffsetChanged = true;
     }
 
     int16_t *destination, *source;

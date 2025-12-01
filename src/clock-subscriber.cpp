@@ -13,7 +13,7 @@ extern "C" uint8_t external_psram_size;
 
 static void interrupt_1588_timer();
 
-volatile bool shouldEnableAudio{false};
+volatile bool ptpLock{false};
 AudioSystemConfig config{
     AUDIO_BLOCK_SAMPLES,
     AUDIO_SAMPLE_RATE_EXACT,
@@ -75,6 +75,11 @@ void setup()
         audioSystemManager.stopClock();
     });
 
+    audioSystemManager.onAudioPtpOffsetChanged([](const long offset)
+    {
+        ananasClient.setAudioPtpOffsetNs(offset);
+    });
+
     // PPS Out
     // peripherial: ENET_1588_EVENT1_OUT
     // IOMUX: ALT6
@@ -117,6 +122,7 @@ void loop()
     // Six consecutive offsets below 100 ns sets pin 13 high to switch on the LED
     digitalWrite(13, ptp.getLockCount() > 5 ? HIGH : LOW);
 
+    audioSystemManager.run();
     ananasClient.run();
 
     if (elapsed > reportInterval) {
@@ -166,14 +172,14 @@ static void interrupt_1588_timer()
 
     interrupt_ns = t;
 
-    // Start audio the first time two consecutive PTP locks (offset < 100 ns)
-    // are reported.
-    shouldEnableAudio = ptp.getLockCount() > 0;
+    // Start audio the first a PTP lock (offset < 100 ns) is reported.
+    ptpLock = ptp.getLockCount() > 0;
+    ananasClient.setIsPtpLocked(ptpLock);
 
     const NanoTime enetCompareTime{interrupt_s * NS_PER_S + interrupt_ns},
             now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
 
-    if (shouldEnableAudio && !audioSystemManager.isClockRunning()) {
+    if (ptpLock && !audioSystemManager.isClockRunning()) {
         audioSystemManager.startClock();
         Serial.print("Subscriber start audio clock ");
         printTime(enetCompareTime);

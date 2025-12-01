@@ -23,6 +23,8 @@ public:
 
     bool begin();
 
+    void run() const;
+
     void adjustClock(double adjust);
 
     void startClock();
@@ -36,6 +38,8 @@ public:
     size_t printTo(Print &p) const override;
 
     void onInvalidSamplingRate(void (*callback)());
+
+    void onAudioPtpOffsetChanged(void (*callback)(long));
 
 private:
     struct ClockDividers final : Printable
@@ -112,6 +116,7 @@ private:
     SGTL5000 audioShield;
 
     void (*invalidSamplingRateCallback)(){nullptr};
+    void (*updateAudioPtpOffsetCallback)(long){nullptr};
 
     inline static AudioProcessor *sAudioProcessor{nullptr};
 
@@ -119,16 +124,12 @@ private:
     inline static int16_t sNumInterrupts{-1};
     inline static long sFirstInterruptNS{0};
     inline static long sAudioPTPOffset{0};
+    inline static bool sAudioPTPOffsetChanged{false};
     inline static DMAChannel sDMA{false};
 
     inline static int16_t sAudioBuffer[ananas::Constants::AudioBlockFrames * ananas::Constants::NumOutputChannels]{};
 
     DMAMEM __attribute__((aligned(32))) inline static uint32_t sI2sTxBuffer[ananas::Constants::AudioBlockFrames]{};
 };
-
-inline void AudioSystemManager::onInvalidSamplingRate(void (*callback)())
-{
-    invalidSamplingRateCallback = callback;
-}
 
 #endif //AUDIOSYSTEMMANGER_H

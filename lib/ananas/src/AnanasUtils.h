@@ -29,7 +29,8 @@ namespace ananas
 
         inline static const IPAddress MulticastIP{224, 4, 224, 4};
         static constexpr uint16_t AudioPort{49152};
-        static constexpr uint16_t AnnouncementPort{49153};
+        static constexpr uint16_t ClientAnnouncePort{49153};
+        static constexpr uint16_t AuthorityAnnouncePort{49154};
 
         static constexpr size_t SampleSizeBytes{sizeof(int16_t)};
         static constexpr size_t PacketBufferCapacity{50};
@@ -38,6 +39,9 @@ namespace ananas
 
         static constexpr uint ClientReportThresholdPackets{10000};
         static constexpr uint ClientAnnounceIntervalMs{500};
+
+        static constexpr uint AuthorityAnnounceIntervalMs{500};
+        static constexpr uint GroupEvaluationIntervalMs{1000};
     };
 
     class Utils

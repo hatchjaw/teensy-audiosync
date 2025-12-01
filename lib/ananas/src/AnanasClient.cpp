@@ -5,9 +5,9 @@
 
 namespace ananas
 {
-    AudioClient::AudioClient(): AudioProcessor(0, Constants::MaxChannels)
+    AudioClient::AudioClient(): AudioProcessor(0, Constants::MaxChannels),
+                                announcer(Constants::ClientAnnouncePort, Constants::ClientAnnounceIntervalMs)
     {
-        getSerialNumber();
     }
 
     void AudioClient::begin()
@@ -35,7 +35,7 @@ namespace ananas
                 prevTime = ns;
             }
 
-            announcer.txPacket.bufferFillPercent = packetBuffer.getFillPercent();
+            announcer.txPacket.bufferFillPercent = announcer.txPacket.ptpLock ? packetBuffer.getFillPercent() : 50;
             announcer.txPacket.percentCPU = getCurrentPercentCPU();
         }
 
@@ -65,8 +65,8 @@ namespace ananas
                + p.print(packetBuffer)
                + p.printf("Packet offset: %" PRId64 " ns (%" PRId32
                           " frames), Times adjusted: %" PRIu16,
-                          announcer.txPacket.offsetTime,
-                          announcer.txPacket.offsetFrame,
+                          announcer.txPacket.presentationOffsetNs,
+                          announcer.txPacket.presentationOffsetFrame,
                           numPacketBufferReadIndexAdjustments);
     }
 
@@ -78,6 +78,17 @@ namespace ananas
     uint32_t AudioClient::getSerialNumber() const
     {
         return announcer.txPacket.serial;
+    }
+
+    void AudioClient::setIsPtpLocked(const bool ptpLock)
+    {
+        announcer.txPacket.ptpLock = ptpLock;
+    }
+
+    void AudioClient::setAudioPtpOffsetNs(const long offset)
+    {
+        announcer.txPacket.audioPtpOffsetNs = offset;
+        announcer.txPacket.presentationOffsetFrame = (announcer.txPacket.presentationOffsetNs + offset) / static_cast<int64_t>(1e9 / sampleRate);
     }
 
     void AudioClient::processImpl(int16_t *buffer, const size_t numChannels, const size_t numFrames)
@@ -117,7 +128,7 @@ namespace ananas
         auto didAdjust{false};
 
         auto diff{ptpNow - packetBuffer.peek().header.time};
-        const auto kMaxDiff{(Constants::NanosecondsPerSecond * Constants::FramesPerPacketExpected / sampleRate)};// * 3 / 2};
+        const auto kMaxDiff{(Constants::NanosecondsPerSecond * Constants::FramesPerPacketExpected / sampleRate)};
 
         if (diff < 0 || diff > kMaxDiff) {
             Serial.printf("\nPresentation time diff %" PRId64 " ns outside of range 0-%" PRId64 " ns\n"
@@ -152,34 +163,6 @@ namespace ananas
         }
         mute = didAdjust;
 
-        announcer.txPacket.offsetTime = diff;
-        announcer.txPacket.offsetFrame = diff / static_cast<int64_t>(1e9 / sampleRate);
-    }
-
-    //==========================================================================
-    AudioClient::ClientAnnouncer::ClientAnnouncer()
-    {
-        uint32_t num{HW_OCOTP_MAC0 & 0xFFFFFF};
-        if (num < 10000000) num *= 10;
-        txPacket.serial = num;
-    }
-
-    void AudioClient::ClientAnnouncer::begin()
-    {
-    }
-
-    void AudioClient::ClientAnnouncer::run()
-    {
-        if (elapsed > Constants::ClientAnnounceIntervalMs) {
-            socket.beginPacket(Constants::MulticastIP, Constants::AnnouncementPort);
-            socket.write(txPacket.rawData(), sizeof(AnnouncementPacket));
-            socket.endPacket();
-            elapsed = 0;
-        }
-    }
-
-    void AudioClient::ClientAnnouncer::connect()
-    {
-        socket.beginMulticast(Constants::MulticastIP, Constants::AnnouncementPort);
+        announcer.txPacket.presentationOffsetNs = diff;
     }
 }

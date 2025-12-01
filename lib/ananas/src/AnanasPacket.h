@@ -27,14 +27,26 @@ namespace ananas
         uint8_t data[MTU - sizeof(Header)]{};
     };
 
-    struct AnnouncementPacket : Packet
+    struct ClientAnnouncePacket : Packet
     {
         uint32_t serial;
         float samplingRate;
         float percentCPU;
-        int32_t offsetFrame;
-        NanoTime offsetTime;
+        int32_t presentationOffsetFrame;
+        NanoTime presentationOffsetNs;
+        int32_t audioPtpOffsetNs;
         uint8_t bufferFillPercent;
+        bool ptpLock;
+    };
+
+    struct AuthorityAnnouncePacket : Packet
+    {
+        uint32_t serial;
+        uint32_t usbFeedbackAccumulator;
+        int numClients;
+        int avgBufferFillPercent;
+        int numUnderruns;
+        int numOverflows;
     };
 }
 
