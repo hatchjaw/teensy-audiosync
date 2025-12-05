@@ -6,7 +6,9 @@
 namespace ananas
 {
     AudioClient::AudioClient(): AudioProcessor(0, Constants::MaxChannels),
-                                announcer(Constants::ClientAnnouncePort, Constants::ClientAnnounceIntervalMs)
+                                announcer(Constants::ClientAnnounceMulticastIP,
+                                          Constants::ClientAnnouncePort,
+                                          Constants::ClientAnnounceIntervalMs)
     {
     }
 
@@ -44,7 +46,7 @@ namespace ananas
 
     void AudioClient::connect()
     {
-        socket.beginMulticast(Constants::MulticastIP, Constants::AudioPort);
+        socket.beginMulticast(Constants::AudioMulticastIP, Constants::AudioPort);
         announcer.connect();
     }
 
@@ -93,7 +95,6 @@ namespace ananas
 
     void AudioClient::processImpl(int16_t *buffer, const size_t numChannels, const size_t numFrames)
     {
-        // auto [packetTime, audioData]{packetBuffer.read()};
         auto [header, audioData]{packetBuffer.read()};
 
         memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numFrames);

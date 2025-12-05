@@ -74,6 +74,8 @@ private:
         uint32_t getCurrentSai1ClkRootFreq() const;
     };
 
+    static void setupDMA();
+
     static void isr();
 
     static void triggerAudioProcessing();

@@ -27,7 +27,10 @@ namespace ananas
         static constexpr int64_t NanosecondsPerSecond{1'000'000'000};
         static constexpr float NanosecondsPerCpuCycle{10.f / 6.f};
 
-        inline static const IPAddress MulticastIP{224, 4, 224, 4};
+        inline static const IPAddress AudioMulticastIP{224, 4, 224, 4};
+        inline static const IPAddress ControlMulticastIP{224, 4, 224, 5};
+        inline static const IPAddress ClientAnnounceMulticastIP{224, 4, 224, 6};
+        inline static const IPAddress AuthorityAnnounceMulticastIP{224, 4, 224, 7};
         static constexpr uint16_t AudioPort{49152};
         static constexpr uint16_t ClientAnnouncePort{49153};
         static constexpr uint16_t AuthorityAnnouncePort{49154};

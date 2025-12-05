@@ -69,6 +69,7 @@ l3PTP ptp{clockAuthority, clockSubscriber, p2p};
 qindesign::network::EthernetUDP socket;
 
 ananas::Announcer<ananas::AuthorityAnnouncePacket> authorityAnnouncer{
+    ananas::Constants::AuthorityAnnounceMulticastIP,
     ananas::Constants::AuthorityAnnouncePort,
     ananas::Constants::AuthorityAnnounceIntervalMs
 };
@@ -194,15 +195,15 @@ void loop()
     authorityAnnouncer.txPacket.numClients = clientListener.getNumClients(); // TODO: replace with callback f'n
     authorityAnnouncer.txPacket.avgBufferFillPercent = clientListener.getAvgBufferFill();
 
-    if (rateAdjustInterval > 1000) {
-        rateAdjustInterval = 0;
-
-        if (clientListener.getAvgBufferFill() > 52) {
-            usbIn.decreaseFeedbackAccumulator();
-        } else if (clientListener.getAvgBufferFill() < 48) {
-            usbIn.increaseFeedbackAccumulator();
-        }
-    }
+    // if (rateAdjustInterval > 1000) {
+    //     rateAdjustInterval = 0;
+    //
+    //     if (clientListener.getAvgBufferFill() > 52) {
+    //         usbIn.decreaseFeedbackAccumulator();
+    //     } else if (clientListener.getAvgBufferFill() < 48) {
+    //         usbIn.increaseFeedbackAccumulator();
+    //     }
+    // }
 
     authorityAnnouncer.txPacket.numUnderruns = AudioInputUSB::getNumUnderruns();
     authorityAnnouncer.txPacket.numOverflows = AudioInputUSB::getNumOverflows();

@@ -128,31 +128,14 @@ bool AudioSystemManager::begin()
     //==========================================================================
     // Set up DMA
     //==========================================================================
-    sDMA.begin(true);
+    setupDMA();
 
-    sDMA.TCD->SADDR = sI2sTxBuffer; //source address
-    sDMA.TCD->SOFF = 2; // source buffer address increment per transfer in bytes
-    sDMA.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1); // specifies 16 bit source and destination
-    sDMA.TCD->NBYTES_MLNO = 2; // bytes to transfer for each service request///////////////////////////////////////////////////////////////////
-    sDMA.TCD->SLAST = -sizeof(sI2sTxBuffer); // last source address adjustment
-    sDMA.TCD->DOFF = 0; // increments at destination
-    sDMA.TCD->CITER_ELINKNO = sizeof(sI2sTxBuffer) / 2;
-    sDMA.TCD->DLASTSGA = 0; // destination address offset
-    sDMA.TCD->BITER_ELINKNO = sizeof(sI2sTxBuffer) / 2;
-    sDMA.TCD->CSR = DMA_TCD_CSR_INTHALF | DMA_TCD_CSR_INTMAJOR;
-    // interrupts
-    sDMA.TCD->DADDR = (void *) ((uint32_t) &I2S1_TDR0 + 2); // I2S1 register DMA writes to
-    sDMA.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI1_TX); // i2s channel that will trigger the DMA transfer when ready for data
-    sDMA.enable();
-
+    //==========================================================================
+    // Set up software interrupt to handle audio processing.
+    //==========================================================================
     attachInterruptVector(IRQ_SOFTWARE, softwareISR);
     NVIC_SET_PRIORITY(IRQ_SOFTWARE, 208); // 255 = lowest priority
     NVIC_ENABLE_IRQ(IRQ_SOFTWARE);
-
-    sDMA.attachInterrupt(isr);
-
-    sNumInterrupts = -1;
-    sFirstInterruptNS = 0;
 
     cycPostStop = ARM_DWT_CYCCNT;
 
@@ -178,6 +161,10 @@ void AudioSystemManager::run() const
 
 void AudioSystemManager::startClock()
 {
+    sNumInterrupts = -1;
+    sFirstInterruptNS = 0;
+    sAudioPTPOffset = 0;
+
     analogAudioPllControlRegister.setPowerDown(false);
     analogAudioPllControlRegister.setBypass(false);
     analogAudioPllControlRegister.setEnable(true);
@@ -188,28 +175,28 @@ void AudioSystemManager::startClock()
     sai1ReceiveControlRegister.setBitClockEnable(true);
     sai1ReceiveControlRegister.setReceiverEnable(true);
 
-    // sDMA.enable();
-    // sDMA.attachInterrupt(isr);
+    setupDMA();
 
     audioShield.enable();
     audioShield.volume(config.volume);
-
-    sNumInterrupts = -1;
-    sFirstInterruptNS = 0;
 }
 
 void AudioSystemManager::stopClock()
 {
     audioShield.volume(0.f);
 
-    // __disable_irq();
-    // sDMA.disable();
-    // sDMA.detachInterrupt();
-    // __enable_irq();
+    sai1TransmitControlRegister.setBitClockEnable(false);
+    sai1TransmitControlRegister.setFIFORequestDMAEnable(false);
+    sai1TransmitControlRegister.setTransmitterEnable(false);
+    sai1ReceiveControlRegister.setBitClockEnable(false);
+    sai1ReceiveControlRegister.setReceiverEnable(false);
 
     analogAudioPllControlRegister.setEnable(false);
     analogAudioPllControlRegister.setPowerDown(true);
     analogAudioPllControlRegister.setBypass(true);
+
+    sDMA.detachInterrupt();
+    sDMA.disable();
 
     audioShield.disable();
 
@@ -264,6 +251,28 @@ void AudioSystemManager::adjustClock(const double adjust)
     // const auto cycles{ARM_DWT_CYCCNT};
     audioPllNumeratorRegister.set(clockDividers.pll4Num);
     // Serial.printf("Fs update took %" PRIu32 " ns\n", ananas::Utils::cyclesToNs(ARM_DWT_CYCCNT - cycles));
+}
+
+FLASHMEM
+void AudioSystemManager::setupDMA()
+{
+    sDMA.begin(true);
+
+    sDMA.TCD->SADDR = sI2sTxBuffer; //source address
+    sDMA.TCD->SOFF = 2; // source buffer address increment per transfer in bytes
+    sDMA.TCD->ATTR = DMA_TCD_ATTR_SSIZE(1) | DMA_TCD_ATTR_DSIZE(1); // specifies 16 bit source and destination
+    sDMA.TCD->NBYTES_MLNO = 2; // bytes to transfer for each service request///////////////////////////////////////////////////////////////////
+    sDMA.TCD->SLAST = -sizeof(sI2sTxBuffer); // last source address adjustment
+    sDMA.TCD->DOFF = 0; // increments at destination
+    sDMA.TCD->CITER_ELINKNO = sizeof(sI2sTxBuffer) / 2;
+    sDMA.TCD->DLASTSGA = 0; // destination address offset
+    sDMA.TCD->BITER_ELINKNO = sizeof(sI2sTxBuffer) / 2;
+    sDMA.TCD->CSR = DMA_TCD_CSR_INTHALF | DMA_TCD_CSR_INTMAJOR;
+    // interrupts
+    sDMA.TCD->DADDR = (void *) ((uint32_t) &I2S1_TDR0 + 2); // I2S1 register DMA writes to
+    sDMA.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI1_TX); // i2s channel that will trigger the DMA transfer when ready for data
+    sDMA.enable();
+    sDMA.attachInterrupt(isr);
 }
 
 void AudioSystemManager::isr()
@@ -405,10 +414,6 @@ bool AudioSystemManager::ClockDividers::calculateFine(const double targetSamplin
         return false;
     }
 
-    // Serial.printf("PLL4 numerator: %23" PRId32 "\n"
-    //               "PLL4 denominator: %21" PRIu32 "\n",
-    //               numInt, pll4Denom);
-
     pll4Num = numInt;
     return true;
 }
@@ -431,7 +436,6 @@ FLASHMEM
 bool AudioSystemManager::ClockDividers::isPll4FreqValid() const
 {
     const auto pll4Freq{getPll4Freq()};
-    //    Serial.printf("PLL4 Freq: %" PRIu32 "\n", pll4Freq);
     return pll4Freq > ClockConstants::Pll4FreqMin && pll4Freq < ClockConstants::Pll4FreqMax;
 }
 

@@ -11,8 +11,8 @@ namespace ananas
                             public NetworkProcessor
     {
     public:
-        Announcer(const uint16_t port, const uint transmitInterval)
-            : port(port), transmitInterval(transmitInterval)
+        Announcer(const IPAddress &multicastIP, const uint16_t port, const uint transmitInterval)
+            : ip(multicastIP), port(port), transmitInterval(transmitInterval)
         {
         }
 
@@ -24,7 +24,7 @@ namespace ananas
         void run() override
         {
             if (elapsed > transmitInterval) {
-                socket.beginPacket(Constants::MulticastIP, port);
+                socket.beginPacket(ip, port);
                 socket.write(txPacket.rawData(), sizeof(PacketType));
                 socket.endPacket();
                 elapsed = 0;
@@ -33,7 +33,7 @@ namespace ananas
 
         void connect() override
         {
-            socket.beginMulticast(Constants::MulticastIP, port);
+            socket.beginMulticast(ip, port);
         }
 
         PacketType txPacket{};
@@ -52,6 +52,7 @@ namespace ananas
         uint16_t port;
         uint transmitInterval;
         elapsedMillis elapsed;
+        IPAddress ip;
     };
 } // ananas
 

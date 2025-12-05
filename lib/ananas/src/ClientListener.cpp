@@ -9,7 +9,7 @@ namespace ananas
 
     void ClientListener::connect()
     {
-        socket.beginMulticast(Constants::MulticastIP, Constants::ClientAnnouncePort);
+        socket.beginMulticast(Constants::ClientAnnounceMulticastIP, Constants::ClientAnnouncePort);
     }
 
     void ClientListener::run()
