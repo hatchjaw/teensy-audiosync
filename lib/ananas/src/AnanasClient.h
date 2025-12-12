@@ -43,6 +43,17 @@ namespace ananas
         void processImplV2(size_t numFrames) override;
 
     private:
+        class RebootListener final : public ProgramComponent,
+                                     public NetworkProcessor
+        {
+        public:
+            void begin() override;
+
+            void run() override;
+
+            void connect() override;
+        };
+
         AudioPacket rxPacket{};
         PacketBuffer packetBuffer;
 
@@ -54,6 +65,7 @@ namespace ananas
         uint16_t numPacketBufferReadIndexAdjustments{0};
 
         Announcer<ClientAnnouncePacket> announcer;
+        RebootListener rebootListener;
     };
 }
 

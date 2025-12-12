@@ -42,12 +42,14 @@ namespace ananas
         }
 
         announcer.run();
+        rebootListener.run();
     }
 
     void AudioClient::connect()
     {
         socket.beginMulticast(Constants::AudioMulticastIP, Constants::AudioPort);
         announcer.connect();
+        rebootListener.connect();
     }
 
     void AudioClient::prepare(const uint sampleRate)
@@ -165,5 +167,26 @@ namespace ananas
         mute = didAdjust;
 
         announcer.txPacket.presentationOffsetNs = diff;
+    }
+
+    //==========================================================================
+
+    void AudioClient::RebootListener::begin()
+    {
+    }
+
+    void AudioClient::RebootListener::run()
+    {
+        if (const auto size{socket.parsePacket()}; size == 0) {
+            Serial.println("Rebooting.");
+            SRC_GPR5 = 0x0BAD00F1;
+            SCB_AIRCR = 0x05FA0004;
+            while (true) {}
+        }
+    }
+
+    void AudioClient::RebootListener::connect()
+    {
+        socket.beginMulticast(Constants::RebootMulticastIP, Constants::RebootPort);
     }
 }

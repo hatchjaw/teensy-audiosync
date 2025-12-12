@@ -31,9 +31,11 @@ namespace ananas
         inline static const IPAddress ControlMulticastIP{224, 4, 224, 5};
         inline static const IPAddress ClientAnnounceMulticastIP{224, 4, 224, 6};
         inline static const IPAddress AuthorityAnnounceMulticastIP{224, 4, 224, 7};
+        inline static const IPAddress RebootMulticastIP{224, 4, 224, 8};
         static constexpr uint16_t AudioPort{49152};
         static constexpr uint16_t ClientAnnouncePort{49153};
         static constexpr uint16_t AuthorityAnnouncePort{49154};
+        static constexpr uint16_t RebootPort{49155};
 
         static constexpr size_t SampleSizeBytes{sizeof(int16_t)};
         static constexpr size_t PacketBufferCapacity{50};

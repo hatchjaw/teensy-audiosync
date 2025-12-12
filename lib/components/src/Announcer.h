@@ -12,7 +12,7 @@ namespace ananas
     {
     public:
         Announcer(const IPAddress &multicastIP, const uint16_t port, const uint transmitInterval)
-            : ip(multicastIP), port(port), transmitInterval(transmitInterval)
+            : port(port), transmitInterval(transmitInterval), ip(multicastIP)
         {
         }
 
