@@ -38,7 +38,7 @@ namespace ananas
         static constexpr uint16_t RebootPort{49155};
 
         static constexpr size_t SampleSizeBytes{sizeof(int16_t)};
-        static constexpr size_t PacketBufferCapacity{25};
+        static constexpr size_t PacketBufferCapacity{50};
         static constexpr int64_t PacketReproductionOffsetNs{NanosecondsPerSecond / 20};
         static constexpr size_t FramesPerPacketExpected{32};
 
