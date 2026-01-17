@@ -19,7 +19,8 @@ namespace ananas
 
     void AudioClient::run()
     {
-        if (const auto size{socket.parsePacket()}; size > 0) {
+        int size{socket.parsePacket()};
+        while (size > 0) {
             nWrite++;
 
             socket.read(rxPacket.rawData(), size);
@@ -39,6 +40,7 @@ namespace ananas
 
             announcer.txPacket.bufferFillPercent = announcer.txPacket.ptpLock ? packetBuffer.getFillPercent() : 50;
             announcer.txPacket.percentCPU = getCurrentPercentCPU();
+            size = socket.parsePacket();
         }
 
         announcer.run();
@@ -148,6 +150,7 @@ namespace ananas
                     minDiff = diff;
                     readIndex = packetBuffer.getReadIndex();
                 }
+                Serial.printf("Diff: %" PRId64 " ns\n", diff);
             }
 
             if (minDiff < kMaxDiff) {
@@ -181,7 +184,8 @@ namespace ananas
             Serial.println("Rebooting.");
             SRC_GPR5 = 0x0BAD00F1;
             SCB_AIRCR = 0x05FA0004;
-            while (true) {}
+            while (true) {
+            }
         }
     }
 

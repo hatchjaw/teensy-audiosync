@@ -130,6 +130,8 @@ private:
     inline static DMAChannel sDMA{false};
 
     inline static int16_t sAudioBuffer[ananas::Constants::AudioBlockFrames * ananas::Constants::NumOutputChannels]{};
+    inline static int16_t **sInputBuffer;
+    inline static int16_t **sOutputBuffer;
 
     DMAMEM __attribute__((aligned(32))) inline static uint32_t sI2sTxBuffer[ananas::Constants::AudioBlockFrames]{};
 };

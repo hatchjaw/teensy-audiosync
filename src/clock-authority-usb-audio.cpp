@@ -118,8 +118,8 @@ void setup()
     qindesign::network::EthernetIEEE1588.setChannelCompareValue(1, NS_PER_S - 60);
     qindesign::network::EthernetIEEE1588.setChannelMode(1, qindesign::network::EthernetIEEE1588Class::TimerChannelModes::kPulseHighOnCompare);
     qindesign::network::EthernetIEEE1588.setChannelOutputPulseWidth(1, 25);
-
     qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(1, true);
+
     attachInterruptVector(IRQ_ENET_TIMER, interrupt_1588_timer); //Configure Interrupt Handler
     NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
 

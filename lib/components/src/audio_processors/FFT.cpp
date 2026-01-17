@@ -15,7 +15,7 @@ static void copy_to_fft_buffer(void *destination, const void *source, size_t num
     const auto *src = (const uint16_t *) source;
     auto *dst = (uint32_t *) destination;
 
-    for (int i = 0; i < numSamples; i++) {
+    for (size_t i{0}; i < numSamples; i++) {
         *dst++ = *src++; // real sample plus a zero for imaginary
     }
 }

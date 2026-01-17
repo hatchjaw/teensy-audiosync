@@ -134,7 +134,7 @@ bool AudioSystemManager::begin()
     // Set up software interrupt to handle audio processing.
     //==========================================================================
     attachInterruptVector(IRQ_SOFTWARE, softwareISR);
-    NVIC_SET_PRIORITY(IRQ_SOFTWARE, 208); // 255 = lowest priority
+    NVIC_SET_PRIORITY(IRQ_SOFTWARE, 208);
     NVIC_ENABLE_IRQ(IRQ_SOFTWARE);
 
     cycPostStop = ARM_DWT_CYCCNT;
@@ -142,7 +142,7 @@ bool AudioSystemManager::begin()
     // With predictability of timing in mind, report setup here, rather than
     // between calls to set up registers.
     Serial.println(config);
-    // Serial.printf("Audio interrupt priority: %d\n", NVIC_GET_PRIORITY(s_DMA.channel));
+    // Serial.printf("Audio interrupt priority: %d\n", NVIC_GET_PRIORITY(sDMA.channel));
 
     Serial.printf(
         "=== Audio system setup took %" PRIu32 " cycles (%" PRIu32 " ns).\n",

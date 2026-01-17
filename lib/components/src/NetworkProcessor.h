@@ -8,7 +8,7 @@ class NetworkProcessor
 public:
     virtual void connect() = 0;
 protected:
-    qindesign::network::EthernetUDP socket;
+    qindesign::network::EthernetUDP socket{4};
 };
 
 #endif //NETWORKPROCESSOR_H

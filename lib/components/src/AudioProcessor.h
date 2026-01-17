@@ -8,7 +8,7 @@ class AudioProcessor : public Printable
 public:
     AudioProcessor(size_t nInputs, size_t nOutputs);
 
-    ~AudioProcessor();
+    virtual ~AudioProcessor();
 
     virtual void prepare(uint sampleRate) = 0;
 
@@ -22,12 +22,20 @@ public:
 
     size_t printTo(Print &p) const override;
 
-    float getCurrentPercentCPU() const;
+    [[nodiscard]] float getCurrentPercentCPU() const;
+
+    [[nodiscard]] size_t getNumInputs() const;
+
+    [[nodiscard]] int16_t **getInput() const;
+
+    [[nodiscard]] size_t getNumOutputs() const;
 
 protected:
     virtual void processImpl(int16_t *buffer, size_t numChannels, size_t numFrames) = 0;
 
-    virtual void processImplV2(size_t numFrames) {}
+    virtual void processImplV2(size_t numFrames)
+    {
+    }
 
     size_t numInputs, numOutputs;
     int16_t **inputBuffer, **outputBuffer;

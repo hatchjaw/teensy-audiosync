@@ -4,6 +4,10 @@
 #include <AudioSystemManager.h>
 #include <AnanasClient.h>
 #include <arm_math.h>
+#include <ControlContext.h>
+#include <ControlDataListener.h>
+#include <wfs.h>
+#include "audio_processors/DistributedWFSProcessor.h"
 
 extern "C" uint8_t external_psram_size;
 
@@ -17,6 +21,10 @@ AudioSystemConfig config{
 };
 AudioSystemManager audioSystemManager{config};
 ananas::AudioClient ananasClient;
+ananas::WFS::ControlContext context;
+ananas::WFS::ControlDataListener controlDataListener{context};
+wfs wfs;
+WFSModule wfsModule{ananasClient, wfs};
 
 byte mac[6];
 IPAddress staticIP{192, 168, 10, 255};
@@ -55,6 +63,7 @@ void setup()
         if (state) {
             ptp.begin();
             ananasClient.connect();
+            controlDataListener.connect();
         }
     });
 
@@ -76,7 +85,46 @@ void setup()
         ananasClient.setAudioPtpOffsetNs(offset);
     });
 
-    // PPS Out
+    context.moduleID.onChange = [](const int value)
+    {
+        wfs.setParamValue("moduleID", value);
+    };
+    context.speakerSpacing.onChange = [](const float value)
+    {
+        wfs.setParamValue("spacing", value);
+    };
+    // Set up source positions.
+    char path[5];
+    for (size_t i{0}; i < ananas::Constants::MaxChannels; ++i) {
+        sprintf(path, "%d/x", i);
+        context.sourcePositions.insert(ananas::WFS::SourcePositionsMap::value_type(
+                path,
+                ananas::SmoothedValue<float>{0., .9f})
+        );
+        sprintf(path, "%d/y", i);
+        context.sourcePositions.insert(ananas::WFS::SourcePositionsMap::value_type(
+                path,
+                ananas::SmoothedValue<float>{0., .9f})
+        );
+    }
+    for (auto &sp: context.sourcePositions) {
+        // // If smoothing in Faust with si.smoo:
+        // sp.second.onSet = [sp](double value)
+        // {
+        //     // Serial.printf("Updating %s: %f\n", sp.first.c_str(), value);
+        //     wfs.setParamValue(sp.first, value);
+        // };
+
+        // If smoothing outside of Faust:
+        sp.second.onChange = [sp](float value)
+        {
+            Serial.printf("%s changed: %.9f\n", sp.first.c_str(), value);
+            value = ananas::Utils::clamp(value, -1.f, 1.f);
+            // wfs.setParamValue(sp.first, value);
+        };
+    }
+
+    // PTP PPS Out
     // peripherial: ENET_1588_EVENT1_OUT
     // IOMUX: ALT6
     // teensy pin: 24
@@ -90,10 +138,10 @@ void setup()
     NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
 
     // Set up audio
-    AudioSystemManager::setAudioProcessor(&ananasClient);
-    // AudioSystemManager::setAudioProcessor(&networkAuraliser);
+    AudioSystemManager::setAudioProcessor(&wfsModule);
     audioSystemManager.begin();
     ananasClient.begin();
+    controlDataListener.begin();
 
     // Report *after* setting everything up.
     Serial.println("Clock subscriber");
@@ -101,6 +149,11 @@ void setup()
     Serial.print("IP:            ");
     Serial.println(qindesign::network::Ethernet.localIP());
     Serial.println();
+
+    Serial.printf("IRQ_ENET_TIMER: %d\nIRQ_SOFTWARE: %d\nIRQ_DMA_CH0: %d\n",
+                  NVIC_GET_PRIORITY(IRQ_ENET_TIMER),
+                  NVIC_GET_PRIORITY(IRQ_SOFTWARE),
+                  NVIC_GET_PRIORITY(IRQ_DMA_CH0));
 }
 
 NanoTime interrupt_s = 0;
@@ -118,6 +171,10 @@ void loop()
 
     audioSystemManager.run();
     ananasClient.run();
+    controlDataListener.run();
+    for (auto &sp: context.sourcePositions) {
+        sp.second.getNext();
+    }
 
     if (elapsed > reportInterval) {
         elapsed = 0;
@@ -130,6 +187,8 @@ void loop()
         Serial.printf(external_psram_size ? " | PSRAM: %" PRIu8 " MB\n" : "\n", external_psram_size);
         Serial.println(audioSystemManager);
         Serial.println(ananasClient);
+        Serial.println(wfs);
+        Serial.println(wfsModule);
         Serial.println("==============================================================================");
     }
 }
@@ -179,6 +238,7 @@ static void interrupt_1588_timer()
         printTime(enetCompareTime);
         Serial.println();
     } else if (audioSystemManager.isClockRunning()) {
+        // printTime(now);
         ananasClient.adjustBufferReadIndex(now);
     }
 

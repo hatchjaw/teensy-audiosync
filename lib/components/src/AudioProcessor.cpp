@@ -1,8 +1,6 @@
 #include "AudioProcessor.h"
 #include <AnanasUtils.h>
 
-#define CYCLES_TO_APPROX_PERCENT(cycles) (((float)((uint32_t)(cycles) * 6400u) * (float)(AUDIO_SAMPLE_RATE_EXACT / AUDIO_BLOCK_SAMPLES)) / (float)(F_CPU_ACTUAL))
-
 AudioProcessor::AudioProcessor(const size_t nInputs, const size_t nOutputs) : numInputs(nInputs), numOutputs(nOutputs)
 {
     if (numInputs > 0) {
@@ -64,6 +62,11 @@ void AudioProcessor::processAudioV2(const size_t numFrames)
 
 void AudioProcessor::getOutput(int16_t **dest, size_t numChannels, size_t numFrames) const
 {
+    for (size_t frame{0}; frame < numFrames; frame++) {
+        for (size_t channel{0}; channel < numChannels; channel++) {
+            dest[channel][frame] = outputBuffer[channel][frame];
+        }
+    }
 }
 
 void AudioProcessor::getOutputInterleaved(int16_t *dest, const size_t numChannels, const size_t numFrames) const
@@ -86,4 +89,19 @@ size_t AudioProcessor::printTo(Print &p) const
 float AudioProcessor::getCurrentPercentCPU() const
 {
     return CYCLES_TO_APPROX_PERCENT(currentCycles);
+}
+
+size_t AudioProcessor::getNumInputs() const
+{
+    return numInputs;
+}
+
+int16_t **AudioProcessor::getInput() const
+{
+    return inputBuffer;
+}
+
+size_t AudioProcessor::getNumOutputs() const
+{
+    return numOutputs;
 }
