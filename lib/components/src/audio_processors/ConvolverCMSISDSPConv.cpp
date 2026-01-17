@@ -5,7 +5,7 @@ extern "C" uint8_t external_psram_size;
 // Size: smallest multiple of 128 greater than kIRSize.
 EXTMEM q15_t irBuffer[ConvolverCMSISDSPConv::kIRSize] __attribute__ ((aligned (4)));
 
-ConvolverCMSISDSPConv::ConvolverCMSISDSPConv() : AudioProcessor(2, 2)
+ConvolverCMSISDSPConv::ConvolverCMSISDSPConv()
 {
 }
 
@@ -34,30 +34,30 @@ void ConvolverCMSISDSPConv::prepare(uint sampleRate)
     memset(rightChannel, 0, sizeof(rightChannel));
 }
 
-void ConvolverCMSISDSPConv::processImpl(int16_t *buffer, size_t numChannels, size_t numSamples)
+void ConvolverCMSISDSPConv::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
 {
     if (external_psram_size <= 0) return;
 
     // Temporary buffers for each channel
-    q15_t leftOutput[numSamples + kIRSize - 1];
-    q15_t rightOutput[numSamples + kIRSize - 1];
+    q15_t leftOutput[numFrames + kIRSize - 1];
+    q15_t rightOutput[numFrames + kIRSize - 1];
 
     // De-interleave
-    for (size_t i{0}; i < numSamples; i++) {
-        leftChannel[i] = buffer[i * 2];
-        rightChannel[i] = buffer[i * 2 + 1];
+    for (size_t i{0}; i < numFrames; i++) {
+        leftChannel[i] = inputBuffer[0][i];
+        rightChannel[i] = inputBuffer[1][i];
     }
 
     // Process each channel separately
-    arm_conv_fast_q15(leftChannel, numSamples, irBuffer, kIRSize, leftOutput);
-    arm_conv_fast_q15(rightChannel, numSamples, irBuffer, kIRSize, rightOutput);
+    arm_conv_fast_q15(leftChannel, numFrames, irBuffer, kIRSize, leftOutput);
+    arm_conv_fast_q15(rightChannel, numFrames, irBuffer, kIRSize, rightOutput);
 
     // Overlap-add and re-interleave results
-    for (size_t i{0}; i < numSamples; i++) {
-        buffer[i * 2] = (q15_t) __QADD16(leftOutput[i], stateL[i]);
-        buffer[i * 2 + 1] = (q15_t) __QADD16(rightOutput[i], stateR[i]);
+    for (size_t i{0}; i < numFrames; i++) {
+        outputBuffer[0][i] = (q15_t) __QADD16(leftOutput[i], stateL[i]);
+        outputBuffer[1][i] = (q15_t) __QADD16(rightOutput[i], stateR[i]);
     }
 
-    memcpy(stateL, leftOutput + numSamples, (kStateSize - numSamples) * sizeof(q15_t));
-    memcpy(stateR, rightOutput + numSamples, (kStateSize - numSamples) * sizeof(q15_t));
+    memcpy(stateL, leftOutput + numFrames, (kStateSize - numFrames) * sizeof(q15_t));
+    memcpy(stateR, rightOutput + numFrames, (kStateSize - numFrames) * sizeof(q15_t));
 }

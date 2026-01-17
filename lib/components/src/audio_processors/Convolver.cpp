@@ -33,7 +33,7 @@ void Convolver::prepare(uint sampleRate)
     irBuffer[kBufferSize - 1] = .9f;
 }
 
-void Convolver::processImpl(int16_t *buffer, const size_t numChannels, const size_t numSamples)
+void Convolver::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
 {
     if (external_psram_size <= 0) return;
 
@@ -45,7 +45,7 @@ void Convolver::processImpl(int16_t *buffer, const size_t numChannels, const siz
     //
     // y[n] = s[n]h[0] + s[n-1]h[1] + s[n-2]h[2] + ... + s[n - (M - 1)]h[M - 1]
     //
-    for (size_t n{0}; n < numSamples; n++) {
+    for (size_t n{0}; n < numFrames; n++) {
         // Get the write index to the input/convolution buffer.
         const auto writeIndex{fifo.getNextWriteIndex()};
 
@@ -55,8 +55,8 @@ void Convolver::processImpl(int16_t *buffer, const size_t numChannels, const siz
 
         // Write the current sample for each channel to the input buffer.
         // It's *so much more efficient* to avoid iterating.
-        convBuffer[writeIndex][0] = buffer[n * numChannels] / static_cast<float>(INT16_MAX);
-        convBuffer[writeIndex][1] = buffer[n * numChannels + 1] / static_cast<float>(INT16_MAX);
+        convBuffer[writeIndex][0] = inputBuffer[0][n] / static_cast<float>(INT16_MAX);
+        convBuffer[writeIndex][1] = inputBuffer[1][n] / static_cast<float>(INT16_MAX);
 
         auto sampleL{0.f}, sampleR{0.f};
         for (size_t i{0}; i < kBufferSize; i++) {
@@ -65,8 +65,8 @@ void Convolver::processImpl(int16_t *buffer, const size_t numChannels, const siz
             sampleL += irSample * convBuffer[readIndex][0];
             sampleR += irSample * convBuffer[readIndex][1];
         }
-        buffer[n * numChannels] = static_cast<int16_t>(INT16_MAX * sampleL);
-        buffer[n * numChannels + 1] = static_cast<int16_t>(INT16_MAX * sampleR);
+        outputBuffer[0][n] = static_cast<int16_t>(INT16_MAX * sampleL);
+        outputBuffer[1][n] = static_cast<int16_t>(INT16_MAX * sampleR);
     }
 }
 

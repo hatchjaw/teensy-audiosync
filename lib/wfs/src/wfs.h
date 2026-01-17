@@ -25,14 +25,16 @@ public:
 
     size_t printTo(Print &p) const override;
 
-    void setParamValue(const std::string &path, float value);
+    void setParamValue(const std::string &path, float value) const;
 
-    float getParamValue(const std::string &path);
+    float getParamValue(const std::string &path) const;
+
+    [[nodiscard]] size_t getNumInputs() const override;
+
+    [[nodiscard]] size_t getNumOutputs() const override;
 
 protected:
-    void processImpl(int16_t *buffer, size_t numChannels, size_t numFrames) override;
-
-    void processImplV2(size_t numFrames) override;
+    void processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames) override;
 
 private:
     float **fInChannel;

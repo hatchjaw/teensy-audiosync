@@ -6,39 +6,20 @@
 class AudioProcessor : public Printable
 {
 public:
-    AudioProcessor(size_t nInputs, size_t nOutputs);
-
-    virtual ~AudioProcessor();
-
     virtual void prepare(uint sampleRate) = 0;
 
-    virtual void processAudio(int16_t *buffer, size_t numChannels, size_t numFrames) final;
-
-    virtual void processAudioV2(size_t numFrames) final;
-
-    void getOutput(int16_t **dest, size_t numChannels, size_t numFrames) const;
-
-    void getOutputInterleaved(int16_t *dest, size_t numChannels, size_t numFrames) const;
+    virtual void processAudio(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames) final;
 
     size_t printTo(Print &p) const override;
 
     [[nodiscard]] float getCurrentPercentCPU() const;
 
-    [[nodiscard]] size_t getNumInputs() const;
+    [[nodiscard]] virtual size_t getNumInputs() const = 0;
 
-    [[nodiscard]] int16_t **getInput() const;
-
-    [[nodiscard]] size_t getNumOutputs() const;
+    [[nodiscard]] virtual size_t getNumOutputs() const = 0;
 
 protected:
-    virtual void processImpl(int16_t *buffer, size_t numChannels, size_t numFrames) = 0;
-
-    virtual void processImplV2(size_t numFrames)
-    {
-    }
-
-    size_t numInputs, numOutputs;
-    int16_t **inputBuffer, **outputBuffer;
+    virtual void processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames) = 0;
 
 private:
     uint16_t currentCycles{0}, maxCycles{0};

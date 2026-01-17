@@ -13,7 +13,7 @@ public:
     void prepare(uint sampleRate) override;
 
 protected:
-    void processImpl(int16_t *buffer, size_t numChannels, size_t numSamples) override;
+    void processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames) override;
 
 public:
     /**

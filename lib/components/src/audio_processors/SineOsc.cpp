@@ -10,13 +10,13 @@ void SineOsc::setAmplitude(const float amplitude)
     this->amplitude = amplitude;
 }
 
-void SineOsc::processImpl(int16_t *buffer, size_t numChannels, size_t numSamples)
+void SineOsc::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
 {
-    for (size_t n{0}; n < numSamples; ++n) {
+    for (size_t n{0}; n < numFrames; ++n) {
         const auto phase{phasor.getNextSample()},
                 sample{amplitude * INT16_MAX * sinf(M_PI * 2.f * phase)};
-        for (size_t ch{0}; ch < numChannels; ++ch) {
-            buffer[n * numChannels + ch] = static_cast<int16_t>(sample);
+        for (size_t ch{0}; ch < getNumOutputs(); ++ch) {
+            outputBuffer[ch][n] = static_cast<int16_t>(sample);
         }
     }
 }

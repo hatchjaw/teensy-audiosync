@@ -37,10 +37,12 @@ namespace ananas
 
         void setAudioPtpOffsetNs(long offset);
 
-    protected:
-        void processImpl(int16_t *buffer, size_t numChannels, size_t numFrames) override;
+        [[nodiscard]] size_t getNumInputs() const override { return 0; }
 
-        void processImplV2(size_t numFrames) override;
+        [[nodiscard]] size_t getNumOutputs() const override { return Constants::MaxChannels; }
+
+    protected:
+        void processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames) override;
 
     private:
         class RebootListener final : public ProgramComponent,

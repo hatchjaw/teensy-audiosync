@@ -5,7 +5,7 @@ class WFSModule final : public AudioProcessor
 {
 public:
     WFSModule(AudioProcessor &ananasClient, AudioProcessor &faustWFS)
-        : AudioProcessor(0, 2), client(ananasClient), wfs(faustWFS)
+        : client(ananasClient), wfs(faustWFS)
     {
     }
 
@@ -20,17 +20,15 @@ public:
         return p.print("Module:            ") + AudioProcessor::printTo(p);
     }
 
-protected:
-    void processImpl(int16_t *buffer, size_t numChannels, size_t numFrames) override
-    {
-    }
+    [[nodiscard]] size_t getNumInputs() const override { return client.getNumInputs(); }
 
-    void processImplV2(const size_t numFrames) override
+    [[nodiscard]] size_t getNumOutputs() const override { return wfs.getNumOutputs(); }
+
+protected:
+    void processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t const numFrames) override
     {
-        client.processAudioV2(numFrames);
-        client.getOutput(wfs.getInput(), wfs.getNumInputs(), numFrames);
-        wfs.processAudioV2(numFrames);
-        wfs.getOutput(outputBuffer, wfs.getNumOutputs(), numFrames);
+        client.processAudio(inputBuffer, outputBuffer, numFrames);
+        wfs.processAudio(outputBuffer, outputBuffer, numFrames);
     }
 
 private:

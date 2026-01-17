@@ -59,7 +59,7 @@ std::list<GUI*> GUI::fGuiList;
 ztimedmap GUI::gTimedZoneMap;
 #endif
 
-AudioFaust::AudioFaust() : AudioProcessor(FAUST_INPUTS, FAUST_OUTPUTS)
+AudioFaust::AudioFaust()
 {
 #ifdef NVOICES
     int nvoices = NVOICES;
@@ -133,14 +133,10 @@ void AudioFaust::prepare(const uint sampleRate)
 #endif
 }
 
-void AudioFaust::processImpl(int16_t *buffer, size_t numChannels, size_t numFrames)
+void AudioFaust::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
 {
-}
-
-void AudioFaust::processImplV2(const size_t numFrames)
-{
-    if (numInputs > 0) {
-        for (size_t channel{0}; channel < numInputs; channel++) {
+    if (getNumInputs() > 0) {
+        for (size_t channel{0}; channel < getNumInputs(); channel++) {
             for (size_t i{0}; i < numFrames; i++) {
                 int16_t val = inputBuffer[channel][i];
                 fInChannel[channel][i] = val * DIV_16;
@@ -150,7 +146,7 @@ void AudioFaust::processImplV2(const size_t numFrames)
 
     fDSP->compute(numFrames, fInChannel, fOutChannel);
 
-    for (size_t channel{0}; channel < numOutputs; channel++) {
+    for (size_t channel{0}; channel < getNumOutputs(); channel++) {
         for (size_t i{0}; i < numFrames; i++) {
             int16_t val = fOutChannel[channel][i] * MULT_16;
             outputBuffer[channel][i] = val;
@@ -158,12 +154,12 @@ void AudioFaust::processImplV2(const size_t numFrames)
     }
 }
 
-void AudioFaust::setParamValue(const std::string &path, float value)
+void AudioFaust::setParamValue(const std::string &path, float value) const
 {
     fUI->setParamValue(path, value);
 }
 
-float AudioFaust::getParamValue(const std::string &path)
+float AudioFaust::getParamValue(const std::string &path) const
 {
     return fUI->getParamValue(path);
 }
@@ -171,6 +167,16 @@ float AudioFaust::getParamValue(const std::string &path)
 size_t AudioFaust::printTo(Print &p) const
 {
     return p.print("WFS:               ") + AudioProcessor::printTo(p);
+}
+
+size_t AudioFaust::getNumInputs() const
+{
+    return fDSP->getNumInputs();
+}
+
+size_t AudioFaust::getNumOutputs() const
+{
+    return fDSP->getNumOutputs();
 }
 
 /********************END ARCHITECTURE SECTION (part 2/2)****************/

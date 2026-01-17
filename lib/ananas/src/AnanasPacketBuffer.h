@@ -16,8 +16,6 @@ namespace ananas
         // That mask requires a power of two buffer size.
         // enum class Operation { Read, Write };
 
-        virtual ~PacketBuffer() = default;
-
         void write(const AudioPacket &packet);
 
         AudioPacket &read();

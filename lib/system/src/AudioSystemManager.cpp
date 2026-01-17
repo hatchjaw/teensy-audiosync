@@ -2,6 +2,7 @@
 #include <QNEthernet.h>
 #include <t41-ptp.h>
 #include <AnanasUtils.h>
+#include <memcpy_audio.h>
 
 AudioSystemManager::AudioSystemManager(AudioSystemConfig &config)
     : config(config)
@@ -16,8 +17,18 @@ bool AudioSystemManager::begin()
     clockDividers.calculateCoarse(config.kSamplingRate);
     Serial.print(clockDividers);
 
+    // Set up channel pointers
+    for (size_t i{0}; i < ananas::Constants::MaxChannels; ++i) {
+        sInputBuffer[i] = sInputBufferData[i];
+        sOutputBuffer[i] = sOutputBufferData[i];
+    }
+    // Clear buffers
+    memset(sInputBufferData, 0, sizeof(sInputBufferData));
+    memset(sOutputBufferData, 0, sizeof(sOutputBufferData));
+    memset(sAudioBuffer, 0, sizeof(sAudioBuffer));
+
     // Set up the audio processor.
-    sAudioProcessor->prepare(config.kSamplingRate);
+    if (sAudioProcessor) { sAudioProcessor->prepare(config.kSamplingRate); }
 
     cycPreReg = ARM_DWT_CYCCNT;
 
@@ -333,9 +344,19 @@ void AudioSystemManager::triggerAudioProcessing()
 
 void AudioSystemManager::softwareISR()
 {
-    // sAudioProcessor->processAudio(sAudioBuffer, 2, ananas::Constants::AudioBlockFrames);
-    sAudioProcessor->processAudioV2(ananas::Constants::AudioBlockFrames);
-    sAudioProcessor->getOutputInterleaved(sAudioBuffer, 2, ananas::Constants::AudioBlockFrames);
+    if (!sAudioProcessor) return;
+
+    sAudioProcessor->processAudio(sInputBuffer, sOutputBuffer, ananas::Constants::AudioBlockFrames);
+
+    for (size_t frame{0}; frame < ananas::Constants::AudioBlockFrames; ++frame)
+    {
+        for (size_t ch{0}; ch < 2; ++ch)
+        {
+            sAudioBuffer[frame * 2 + ch] = sOutputBuffer[ch][frame];
+        }
+    }
+
+    // memcpy_tointerleaveLR(sAudioBuffer, sOutputBuffer[0], sOutputBuffer[1]);
 }
 
 FLASHMEM

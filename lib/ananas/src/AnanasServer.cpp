@@ -39,12 +39,12 @@ namespace ananas
         socket.endPacket();
     }
 
-    void AudioServer::processImpl(int16_t *buffer, size_t numChannels, size_t numSamples)
+    void AudioServer::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
     {
         if (!connected) return;
 
         // Write incoming buffer to a packet in the packet buffer.
-        memcpy(txPacket.data, buffer, numSamples * numChannels * sizeof(int16_t));
+        memcpy(txPacket.data, inputBuffer, numFrames * getNumInputs() * sizeof(int16_t));
 
         // Get the current ethernet time.
         timespec ts{};
@@ -57,7 +57,7 @@ namespace ananas
         playbackPacketBuffer.write(txPacket);
 
         auto [header, audioData]{playbackPacketBuffer.read()};
-        memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numSamples);
+        memcpy(outputBuffer, audioData, sizeof(int16_t) * getNumOutputs() * numFrames);
     }
 
     void AudioServer::adjustBufferReadIndex(const NanoTime now)

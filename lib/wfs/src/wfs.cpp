@@ -10880,7 +10880,7 @@ std::list<GUI*> GUI::fGuiList;
 ztimedmap GUI::gTimedZoneMap;
 #endif
 
-wfs::wfs() : AudioProcessor(FAUST_INPUTS, FAUST_OUTPUTS)
+wfs::wfs()
 {
 #ifdef NVOICES
     int nvoices = NVOICES;
@@ -10954,14 +10954,10 @@ void wfs::prepare(const uint sampleRate)
 #endif
 }
 
-void wfs::processImpl(int16_t *buffer, size_t numChannels, size_t numFrames)
+void wfs::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
 {
-}
-
-void wfs::processImplV2(const size_t numFrames)
-{
-    if (numInputs > 0) {
-        for (size_t channel{0}; channel < numInputs; channel++) {
+    if (getNumInputs() > 0) {
+        for (size_t channel{0}; channel < getNumInputs(); channel++) {
             for (size_t i{0}; i < numFrames; i++) {
                 int16_t val = inputBuffer[channel][i];
                 fInChannel[channel][i] = val * DIV_16;
@@ -10971,7 +10967,7 @@ void wfs::processImplV2(const size_t numFrames)
 
     fDSP->compute(numFrames, fInChannel, fOutChannel);
 
-    for (size_t channel{0}; channel < numOutputs; channel++) {
+    for (size_t channel{0}; channel < getNumOutputs(); channel++) {
         for (size_t i{0}; i < numFrames; i++) {
             int16_t val = fOutChannel[channel][i] * MULT_16;
             outputBuffer[channel][i] = val;
@@ -10979,12 +10975,12 @@ void wfs::processImplV2(const size_t numFrames)
     }
 }
 
-void wfs::setParamValue(const std::string &path, float value)
+void wfs::setParamValue(const std::string &path, float value) const
 {
     fUI->setParamValue(path, value);
 }
 
-float wfs::getParamValue(const std::string &path)
+float wfs::getParamValue(const std::string &path) const
 {
     return fUI->getParamValue(path);
 }
@@ -10992,6 +10988,16 @@ float wfs::getParamValue(const std::string &path)
 size_t wfs::printTo(Print &p) const
 {
     return p.print("WFS:               ") + AudioProcessor::printTo(p);
+}
+
+size_t wfs::getNumInputs() const
+{
+    return fDSP->getNumInputs();
+}
+
+size_t wfs::getNumOutputs() const
+{
+    return fDSP->getNumOutputs();
 }
 
 /********************END ARCHITECTURE SECTION (part 2/2)****************/

@@ -129,9 +129,12 @@ private:
     inline static bool sAudioPTPOffsetChanged{false};
     inline static DMAChannel sDMA{false};
 
+    DMAMEM inline static int16_t sInputBufferData[ananas::Constants::MaxChannels][ananas::Constants::AudioBlockFrames]{};
+    DMAMEM inline static int16_t sOutputBufferData[ananas::Constants::MaxChannels][ananas::Constants::AudioBlockFrames]{};
+    inline static int16_t *sInputBuffer[ananas::Constants::MaxChannels]{};
+    inline static int16_t *sOutputBuffer[ananas::Constants::MaxChannels]{};
+
     inline static int16_t sAudioBuffer[ananas::Constants::AudioBlockFrames * ananas::Constants::NumOutputChannels]{};
-    inline static int16_t **sInputBuffer;
-    inline static int16_t **sOutputBuffer;
 
     DMAMEM __attribute__((aligned(32))) inline static uint32_t sI2sTxBuffer[ananas::Constants::AudioBlockFrames]{};
 };

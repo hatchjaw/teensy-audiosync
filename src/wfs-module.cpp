@@ -149,11 +149,6 @@ void setup()
     Serial.print("IP:            ");
     Serial.println(qindesign::network::Ethernet.localIP());
     Serial.println();
-
-    Serial.printf("IRQ_ENET_TIMER: %d\nIRQ_SOFTWARE: %d\nIRQ_DMA_CH0: %d\n",
-                  NVIC_GET_PRIORITY(IRQ_ENET_TIMER),
-                  NVIC_GET_PRIORITY(IRQ_SOFTWARE),
-                  NVIC_GET_PRIORITY(IRQ_DMA_CH0));
 }
 
 NanoTime interrupt_s = 0;

@@ -2,8 +2,7 @@
 #include <sqrt_integer.h>
 #include <utility/dspinst.h>
 
-FFT::FFT() : AudioProcessor(2, 2),
-             window(AudioWindowHanning1024)
+FFT::FFT() : window(AudioWindowHanning1024)
 {
     // Initialise the CFFT instance. Seems to be necessary to do this here in
     // the constructor.
@@ -43,47 +42,47 @@ float FFT::readBin(const uint bindex) const
     return (float) (output[bindex]) * (1.f / 16384.f);
 }
 
-void FFT::processImpl(int16_t *buffer, size_t numChannels, size_t numSamples)
+void FFT::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
 {
     switch (state) {
         case 0:
-            bufferOfBuffers[0] = buffer;
+            bufferOfBuffers[0] = inputBuffer[0];
             state = 1;
             break;
         case 1:
-            bufferOfBuffers[1] = buffer;
+            bufferOfBuffers[1] = inputBuffer[0];
             state = 2;
             break;
         case 2:
-            bufferOfBuffers[2] = buffer;
+            bufferOfBuffers[2] = inputBuffer[0];
             state = 3;
             break;
         case 3:
-            bufferOfBuffers[3] = buffer;
+            bufferOfBuffers[3] = inputBuffer[0];
             state = 4;
             break;
         case 4:
-            bufferOfBuffers[4] = buffer;
-            copy_to_fft_buffer(fftBuffer + 0x000, bufferOfBuffers[0], numSamples);
-            copy_to_fft_buffer(fftBuffer + 0x400, bufferOfBuffers[4], numSamples);
+            bufferOfBuffers[4] = inputBuffer[0];
+            copy_to_fft_buffer(fftBuffer + 0x000, bufferOfBuffers[0], numFrames);
+            copy_to_fft_buffer(fftBuffer + 0x400, bufferOfBuffers[4], numFrames);
             state = 5;
             break;
         case 5:
-            bufferOfBuffers[5] = buffer;
-            copy_to_fft_buffer(fftBuffer + 0x100, bufferOfBuffers[1], numSamples);
-            copy_to_fft_buffer(fftBuffer + 0x500, bufferOfBuffers[5], numSamples);
+            bufferOfBuffers[5] = inputBuffer[0];
+            copy_to_fft_buffer(fftBuffer + 0x100, bufferOfBuffers[1], numFrames);
+            copy_to_fft_buffer(fftBuffer + 0x500, bufferOfBuffers[5], numFrames);
             state = 6;
             break;
         case 6:
-            bufferOfBuffers[6] = buffer;
-            copy_to_fft_buffer(fftBuffer + 0x200, bufferOfBuffers[2], numSamples);
-            copy_to_fft_buffer(fftBuffer + 0x600, bufferOfBuffers[6], numSamples);
+            bufferOfBuffers[6] = inputBuffer[0];
+            copy_to_fft_buffer(fftBuffer + 0x200, bufferOfBuffers[2], numFrames);
+            copy_to_fft_buffer(fftBuffer + 0x600, bufferOfBuffers[6], numFrames);
             state = 7;
             break;
         case 7:
-            bufferOfBuffers[7] = buffer;
-            copy_to_fft_buffer(fftBuffer + 0x300, bufferOfBuffers[3], numSamples);
-            copy_to_fft_buffer(fftBuffer + 0x700, bufferOfBuffers[7], numSamples);
+            bufferOfBuffers[7] = inputBuffer[0];
+            copy_to_fft_buffer(fftBuffer + 0x300, bufferOfBuffers[3], numFrames);
+            copy_to_fft_buffer(fftBuffer + 0x700, bufferOfBuffers[7], numFrames);
 
             if (window) {
                 apply_window_to_fft_buffer(fftBuffer, window);

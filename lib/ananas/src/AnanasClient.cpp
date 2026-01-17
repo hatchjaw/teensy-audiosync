@@ -5,10 +5,9 @@
 
 namespace ananas
 {
-    AudioClient::AudioClient(): AudioProcessor(0, Constants::MaxChannels),
-                                announcer(Constants::ClientAnnounceMulticastIP,
-                                          Constants::ClientAnnouncePort,
-                                          Constants::ClientAnnounceIntervalMs)
+    AudioClient::AudioClient() : announcer(Constants::ClientAnnounceMulticastIP,
+                                           Constants::ClientAnnouncePort,
+                                           Constants::ClientAnnounceIntervalMs)
     {
     }
 
@@ -97,17 +96,10 @@ namespace ananas
         announcer.txPacket.presentationOffsetFrame = (announcer.txPacket.presentationOffsetNs + offset) / static_cast<int64_t>(1e9 / sampleRate);
     }
 
-    void AudioClient::processImpl(int16_t *buffer, const size_t numChannels, const size_t numFrames)
-    {
-        auto [header, audioData]{packetBuffer.read()};
-
-        memcpy(buffer, audioData, sizeof(int16_t) * numChannels * numFrames);
-    }
-
-    void AudioClient::processImplV2(const size_t numFrames)
+    void AudioClient::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
     {
         if (mute) {
-            for (size_t channel{0}; channel < numOutputs; ++channel) {
+            for (size_t channel{0}; channel < getNumOutputs(); ++channel) {
                 memset(outputBuffer[channel], 0, sizeof(int16_t) * numFrames);
             }
             return;
@@ -117,7 +109,7 @@ namespace ananas
         while (processFrame < numFrames) {
             auto packet{packetBuffer.read()};
 
-            const size_t numChannels{min(packet.header.numChannels, numOutputs)};
+            const size_t numChannels{min(packet.header.numChannels, getNumOutputs())};
             const auto audioData{packet.audio()};
 
             for (size_t packetFrame{0}; packetFrame < packet.header.numFrames; ++packetFrame, ++processFrame) {
@@ -150,7 +142,6 @@ namespace ananas
                     minDiff = diff;
                     readIndex = packetBuffer.getReadIndex();
                 }
-                Serial.printf("Diff: %" PRId64 " ns\n", diff);
             }
 
             if (minDiff < kMaxDiff) {
