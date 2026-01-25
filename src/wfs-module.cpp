@@ -15,8 +15,8 @@ static void interrupt_1588_timer();
 
 volatile bool ptpLock{false};
 AudioSystemConfig config{
-    AUDIO_BLOCK_SAMPLES,
-    AUDIO_SAMPLE_RATE_EXACT,
+    ananas::Constants::AudioBlockFrames,
+    ananas::Constants::AudioSamplingRate,
     AudioSystemConfig::ClockRole::Subscriber
 };
 AudioSystemManager audioSystemManager{config};
@@ -87,7 +87,7 @@ void setup()
 
     context.moduleID.onChange = [](const int value)
     {
-        wfs.setParamValue("moduleID", value);
+        wfs.setParamValue("moduleID", static_cast<float>(value));
     };
     context.speakerSpacing.onChange = [](const float value)
     {
@@ -118,9 +118,9 @@ void setup()
         // If smoothing outside of Faust:
         sp.second.onChange = [sp](float value)
         {
-            Serial.printf("%s changed: %.9f\n", sp.first.c_str(), value);
+            // Serial.printf("%s changed: %.9f\n", sp.first.c_str(), value);
             value = ananas::Utils::clamp(value, -1.f, 1.f);
-            // wfs.setParamValue(sp.first, value);
+            wfs.setParamValue(sp.first, value);
         };
     }
 
@@ -170,6 +170,8 @@ void loop()
     for (auto &sp: context.sourcePositions) {
         sp.second.getNext();
     }
+    ananasClient.setPercentCPU(wfsModule.getCurrentPercentCPU());
+    ananasClient.setModuleID(static_cast<uint16_t>(wfs.getParamValue("moduleID")));
 
     if (elapsed > reportInterval) {
         elapsed = 0;

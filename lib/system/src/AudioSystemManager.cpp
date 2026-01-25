@@ -2,7 +2,6 @@
 #include <QNEthernet.h>
 #include <t41-ptp.h>
 #include <AnanasUtils.h>
-#include <memcpy_audio.h>
 
 AudioSystemManager::AudioSystemManager(AudioSystemConfig &config)
     : config(config)
@@ -355,8 +354,6 @@ void AudioSystemManager::softwareISR()
             sAudioBuffer[frame * 2 + ch] = sOutputBuffer[ch][frame];
         }
     }
-
-    // memcpy_tointerleaveLR(sAudioBuffer, sOutputBuffer[0], sOutputBuffer[1]);
 }
 
 FLASHMEM

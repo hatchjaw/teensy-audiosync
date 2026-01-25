@@ -11,8 +11,8 @@ static void interrupt_1588_timer();
 
 volatile bool ptpLock{false};
 AudioSystemConfig config{
-    AUDIO_BLOCK_SAMPLES,
-    AUDIO_SAMPLE_RATE_EXACT,
+    ananas::Constants::AudioBlockFrames,
+    ananas::Constants::AudioSamplingRate,
     AudioSystemConfig::ClockRole::Subscriber
 };
 AudioSystemManager audioSystemManager{config};

@@ -22,7 +22,7 @@ namespace ananas
 
     size_t PacketBuffer::printTo(Print &p) const
     {
-        return p.printf("Read index: %" PRIu32 ", Write index: %" PRIu32 ", %" PRIu8 " %% full.\n",
+        return p.printf("  Read index: %" PRIu32 ", Write index: %" PRIu32 ", %" PRIu8 " %% full.\n",
                         readIndex,
                         writeIndex,
                         getFillPercent());

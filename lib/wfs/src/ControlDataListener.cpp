@@ -48,15 +48,15 @@ namespace ananas::WFS
 
     void ControlDataListener::parseModule(OSCMessage &msg, int addrOffset) const
     {
-        char ipString[15];
+        char ipString[16];
         IPAddress ip;
-        msg.getString(0, ipString, 15);
+        msg.getString(0, ipString, 16);
         ip.fromString(ipString);
         if (ip == qindesign::network::Ethernet.localIP()) {
             char id[2];
             msg.getAddress(id, addrOffset + 1);
             const auto numericID{strtof(id, nullptr)};
-            // Serial.printf("Receiving module ID: %f\n", numericID);
+            Serial.printf("Receiving module ID: %f\n", numericID);
             context.moduleID = numericID;
         }
     }
@@ -64,7 +64,7 @@ namespace ananas::WFS
     void ControlDataListener::parseSpacing(OSCMessage &msg, int addrOffset) const
     {
         const auto spacing{msg.getFloat(0)};
-        // Serial.printf("Receiving \"spacing\": %f\n", spacing);
+        Serial.printf("Receiving \"spacing\": %f\n", spacing);
         context.speakerSpacing = spacing;
     }
 

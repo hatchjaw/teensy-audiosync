@@ -113,6 +113,16 @@ void AudioFaust::prepare(const uint sampleRate)
     fDSP->init(static_cast<int>(sampleRate));
     fDSP->buildUserInterface(fUI);
 
+////    Serial.println("Setting up channel pointers.");
+//    // Set up channel pointers
+//    for (size_t i{0}; i < ananas::Constants::MaxChannels; ++i) {
+//        fInChannel[i] = fInChannelData[i];
+//    }
+//    for (size_t i{0}; i < ananas::Constants::NumOutputChannels; ++i) {
+//        fOutChannel[i] = fOutChannelData[i];
+//    }
+////    Serial.println("Done setting up channel pointers.");
+
     // allocating Faust inputs
     if (fDSP->getNumInputs() > 0) {
         for (int i = 0; i < fDSP->getNumInputs(); i++) {
@@ -166,17 +176,21 @@ float AudioFaust::getParamValue(const std::string &path) const
 
 size_t AudioFaust::printTo(Print &p) const
 {
-    return p.print("WFS:               ") + AudioProcessor::printTo(p);
+    return p.print("WFS:               ") +
+         AudioProcessor::printTo(p) + p.println() +
+         p.printf("  Module ID: %d, Speaker spacing: %.3f m",
+                  static_cast<int>(fUI->getParamValue("moduleID")),
+                  fUI->getParamValue("spacing"));
 }
 
 size_t AudioFaust::getNumInputs() const
 {
-    return fDSP->getNumInputs();
+    return ananas::Constants::MaxChannels;
 }
 
 size_t AudioFaust::getNumOutputs() const
 {
-    return fDSP->getNumOutputs();
+    return ananas::Constants::NumOutputChannels;
 }
 
 /********************END ARCHITECTURE SECTION (part 2/2)****************/

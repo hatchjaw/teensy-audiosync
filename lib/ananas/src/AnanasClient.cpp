@@ -63,12 +63,12 @@ namespace ananas
     {
         return p.print("Ananas Client:     ") + AudioProcessor::printTo(p)
                + (nWrite < Constants::ClientReportThresholdPackets
-                      ? p.printf("\nPackets received: %" PRIu32 "\n", nWrite)
-                      : p.printf("\nPackets received: %" PRIu32 " Average reception interval: %e ns\n",
+                      ? p.printf("\n  Packets received: %" PRIu32 "\n", nWrite)
+                      : p.printf("\n  Packets received: %" PRIu32 " Average reception interval: %e ns\n",
                                  nWrite,
                                  static_cast<double>(totalTime) / (nWrite - Constants::ClientReportThresholdPackets)))
                + p.print(packetBuffer)
-               + p.printf("Packet offset: %" PRId64 " ns (%" PRId32
+               + p.printf("  Packet offset: %" PRId64 " ns (%" PRId32
                           " frames), Times adjusted: %" PRIu16,
                           announcer.txPacket.presentationOffsetNs,
                           announcer.txPacket.presentationOffsetFrame,
@@ -94,6 +94,16 @@ namespace ananas
     {
         announcer.txPacket.audioPtpOffsetNs = offset;
         announcer.txPacket.presentationOffsetFrame = (announcer.txPacket.presentationOffsetNs + offset) / static_cast<int64_t>(1e9 / sampleRate);
+    }
+
+    void AudioClient::setPercentCPU(const float percentage)
+    {
+        announcer.txPacket.percentCPU = percentage;
+    }
+
+    void AudioClient::setModuleID(const uint16_t moduleID)
+    {
+        announcer.txPacket.moduleID = moduleID;
     }
 
     void AudioClient::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)

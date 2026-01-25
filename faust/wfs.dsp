@@ -7,7 +7,7 @@ nModules = N_SPEAKERS / SPEAKERS_PER_MODULE;
 
 // Simulate distance by changing gain and applying a lowpass as a function
 // of distance
-distanceSim(distance) = _,(*(dGain) : fi.lowpass(2, fc)) : select2(distance < 0)
+distanceSim(distance) = *(dGain) : fi.lowpass(2, fc)
 with{
     // Use inverse square law; I_2/I_1 = (d_1/d_2)^2
     // Assume sensible listening distance of 2 m from array.
@@ -25,8 +25,10 @@ with{
 // i.e. give each source a distance simulation and a delay
 // relative to each speaker.
 speakerArray(x, y, s, id) = _ <:
-    par(i, SPEAKERS_PER_MODULE, distanceSim(hypotenuse(i)) : de.fdelay(MAX_DELAY, smallDelay(i)))
+    par(i, SPEAKERS_PER_MODULE, focusedSource(i),virtualSource(i) : select2(y > 0))
 with{
+    focusedSource(i) = 0;
+    virtualSource(i) = distanceSim(hypotenuse(i)) : de.fdelay(MAX_DELAY, smallDelay(i));
     // Number of samples it takes sound to travel one meter.
     samplesPerMeter = ma.SR/CELERITY;
 
@@ -74,7 +76,7 @@ with{
     // Set speaker spacing (m)
     spacing = globalGroup(hslider("spacing[unit:m]", .2, .05, MAX_SPEAKER_DIST, .01));
 
-    maxX = spacing*(N_SPEAKERS-1);
+    maxX = spacing*(N_SPEAKERS-1)/2;
     // posGroup(x) = vgroup("Source Positions", x);
     // Use normalised input co-ordinate space; scale to dimensions.
 

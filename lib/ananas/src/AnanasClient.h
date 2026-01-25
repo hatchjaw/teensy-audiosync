@@ -41,6 +41,10 @@ namespace ananas
 
         [[nodiscard]] size_t getNumOutputs() const override { return Constants::MaxChannels; }
 
+        void setPercentCPU(float percentage);
+
+        void setModuleID(uint16_t moduleID);
+
     protected:
         void processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames) override;
 

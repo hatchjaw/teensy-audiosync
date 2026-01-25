@@ -73,7 +73,7 @@ if [ $LIB -eq 1 ]; then
     DIR=../lib/$MODULENAME/src
     mkdir -p $DIR
     rm -f $DIR/$MODULENAME.cpp $DIR/$MODULENAME.h
-    faust $OPTIONS -uim -a ananas.cpp -i $FILE -o $DIR/$MODULENAME.cpp
+    faust $OPTIONS -uim -dlt 1024 -a ananas.cpp -i $FILE -o $DIR/$MODULENAME.cpp
     if [ $NVOICES -gt 0 ]; then
         echo '#define NVOICES '$NVOICES >> $DIR/$MODULENAME.h
     fi

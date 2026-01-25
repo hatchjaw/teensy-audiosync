@@ -9,7 +9,7 @@
 #endif
 
 #ifndef AUDIO_BLOCK_SAMPLES
-#define AUDIO_BLOCK_SAMPLES  128
+#define AUDIO_BLOCK_SAMPLES  32
 #endif
 
 #ifndef NUM_SOURCES
@@ -23,6 +23,7 @@ namespace ananas
     struct Constants
     {
         static constexpr size_t AudioBlockFrames{AUDIO_BLOCK_SAMPLES};
+        static constexpr uint32_t AudioSamplingRate{AUDIO_SAMPLE_RATE_EXACT};
         static constexpr size_t NumOutputChannels{2};
         static constexpr size_t MaxChannels{NUM_SOURCES};
 
