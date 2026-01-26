@@ -6,7 +6,7 @@
 namespace ananas::WFS
 {
     ControlDataListener::ControlDataListener(ControlContext &controlContext)
-    : context(controlContext)
+        : context(controlContext)
     {
     }
 
@@ -42,8 +42,6 @@ namespace ananas::WFS
                 }
             }
         }
-
-
     }
 
     void ControlDataListener::parseModule(OSCMessage &msg, int addrOffset) const
@@ -56,7 +54,7 @@ namespace ananas::WFS
             char id[2];
             msg.getAddress(id, addrOffset + 1);
             const auto numericID{strtof(id, nullptr)};
-            Serial.printf("Receiving module ID: %f\n", numericID);
+            // Serial.printf("Receiving module ID: %f\n", numericID);
             context.moduleID = numericID;
         }
     }
@@ -64,7 +62,7 @@ namespace ananas::WFS
     void ControlDataListener::parseSpacing(OSCMessage &msg, int addrOffset) const
     {
         const auto spacing{msg.getFloat(0)};
-        Serial.printf("Receiving \"spacing\": %f\n", spacing);
+        // Serial.printf("Receiving \"spacing\": %f\n", spacing);
         context.speakerSpacing = spacing;
     }
 
@@ -73,9 +71,9 @@ namespace ananas::WFS
         // Get the source index and coordinate axis, e.g. "0/x"
         char path[20];
         msg.getAddress(path, addrOffset + 1);
-        // Get the coordinate value (0-1).
+        // Get the coordinate value (-1,1).
         const auto pos{msg.getFloat(0)};
-        Serial.printf("Receiving \"%s\": %f\n", path, pos);
+        // Serial.printf("Receiving \"%s\": %f\n", path, pos);
         // Set the parameter.
         auto it{context.sourcePositions.find(path)};
         if (it != context.sourcePositions.end()) {

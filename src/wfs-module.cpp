@@ -99,12 +99,12 @@ void setup()
         sprintf(path, "%d/x", i);
         context.sourcePositions.insert(ananas::WFS::SourcePositionsMap::value_type(
                 path,
-                ananas::SmoothedValue<float>{0., .9f})
+                ananas::SmoothedValue<float>{0., .99f})
         );
         sprintf(path, "%d/y", i);
         context.sourcePositions.insert(ananas::WFS::SourcePositionsMap::value_type(
                 path,
-                ananas::SmoothedValue<float>{0., .9f})
+                ananas::SmoothedValue<float>{0., .99f})
         );
     }
     for (auto &sp: context.sourcePositions) {
@@ -168,6 +168,7 @@ void loop()
     ananasClient.run();
     controlDataListener.run();
     for (auto &sp: context.sourcePositions) {
+        // TODO: This is probably happening too fast for Faust.
         sp.second.getNext();
     }
     ananasClient.setPercentCPU(wfsModule.getCurrentPercentCPU());
