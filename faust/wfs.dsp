@@ -40,25 +40,21 @@ with{
     // Get x between the source and specific speaker in the array, i.e. the
     // cathetus on the x-axis of the right triangle described by y and the
     // speaker position.
-    // E.g. for 16 speakers (8 modules), with a spacing, s, of .25 m; NB the
-    // centre of the array lies between speaker 1 of module 3 and speaker 0 of
-    // module 4, so it's necessary to subtract .5 from the multiplier to s.
+    // E.g. for 16 speakers (8 modules), with a spacing, s, of .25 m,
     //      array width, w = (16-1)*.25 = 3.75,
-    //             range x = -3.75/2 <= x <= 3.75/2 = -1.875 <= x <= 1.875
     //        let module m = 2 (third module in array)
     //       let speaker j = 0 (first speaker in module)
-    //               let x = 0 (m, relative to centre of array)
-    //                  cx = x + s*((m - 4 + .5) * 2 + j - .5)
-    //                     = 0 + .25*(-1.5*2 + 0 - .5)
-    //                     = .25 * -3.5
-    //                     = -0.875
+    //               let x = 2.25 (m, relative to left edge of array)
+    //                  cx = x - s*(m*2 + j)
+    //                     = 2.25 - .25*(2*2 + 0)
+    //                     = 1.25
     //
-    //               let m = 7, j = 1, x = 0
-    //                  cx = 0 + .25*(3.5*2 + 1 - .5) = 1.875
+    //               let m = 7, j = 1, x = 2.25
+    //                  cx = 2.25 - .25*(7*2 + 1) = -1.5
     //
-    //               let m = 0, j = 0, x = 0
-    //                  cx = 0 + .25*(-3.5*2 + 0 - .5) = -1.875
-    cathetusX(k) = x + s*(2*(id - nModules/2 + .5) + k - .5);
+    //               let m = 0, j = 0, x = 2.25
+    //                  cx = 2.25 - .25*(0*2 + 0) = 2.25
+    cathetusX(k) = x - (s*(k + id*2));
     hypotenuse(j) = cathetusX(j)^2 + y^2 : sqrt;
     smallDelay(j) = (hypotenuse(j) - y)*samplesPerMeter;
 };
@@ -76,7 +72,7 @@ with{
     // Set speaker spacing (m)
     spacing = globalGroup(hslider("spacing[unit:m]", .2, .05, MAX_SPEAKER_DIST, .01));
 
-    maxX = spacing*(N_SPEAKERS-1)/2;
+    maxX = spacing*(N_SPEAKERS-1);
     // posGroup(x) = vgroup("Source Positions", x);
     // Use normalised input co-ordinate space; scale to dimensions.
 
@@ -85,7 +81,7 @@ with{
     // wfs.setParamValue([pos], [value]), use si.smoo.
     // x(p) = hslider("v: %p/x", 0, 0, 1, 0.001) : si.smoo : *(spacing*(N_SPEAKERS-1));
     // x(p) = posGroup(hslider("v: %p/x", 0, 0, 1, 0.001) : *(spacing*(N_SPEAKERS-1)));
-    x(p) = hslider("%p/x", 0, -1, 1, 0.001) : *(maxX);
+    x(p) = hslider("%p/x", 0, -1, 1, 0.001) : +(1) : /(2) : *(maxX);
 
     // Y position is from zero (on the array) to a quasi-arbitrary maximum.
     // y(p) = hslider("v: %p/y", 0, 0, 1, 0.001) : si.smoo : *(MAX_Y_DIST);
