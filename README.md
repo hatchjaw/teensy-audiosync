@@ -1,10 +1,10 @@
 # Teensy Audiosync
 
 A time-sensitive audio client for the Teensy 4.1 microcontroller development
-board. Coupled with the [Ananas](https://github.com/hatchjaw/ananas) audio
-server and associated DAW plugins, supports distributed audio applications with
-sub-microsecond synchronisation via IEEE 1588 Precision Time Protocol over a
-wired ethernet network.
+board. Coupled with the [Ananas](https://github.com/hatchjaw/ananas-server) 
+audio server and associated DAW plugins, supports distributed audio applications
+with sub-microsecond synchronisation via IEEE 1588 Precision Time Protocol over
+a wired ethernet network.
 
 Note that, due to the specific aims of media clock and presentation time
 recovery in a distributed setting, this repository, specifically its
