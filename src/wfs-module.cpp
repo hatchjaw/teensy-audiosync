@@ -70,7 +70,7 @@ void setup()
     ptp.onControllerUpdated([](const double adjust)
     {
         audioSystemManager.adjustClock(adjust);
-        ananasClient.setExactSamplingRate(config.getExactSamplingRate());
+        ananasClient.setReportedSamplingRate(config.getExactSamplingRate());
     });
 
     audioSystemManager.onInvalidSamplingRate([]

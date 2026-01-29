@@ -29,7 +29,7 @@ namespace ananas
 
         size_t printTo(Print &p) const override;
 
-        void setExactSamplingRate(double samplingRate);
+        void setReportedSamplingRate(double samplingRate);
 
         uint32_t getSerialNumber() const;
 

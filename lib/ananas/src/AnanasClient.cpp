@@ -75,7 +75,7 @@ namespace ananas
                           numPacketBufferReadIndexAdjustments);
     }
 
-    void AudioClient::setExactSamplingRate(const double samplingRate)
+    void AudioClient::setReportedSamplingRate(const double samplingRate)
     {
         announcer.txPacket.samplingRate = samplingRate;
     }
