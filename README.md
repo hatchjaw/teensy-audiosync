@@ -1,4 +1,4 @@
-# Teensy Audiosync
+# Ananas Client
 
 A time-sensitive audio client for the Teensy 4.1 microcontroller development
 board. Coupled with the [Ananas](https://github.com/hatchjaw/ananas-server) 
