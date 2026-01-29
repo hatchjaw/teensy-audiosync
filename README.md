@@ -8,7 +8,7 @@ wired ethernet network.
 
 Note that, due to the specific aims of media clock and presentation time
 recovery in a distributed setting, this repository, specifically its
-`AudioSystemManager` class and `AudioProcessor` interface are not compatible
+`AudioSystemManager` class and `AudioProcessor` interface, are not compatible
 with the Teensy Audio Library.
 
 ## Dependencies
@@ -64,7 +64,7 @@ compile .dsp files to classes compatible with the audiosync/ananas
 `AudioProcessor` API. Follow Faust installation instructions
 [here](https://github.com/grame-cncm/faust/wiki).
 
-With the Faust compiler installed, navigate to the `faust` directory and run
+With the Faust compiler installed, navigate to the [faust](faust) directory and run
 
 ```shell
 ./faust2ananas [program_name].dsp
