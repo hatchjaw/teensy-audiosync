@@ -97,7 +97,7 @@ The following are handled automatically by PlatformIO via `lib_deps` in
 - [HedgeHawk/QNEthernet](https://github.com/HedgeHawk/QNEthernet), which
   implements various hardware registers associated with the IEEE 1588 ENET
   timer.
-- For the `clock-authority-usb-audio` environment, a fork of
+- For the `wfs-module` environment, a fork of
   [CNMAT/OSC](https://github.com/CNMAT/OSC), implementing class member callback
   functions on message/bundle receipt.
 
