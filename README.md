@@ -103,7 +103,7 @@ The following are handled automatically by PlatformIO via `lib_deps` in
 
 ## Building and uploading firmware, rebooting
 
-The utilities in `scripts` streamline these processes.
+The utilities in [scripts](scripts) streamline these processes.
 
 ### `upload.sh`
 
@@ -250,7 +250,7 @@ private:
 };
 ```
 
-Audio processors must override the `AudioProcessor::ProcessImpl` method; for
+Audio processors must override the `AudioProcessor::processImpl` method; for
 the `wfs-module` this method takes the following form:
 
 ```c++
