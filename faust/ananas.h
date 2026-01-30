@@ -3,6 +3,7 @@
 
 #include <string>
 #include <AudioProcessor.h>
+#include <ProgramComponent.h>
 #include <AnanasUtils.h>
 
 #define fprintf(X, Y, Z) Serial.printf(Y, Z)
@@ -15,7 +16,7 @@ class MidiUI;
 class ananas_midi;
 #endif
 
-class AudioFaust : public AudioProcessor
+class AudioFaust : public AudioProcessor, public ProgramComponent
 {
 public:
     AudioFaust();
@@ -23,6 +24,8 @@ public:
     ~AudioFaust();
 
     void prepare(uint sampleRate) override;
+
+    void run() override;
 
     size_t printTo(Print &p) const override;
 
@@ -35,6 +38,8 @@ public:
     [[nodiscard]] size_t getNumOutputs() const override;
 
 protected:
+    void beginImpl() override;
+
     void processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames) override;
 
 private:

@@ -15,13 +15,17 @@ namespace ananas
     public:
         void connect() override;
 
-        void begin() override;
+    protected:
+        void beginImpl() override;
 
+    public:
         void run() override;
 
         int getNumClients() const;
 
         int getAvgBufferFill() const;
+
+        size_t printTo(Print &p) const override;
 
     private:
         struct Client
@@ -29,6 +33,7 @@ namespace ananas
             ClientAnnouncePacket info;
             elapsedMillis timeSinceLastReceived{0};
         };
+
         ClientAnnouncePacket rxPacket{};
         std::map<uint32_t, Client> clients;
         elapsedMillis evaluationInterval;

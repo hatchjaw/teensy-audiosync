@@ -13,15 +13,17 @@ with the Teensy Audio Library.
 
 ## Dependencies
 
-- Teensy 4.1 microcontroller development boards with ethernet and audio add-ons
-  attached
-- PlatformIO CLI
-- tytools
-- Faust
-- A network switch with PTP support
-- Other dependencies
+- [Teensy 4.1](https://www.pjrc.com/store/teensy41.html) microcontroller 
+  development boards with 
+  [ethernet](https://www.pjrc.com/store/ethernet_kit.html) and 
+  [audio](http://pjrc.com/store/teensy3_audio.html) add-ons
+- [PlatformIO CLI](#platformio)
+- [tytools](#tytools)
+- [Faust](#faust)
+- [A network switch with PTP support](#a-network-switch-with-ptp-support)
+- [Other dependencies](#other-dependencies)
 
-### platformIO
+### PlatformIO
 
 As per the
 [PlatformIO documentation](https://docs.platformio.org/en/latest/core/installation/methods/installer-script.html#id1),
@@ -88,7 +90,7 @@ nanoseconds per jump.
 The following are handled automatically by PlatformIO via `lib_deps` in
 [platformio.ini](platformio.ini).
 
-- A stripped-down version of the Teensy framework in
+- A stripped-down version of the Teensy framework in directory
   [framework-arduinoteensy](framework-arduinoteensy); this includes
   modifications to permit the `clock-authority-usb-audio` firmware to run as a
   48 kHz USB audio device.

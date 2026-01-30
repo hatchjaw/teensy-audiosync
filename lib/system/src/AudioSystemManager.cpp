@@ -10,7 +10,7 @@ AudioSystemManager::AudioSystemManager(AudioSystemConfig &config)
 }
 
 FLASHMEM
-bool AudioSystemManager::begin()
+void AudioSystemManager::beginImpl()
 {
     // Calculate fundamental values for clock dividers.
     clockDividers.calculateCoarse(config.kSamplingRate);
@@ -157,11 +157,9 @@ bool AudioSystemManager::begin()
     Serial.printf(
         "=== Audio system setup took %" PRIu32 " cycles (%" PRIu32 " ns).\n",
         cycPostStop - cycPreReg, ananas::Utils::cyclesToNs(cycPostStop - cycPreReg));
-
-    return true;
 }
 
-void AudioSystemManager::run() const
+void AudioSystemManager::run()
 {
     if (sAudioPTPOffsetChanged && updateAudioPtpOffsetCallback != nullptr) {
         updateAudioPtpOffsetCallback(sAudioPTPOffset);

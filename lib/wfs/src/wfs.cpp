@@ -11761,6 +11761,10 @@ void wfs::prepare(const uint sampleRate)
 #endif
 }
 
+void wfs::run(){}
+
+void wfs::beginImpl(){}
+
 void wfs::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
 {
     if (getNumInputs() > 0) {

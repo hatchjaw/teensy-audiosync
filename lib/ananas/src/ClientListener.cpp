@@ -3,7 +3,7 @@
 
 namespace ananas
 {
-    void ClientListener::begin()
+    void ClientListener::beginImpl()
     {
     }
 
@@ -51,5 +51,10 @@ namespace ananas
     int ClientListener::getAvgBufferFill() const
     {
         return avgBufferFillPercent;
+    }
+
+    size_t ClientListener::printTo(Print &p) const
+    {
+        return 0;
     }
 } // ananas

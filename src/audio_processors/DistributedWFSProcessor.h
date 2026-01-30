@@ -1,7 +1,8 @@
 #ifndef DISTRIBUTEDWFSPROCESSOR_H
 #define DISTRIBUTEDWFSPROCESSOR_H
 
-class WFSModule final : public AudioProcessor
+
+class WFSModule final : public AudioProcessor, public ProgramComponent
 {
 public:
     WFSModule(AudioProcessor &ananasClient, AudioProcessor &faustWFS)
@@ -13,6 +14,10 @@ public:
     {
         client.prepare(sampleRate);
         wfs.prepare(sampleRate);
+    }
+
+    void run() override
+    {
     }
 
     size_t printTo(Print &p) const override
@@ -30,6 +35,8 @@ protected:
         client.processAudio(inputBuffer, outputBuffer, numFrames);
         wfs.processAudio(outputBuffer, outputBuffer, numFrames);
     }
+
+    void beginImpl() override {};
 
 private:
     AudioProcessor &client;

@@ -10,15 +10,16 @@ namespace ananas
     class Announcer final : public ProgramComponent,
                             public NetworkProcessor
     {
+    protected:
+        void beginImpl() override
+        {
+            computeSerialNumber();
+        }
+
     public:
         Announcer(const IPAddress &multicastIP, const uint16_t port, const uint transmitInterval)
             : port(port), transmitInterval(transmitInterval), ip(multicastIP)
         {
-        }
-
-        void begin() override
-        {
-            computeSerialNumber();
         }
 
         void run() override
@@ -34,6 +35,11 @@ namespace ananas
         void connect() override
         {
             socket.beginMulticast(ip, port);
+        }
+
+        size_t printTo(Print &p) const override
+        {
+            return 0;
         }
 
         PacketType txPacket{};

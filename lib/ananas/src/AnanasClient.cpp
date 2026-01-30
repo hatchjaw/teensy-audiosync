@@ -11,7 +11,7 @@ namespace ananas
     {
     }
 
-    void AudioClient::begin()
+    void AudioClient::beginImpl()
     {
         announcer.begin();
     }
@@ -80,11 +80,6 @@ namespace ananas
         announcer.txPacket.samplingRate = samplingRate;
     }
 
-    uint32_t AudioClient::getSerialNumber() const
-    {
-        return announcer.txPacket.serial;
-    }
-
     void AudioClient::setIsPtpLocked(const bool ptpLock)
     {
         announcer.txPacket.ptpLock = ptpLock;
@@ -104,6 +99,11 @@ namespace ananas
     void AudioClient::setModuleID(const uint16_t moduleID)
     {
         announcer.txPacket.moduleID = moduleID;
+    }
+
+    void AudioClient::setSerialNumber(const uint32_t serialNumber)
+    {
+        announcer.txPacket.serial = serialNumber;
     }
 
     void AudioClient::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
@@ -175,7 +175,7 @@ namespace ananas
 
     //==========================================================================
 
-    void AudioClient::RebootListener::begin()
+    void AudioClient::RebootListener::beginImpl()
     {
     }
 
@@ -193,5 +193,10 @@ namespace ananas
     void AudioClient::RebootListener::connect()
     {
         socket.beginMulticast(Constants::RebootMulticastIP, Constants::RebootPort);
+    }
+
+    size_t AudioClient::RebootListener::printTo(Print &p) const
+    {
+        return 0;
     }
 }

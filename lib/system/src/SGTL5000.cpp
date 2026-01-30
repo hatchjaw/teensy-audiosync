@@ -26,7 +26,7 @@
 
 #include "SGTL5000.h"
 #include <Arduino.h>
-#include "Wire.h"
+#include <Wire.h>
 
 #define CHIP_ID				0x0000
 // 15:8 PARTID		0xA0 - 8 bit identifier for SGTL5000

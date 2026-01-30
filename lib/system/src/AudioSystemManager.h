@@ -7,6 +7,7 @@
 #include <DMAChannel.h>
 #include <SGTL5000.h>
 #include <AnanasUtils.h>
+#include <ProgramComponent.h>
 #include <registers/AnalogAudioPllControlRegister.h>
 #include <registers/ClockDividerRegister1.h>
 #include <registers/ClockGatingRegister5.h>
@@ -16,14 +17,16 @@
 #include <registers/SerialClockMultiplexerRegister1.h>
 #include <registers/SwMuxControlRegister.h>
 
-class AudioSystemManager final : public Printable
+class AudioSystemManager final : public ProgramComponent
 {
 public:
     explicit AudioSystemManager(AudioSystemConfig &config);
 
-    bool begin();
+protected:
+    void beginImpl() override;
 
-    void run() const;
+public:
+    void run() override;
 
     void adjustClock(double adjust);
 
@@ -82,6 +85,7 @@ private:
 
     static void softwareISR();
 
+private:
     uint32_t cycPreReg{0},
             cycPostStop{0};
 
@@ -118,6 +122,7 @@ private:
     SGTL5000 audioShield;
 
     void (*invalidSamplingRateCallback)(){nullptr};
+
     void (*updateAudioPtpOffsetCallback)(long){nullptr};
 
     inline static AudioProcessor *sAudioProcessor{nullptr};

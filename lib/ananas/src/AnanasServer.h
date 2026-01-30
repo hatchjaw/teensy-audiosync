@@ -13,9 +13,10 @@ namespace ananas
                               public ProgramComponent,
                               public NetworkProcessor
     {
-    public:
-        void begin() override;
+    protected:
+        void beginImpl() override;
 
+    public:
         void run() override;
 
         void connect() override;
@@ -23,6 +24,8 @@ namespace ananas
         void prepare(uint sampleRate) override;
 
         void adjustBufferReadIndex(NanoTime now);
+
+        size_t printTo(Print &p) const override;
 
     private:
         void send();

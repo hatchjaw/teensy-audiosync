@@ -10,7 +10,7 @@ namespace ananas::WFS
     {
     }
 
-    void ControlDataListener::begin()
+    void ControlDataListener::beginImpl()
     {
     }
 
@@ -42,6 +42,11 @@ namespace ananas::WFS
                 }
             }
         }
+    }
+
+    size_t ControlDataListener::printTo(Print &p) const
+    {
+        return 0;
     }
 
     void ControlDataListener::parseModule(OSCMessage &msg, int addrOffset) const

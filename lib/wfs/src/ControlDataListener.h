@@ -16,9 +16,13 @@ namespace ananas::WFS
 
         void connect() override;
 
-        void begin() override;
+    protected:
+        void beginImpl() override;
 
+    public:
         void run() override;
+
+        size_t printTo(Print &p) const override;
 
     private:
         void parseModule(OSCMessage &msg, int addrOffset) const;
@@ -27,6 +31,7 @@ namespace ananas::WFS
 
         void parsePosition(OSCMessage &msg, int addrOffset) const;
 
+    private:
         /**
         * Max message size is ~44 bytes; leave some headroom.
         */

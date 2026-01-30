@@ -143,6 +143,10 @@ void AudioFaust::prepare(const uint sampleRate)
 #endif
 }
 
+void AudioFaust::run() {}
+
+void AudioFaust::beginImpl() {}
+
 void AudioFaust::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
 {
     if (getNumInputs() > 0) {

@@ -2,6 +2,7 @@
 #define TEENSY_AUDIOSYNC_CONFIG_H
 
 #include <Arduino.h>
+#include <ptp/ptp-base.h>
 
 struct ClockConstants
 {
@@ -96,14 +97,8 @@ struct ClockConstants
     static constexpr double Nanosecond{1e-9};
 };
 
-struct AudioSystemConfig : Printable
+struct AudioSystemConfig final : Printable
 {
-    enum class ClockRole
-    {
-        Authority,
-        Subscriber
-    };
-
     AudioSystemConfig(const uint16_t bufferSize, const uint32_t samplingRate, const ClockRole clockRole, const float volume = .5f)
         : kSamplingRate(samplingRate),
           kBufferSize(bufferSize),

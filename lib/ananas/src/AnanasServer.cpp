@@ -5,7 +5,7 @@
 
 namespace ananas
 {
-    void AudioServer::begin()
+    void AudioServer::beginImpl()
     {
     }
 
@@ -84,5 +84,10 @@ namespace ananas
         }
         // sampleOffset = diff / static_cast<int64_t>(1e9 / sampleRate);
         // Serial.printf("Packet offset: %" PRId64 " ns, Sample offset: %" PRId32 "\n", diff, sampleOffset);
+    }
+
+    size_t AudioServer::printTo(Print &p) const
+    {
+        return 0;
     }
 } // ananas

@@ -6,6 +6,8 @@
 class NetworkProcessor
 {
 public:
+    virtual ~NetworkProcessor() = default;
+
     virtual void connect() = 0;
 protected:
     qindesign::network::EthernetUDP socket{4};

@@ -14,10 +14,11 @@ namespace ananas
                               public ProgramComponent,
                               public NetworkProcessor
     {
+    protected:
+        void beginImpl() override;
+
     public:
         AudioClient();
-
-        void begin() override;
 
         void run() override;
 
@@ -31,8 +32,6 @@ namespace ananas
 
         void setReportedSamplingRate(double samplingRate);
 
-        uint32_t getSerialNumber() const;
-
         void setIsPtpLocked(bool ptpLock);
 
         void setAudioPtpOffsetNs(long offset);
@@ -45,6 +44,8 @@ namespace ananas
 
         void setModuleID(uint16_t moduleID);
 
+        void setSerialNumber(uint32_t serialNumber);
+
     protected:
         void processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames) override;
 
@@ -52,12 +53,15 @@ namespace ananas
         class RebootListener final : public ProgramComponent,
                                      public NetworkProcessor
         {
-        public:
-            void begin() override;
+        protected:
+            void beginImpl() override;
 
+        public:
             void run() override;
 
             void connect() override;
+
+            size_t printTo(Print &p) const override;
         };
 
         AudioPacket rxPacket{};
