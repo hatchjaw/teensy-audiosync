@@ -22,8 +22,8 @@ void ComponentManager::run()
 
 size_t ComponentManager::printTo(Print &p) const
 {
-    auto total{0};
-    for (auto *c: programComponents) {
+    size_t total{0};
+    for (const auto *c: programComponents) {
         total += p.print(*c);
     }
     return total;

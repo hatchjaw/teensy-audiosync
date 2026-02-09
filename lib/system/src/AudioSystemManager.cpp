@@ -226,9 +226,10 @@ void AudioSystemManager::setAudioProcessor(AudioProcessor *processor)
 
 size_t AudioSystemManager::printTo(Print &p) const
 {
-    return p.println(config)
-           + p.print(clockDividers)
-           + p.printf("\nAudio-PTP offset: %" PRId32 " ns", sAudioPTPOffset);
+    return p.println(config) +
+           p.print(clockDividers) +
+           p.printf("Audio-PTP offset: %" PRId32 " ns", sAudioPTPOffset) +
+           p.println();
 }
 
 void AudioSystemManager::onInvalidSamplingRate(void (*callback)())
@@ -345,10 +346,8 @@ void AudioSystemManager::softwareISR()
 
     sAudioProcessor->processAudio(sInputBuffer, sOutputBuffer, ananas::Constants::AudioBlockFrames);
 
-    for (size_t frame{0}; frame < ananas::Constants::AudioBlockFrames; ++frame)
-    {
-        for (size_t ch{0}; ch < 2; ++ch)
-        {
+    for (size_t frame{0}; frame < ananas::Constants::AudioBlockFrames; ++frame) {
+        for (size_t ch{0}; ch < 2; ++ch) {
             sAudioBuffer[frame * 2 + ch] = sOutputBuffer[ch][frame];
         }
     }
@@ -445,7 +444,8 @@ size_t AudioSystemManager::ClockDividers::printTo(Print &p) const
                     pll4Num,
                     pll4Denom,
                     sai1Pre,
-                    sai1Post);
+                    sai1Post) +
+           p.println();
 }
 
 FLASHMEM

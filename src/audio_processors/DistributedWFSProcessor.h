@@ -5,8 +5,8 @@
 class WFSModule final : public AudioProcessor, public ProgramComponent
 {
 public:
-    WFSModule(AudioProcessor &ananasClient, AudioProcessor &faustWFS)
-        : client(ananasClient), wfs(faustWFS)
+    WFSModule(AudioProcessor &ananasClient, AudioProcessor &faustWFS, ananas::WFS::ControlContext &controlContext)
+        : client(ananasClient), wfs(faustWFS), context(controlContext)
     {
     }
 
@@ -32,15 +32,22 @@ public:
 protected:
     void processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t const numFrames) override
     {
+        // Advance smoothed parameters, i.e. source positions
+        for (auto &sp: context.sourcePositions) {
+            sp.second.getNext();
+        }
         client.processAudio(inputBuffer, outputBuffer, numFrames);
         wfs.processAudio(outputBuffer, outputBuffer, numFrames);
     }
 
-    void beginImpl() override {};
+    void beginImpl() override
+    {
+    };
 
 private:
     AudioProcessor &client;
     AudioProcessor &wfs;
+    ananas::WFS::ControlContext &context;
 };
 
 #endif //DISTRIBUTEDWFSPROCESSOR_H

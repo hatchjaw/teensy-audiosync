@@ -69,7 +69,7 @@ namespace ananas
                                  static_cast<double>(totalTime) / (nWrite - Constants::ClientReportThresholdPackets)))
                + p.print(packetBuffer)
                + p.printf("  Packet offset: %" PRId64 " ns (%" PRId32
-                          " frames), Times adjusted: %" PRIu16,
+                          " frames), Times adjusted: %" PRIu16 "\n",
                           announcer.txPacket.presentationOffsetNs,
                           announcer.txPacket.presentationOffsetFrame,
                           numPacketBufferReadIndexAdjustments);

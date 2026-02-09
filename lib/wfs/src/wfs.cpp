@@ -11761,9 +11761,9 @@ void wfs::prepare(const uint sampleRate)
 #endif
 }
 
-void wfs::run(){}
+void wfs::run() {}
 
-void wfs::beginImpl(){}
+void wfs::beginImpl() {}
 
 void wfs::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
 {
@@ -11802,7 +11802,8 @@ size_t wfs::printTo(Print &p) const
          AudioProcessor::printTo(p) + p.println() +
          p.printf("  Module ID: %d, Speaker spacing: %.3f m",
                   static_cast<int>(fUI->getParamValue("moduleID")),
-                  fUI->getParamValue("spacing"));
+                  fUI->getParamValue("spacing")) +
+         p.println();
 }
 
 size_t wfs::getNumInputs() const

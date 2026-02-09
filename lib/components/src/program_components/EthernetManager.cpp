@@ -47,7 +47,8 @@ size_t EthernetManager::printTo(Print &p) const
     return p.print("IP: ") +
            p.print(qindesign::network::Ethernet.localIP()) +
            p.printf(" | MAC: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]) +
-           p.printf(" | SN: %" PRIu32, serialNumber);
+           p.printf(" | SN: %" PRIu32, serialNumber) +
+           p.println();
 }
 
 void EthernetManager::computeSerialNumber()

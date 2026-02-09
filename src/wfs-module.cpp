@@ -21,7 +21,7 @@ ananas::AudioClient ananasClient;
 ananas::WFS::ControlContext context;
 ananas::WFS::ControlDataListener controlDataListener{context};
 wfs wfs;
-WFSModule wfsModule{ananasClient, wfs};
+WFSModule wfsModule{ananasClient, wfs, context};
 std::vector<NetworkProcessor *> networkProcessors{
     &ptpManager,
     &ananasClient,
@@ -94,12 +94,12 @@ void setup()
         sprintf(path, "%d/x", i);
         context.sourcePositions.insert(ananas::WFS::SourcePositionsMap::value_type(
                 path,
-                ananas::SmoothedValue<float>{0., .99f})
+                ananas::SmoothedValue<float>{0., .9f})
         );
         sprintf(path, "%d/y", i);
         context.sourcePositions.insert(ananas::WFS::SourcePositionsMap::value_type(
                 path,
-                ananas::SmoothedValue<float>{0., .99f})
+                ananas::SmoothedValue<float>{0., .9f})
         );
     }
     for (auto &sp: context.sourcePositions) {
@@ -113,7 +113,7 @@ void setup()
         // If smoothing outside of Faust:
         sp.second.onChange = [sp](float value)
         {
-            // Serial.printf("%s changed: %.9f\n", sp.first.c_str(), value);
+            Serial.printf("%s changed: %.9f\n", sp.first.c_str(), value);
             value = ananas::Utils::clamp(value, -1.f, 1.f);
             wfs.setParamValue(sp.first, value);
         };
@@ -134,10 +134,6 @@ void loop()
 {
     componentManager.run();
 
-    for (auto &sp: context.sourcePositions) {
-        // TODO: This is probably happening too fast for Faust.
-        sp.second.getNext();
-    }
     ananasClient.setPercentCPU(wfsModule.getCurrentPercentCPU());
     ananasClient.setModuleID(static_cast<uint16_t>(wfs.getParamValue("moduleID")));
 

@@ -184,7 +184,8 @@ size_t AudioFaust::printTo(Print &p) const
          AudioProcessor::printTo(p) + p.println() +
          p.printf("  Module ID: %d, Speaker spacing: %.3f m",
                   static_cast<int>(fUI->getParamValue("moduleID")),
-                  fUI->getParamValue("spacing"));
+                  fUI->getParamValue("spacing")) +
+         p.println();
 }
 
 size_t AudioFaust::getNumInputs() const
