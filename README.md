@@ -127,19 +127,6 @@ device_. E.g.
 press the button on the Teensy 4.1 board.** A small red LED should illuminate,
 indicating that it's ready to receive new firmware.
 
-### `upload-ptp.sh` [obsolete]
-
-#### Usage
-
-```shell
-./scripts/upload-ptp.sh
-```
-
-This will build the `clock-authority` and `clock-subscriber` environments,
-upload the `clock-authority` firmware to the first Teensy that tycmd finds and
-`clock-subscriber` to all others. This script can be considered obsolete in
-favour of scripts that deal with the `clock-authority-usb-audio` environment.
-
 ### `upload-ptp-authority.sh`
 
 #### Usage
@@ -156,24 +143,13 @@ resulting firmware to the Teensy selected at the subsequent prompt.
 #### Usage
 
 ```shell
-./scripts/upload-ptp-select-authority.sh
+./scripts/upload-env-select-authority.sh [pio-environment]
 ```
 
-This will build the `clock-authority-usb-audio` and `clock-subscriber`
+This will build the `clock-authority-usb-audio` and `[pio-environment]`
 environments, prompt for a Teensy to which to upload the
-`clock-authority-usb-audio` firmware, then upload the `clock-subscriber`
+`clock-authority-usb-audio` firmware, then upload the `[pio-environment]`
 firmware to all other connected Teensies.
-
-### `upload-ptp-subscriber` [obsolete]
-
-#### Usage
-
-```shell
-./scripts/upload-ptp-subscriber.sh
-```
-
-This will build the `clock-subscriber` environment and upload the resulting
-firmware to the Teensy selected at the subsequent prompt.
 
 ### `reboot.sh`
 

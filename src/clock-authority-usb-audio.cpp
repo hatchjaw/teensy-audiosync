@@ -11,17 +11,12 @@
 
 #include <AnanasPacket.h>
 #include <Audio.h>
-#include <t41-ptp.h>
 #include <QNEthernet.h>
 #include <TimeLib.h>
 #include <Announcer.h>
-#include <ClientListener.h>
-
-void ptpSyncInterrupt();
-
-void ptpAnnounceInterrupt();
-
-static void interrupt_1588_timer();
+#include <program_components/ComponentManager.h>
+#include <program_components/EthernetManager.h>
+#include <program_components/PTPManager.h>
 
 class PulsePerSecond : public AudioStream
 {
@@ -50,40 +45,26 @@ private:
 
 AudioControlSGTL5000 audioShield;
 AudioInputUSB usbIn;
-// AudioOutputUSB usbOut;
 AudioOutputI2S out;
 PulsePerSecond pps;
 AudioConnection c0(pps, 0, out, 0);
-// AudioConnection c1(usb, 0, out, 0);
 AudioConnection c2(usbIn, 1, out, 1);
-float prevVol{0.f};
 
-byte mac[6];
-IPAddress staticIP{192, 168, 10, 255};
-IPAddress subnetMask{255, 255, 255, 0};
-IPAddress gateway{192, 168, 10, 1};
-IntervalTimer ptpSyncTimer;
-IntervalTimer ptpAnnounceTimer;
-l3PTP ptp{ClockRole::Authority, DelayMode::E2E};
-qindesign::network::EthernetUDP socket;
-
+PTPManager ptpManager{ClockRole::Authority};
 ananas::Announcer<ananas::AuthorityAnnouncePacket> authorityAnnouncer{
-    ananas::Constants::AuthorityAnnounceMulticastIP,
-    ananas::Constants::AuthorityAnnouncePort,
-    ananas::Constants::AuthorityAnnounceIntervalMs
+    ananas::Constants::AuthorityAnnounceSocketParams
 };
-
-ananas::ClientListener clientListener;
-elapsedMillis rateAdjustInterval;
-
-bool sync = false;
-bool announce = false;
-int noPPSCount = 0;
-
-NanoTime interrupt_s = 0;
-NanoTime interrupt_ns = 0;
-NanoTime pps_s = 0;
-NanoTime pps_ns = 0;
+std::vector<NetworkProcessor *> networkProcessors{
+    &ptpManager,
+    &authorityAnnouncer
+};
+EthernetManager ethernetManager{"t41clocksubscriber", networkProcessors};
+std::vector<ProgramComponent *> programComponents{
+    &ethernetManager,
+    &ptpManager,
+    &authorityAnnouncer
+};
+ComponentManager componentManager{programComponents};
 
 void setup()
 {
@@ -93,116 +74,48 @@ void setup()
 
     Serial.begin(0);
 
-    // Setup networking
-    qindesign::network::Ethernet.setHostname("t41ptpauthority");
-    qindesign::network::Ethernet.macAddress(mac);
-    staticIP[2] = mac[4];
-    staticIP[3] = mac[5];
-    qindesign::network::Ethernet.begin(staticIP, subnetMask, gateway);
-    qindesign::network::EthernetIEEE1588.begin();
-
-    qindesign::network::Ethernet.onLinkState([](const bool state)
-    {
-        Serial.printf("[Ethernet] Link %dMbps %s\n", qindesign::network::Ethernet.linkSpeed(), state ? "ON" : "OFF");
-        if (state) {
-            ptp.begin();
-            ptpSyncTimer.begin(ptpSyncInterrupt, 1000000);
-            ptpAnnounceTimer.begin(ptpAnnounceInterrupt, 1000000);
-            authorityAnnouncer.connect();
-            clientListener.connect();
-        }
-    });
-
-    CORE_PIN24_CONFIG = 6;
-    qindesign::network::EthernetIEEE1588.setChannelCompareValue(1, NS_PER_S - 60);
-    qindesign::network::EthernetIEEE1588.setChannelMode(1, qindesign::network::EthernetIEEE1588Class::TimerChannelModes::kPulseHighOnCompare);
-    qindesign::network::EthernetIEEE1588.setChannelOutputPulseWidth(1, 25);
-    qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(1, true);
-
-    attachInterruptVector(IRQ_ENET_TIMER, interrupt_1588_timer); //Configure Interrupt Handler
-    NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
-
     AudioMemory(10);
     audioShield.enable();
     audioShield.volume(.75f);
 
-    authorityAnnouncer.begin();
-    clientListener.begin();
+    componentManager.begin();
 }
 
-void ptpSyncInterrupt()
-{
-    if (noPPSCount > 5) {
-        sync = true;
-    } else {
-        noPPSCount++;
-    }
-}
-
-void ptpAnnounceInterrupt()
-{
-    announce = true;
-}
-
-void interrupt_1588_timer()
-{
-    uint32_t t;
-    if (!qindesign::network::EthernetIEEE1588.getAndClearChannelStatus(1)) {
-        __DSB();
-        return;
-    }
-    qindesign::network::EthernetIEEE1588.getChannelCompareValue(1, t);
-
-    t = ((NanoTime) t + NS_PER_S - 60) % NS_PER_S;
-
-    timespec ts;
-    qindesign::network::EthernetIEEE1588.readTimer(ts);
-
-    if (ts.tv_nsec < 100 * 1000 * 1000 && t > 900 * 1000 * 1000) {
-        pps_s = ts.tv_sec;
-        interrupt_s = ts.tv_sec - 1;
-    } else {
-        interrupt_s = ts.tv_sec;
-        if (ts.tv_nsec < 500 * 1000 * 1000) {
-            pps_s = ts.tv_sec;
-        } else {
-            pps_s = ts.tv_sec + 1;
-        }
-    }
-
-    interrupt_ns = t;
-    pps_ns = 0;
-
-    __DSB();
-}
+// void interrupt_1588_timer()
+// {
+//     uint32_t t;
+//     if (!qindesign::network::EthernetIEEE1588.getAndClearChannelStatus(1)) {
+//         __DSB();
+//         return;
+//     }
+//     qindesign::network::EthernetIEEE1588.getChannelCompareValue(1, t);
+//
+//     t = ((NanoTime) t + NS_PER_S - 60) % NS_PER_S;
+//
+//     timespec ts;
+//     qindesign::network::EthernetIEEE1588.readTimer(ts);
+//
+//     if (ts.tv_nsec < 100 * 1000 * 1000 && t > 900 * 1000 * 1000) {
+//         pps_s = ts.tv_sec;
+//         interrupt_s = ts.tv_sec - 1;
+//     } else {
+//         interrupt_s = ts.tv_sec;
+//         if (ts.tv_nsec < 500 * 1000 * 1000) {
+//             pps_s = ts.tv_sec;
+//         } else {
+//             pps_s = ts.tv_sec + 1;
+//         }
+//     }
+//
+//     interrupt_ns = t;
+//     pps_ns = 0;
+//
+//     __DSB();
+// }
 
 void loop()
 {
-    if (announce) {
-        announce = false;
-        ptp.announceMessage();
-    }
-    if (sync) {
-        sync = false;
-        ptp.syncMessage();
-    }
-    ptp.update();
-
-    authorityAnnouncer.run();
-    clientListener.run();
-
-    authorityAnnouncer.txPacket.numClients = clientListener.getNumClients(); // TODO: replace with callback f'n
-    authorityAnnouncer.txPacket.avgBufferFillPercent = clientListener.getAvgBufferFill();
-
-    // if (rateAdjustInterval > 1000) {
-    //     rateAdjustInterval = 0;
-    //
-    //     if (clientListener.getAvgBufferFill() > 52) {
-    //         usbIn.decreaseFeedbackAccumulator();
-    //     } else if (clientListener.getAvgBufferFill() < 48) {
-    //         usbIn.increaseFeedbackAccumulator();
-    //     }
-    // }
+    componentManager.run();
 
     authorityAnnouncer.txPacket.numUnderruns = AudioInputUSB::getNumUnderruns();
     authorityAnnouncer.txPacket.numOverflows = AudioInputUSB::getNumOverflows();

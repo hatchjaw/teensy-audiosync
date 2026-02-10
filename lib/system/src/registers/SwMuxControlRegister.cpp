@@ -62,3 +62,10 @@ bool Pin23SwMuxControlRegister::setMuxMode(const MuxMode mode) const
 {
     return SwMuxControlRegister::setMuxMode((uint32_t) mode);
 }
+
+//==============================================================================
+
+bool Pin24SwMuxControlRegister::setMuxMode(MuxMode mode) const
+{
+    return SwMuxControlRegister::setMuxMode((uint32_t) mode);
+}

@@ -10,13 +10,19 @@ if ! command -v tycmd &>/dev/null; then
   exit 1
 fi
 
-flags=${*:1}
+environment=$1
+if [ -z "$environment" ]; then
+  echo "Expected to receive a platformIO environment. Defaulting to 'clock-subscriber'."
+  environment="clock-subscriber"
+fi
+
+flags=${*:2}
 
 # Build
 cd "$(dirname "$(realpath "$0")")"/.. || exit 1
 # Run
 pio run -e clock-authority-usb-audio $flags
-pio run -e clock-subscriber $flags
+pio run -e $environment $flags
 # GTFO if pio exited unhappily
 if [ $? -eq 1 ]; then
     exit 1
@@ -41,18 +47,18 @@ else
     echo "Uploading clock-authority."
     tycmd upload .pio/build/clock-authority-usb-audio/firmware.hex -B "$authority"
 
-    # Filter the array so only subscribers remain:
+    # Filter the array so only non-authorities remain:
     for i in "${!teensies[@]}"; do
       if [ "${teensies[i]}" != "$authority" ]; then
-        subscribers+=("${teensies[i]}")
+        others+=("${teensies[i]}")
       fi
     done
     break
   done
 
-  for i in "${!subscribers[@]}"; do
-      echo "Uploading clock-subscriber $((i + 1)) of ${#subscribers[@]}."
-      tycmd upload .pio/build/clock-subscriber/firmware.hex -B "${subscribers[$i]}"
+  for i in "${!others[@]}"; do
+      echo "Uploading $environment $((i + 1)) of ${#others[@]}."
+      tycmd upload .pio/build/$environment/firmware.hex -B "${others[$i]}"
   done
   echo "Done!"
 fi

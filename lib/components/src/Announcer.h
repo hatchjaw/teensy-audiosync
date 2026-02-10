@@ -13,12 +13,11 @@ namespace ananas
     protected:
         void beginImpl() override
         {
-            computeSerialNumber();
         }
 
     public:
-        Announcer(const IPAddress &multicastIP, const uint16_t port, const uint transmitInterval)
-            : port(port), transmitInterval(transmitInterval), ip(multicastIP)
+        explicit Announcer(const AnnounceSocketParams &p)
+            : port(p.port), transmitInterval(p.intervalMs), ip(p.ip)
         {
         }
 
@@ -47,13 +46,6 @@ namespace ananas
     private:
         static_assert(sizeof(decltype(PacketType::serial)) > 0,
                       "PacketType must have a `serial` member.");
-
-        void computeSerialNumber()
-        {
-            uint32_t num{HW_OCOTP_MAC0 & 0xFFFFFF};
-            if (num < 10000000) num *= 10;
-            txPacket.serial = num;
-        }
 
         uint16_t port;
         uint transmitInterval;

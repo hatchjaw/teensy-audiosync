@@ -2,10 +2,9 @@
 #define PTPMANAGER_H
 
 #include <ProgramComponent.h>
-#include <AudioSystemConfig.h>
 #include <NetworkProcessor.h>
 #include <t41-ptp.h>
-
+#include <registers/SwMuxControlRegister.h>
 
 class PTPManager final : public ProgramComponent,
                          public NetworkProcessor
@@ -30,17 +29,33 @@ public:
     size_t printTo(Print &print) const override;
 
 private:
-    void handleInterrupt();
-
     static void interrupt1588Timer();
+
+    static void ptpSyncInterrupt();
+
+    static void ptpAnnounceInterrupt();
+
+    void handle1588Interrupt();
+
+    void handleSyncInterrupt();
+
+    void handleAnnounceInterrupt();
 
     static inline PTPManager *sInstance{nullptr};
 
-    time_t interruptS;
-    uint32_t interruptNS;
     l3PTP ptp;
+    NanoTime interruptS;
+    NanoTime interruptNS;
+    NanoTime ppsS;
+    NanoTime ppsNS;
+    IntervalTimer ptpSyncTimer;
+    IntervalTimer ptpAnnounceTimer;
+    int noPPSCount{0};
     std::function<void(double)> ptpControllerUpdatedCallback{nullptr};
     std::function<void(bool, NanoTime, NanoTime)> ptpLockCallback{nullptr};
+    Pin24SwMuxControlRegister pin24SwMuxControlRegister;
+    bool shouldSendAnnouncePacket{false};
+    bool shouldSendSyncPacket{false};
 };
 
 

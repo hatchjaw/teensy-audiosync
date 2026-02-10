@@ -2,12 +2,27 @@
 #include "AnanasPacketBuffer.h"
 #include "AnanasUtils.h"
 #include <QNEthernet.h>
+#include <SystemUtils.h>
 
 namespace ananas
 {
-    AudioClient::AudioClient() : announcer(Constants::ClientAnnounceMulticastIP,
-                                           Constants::ClientAnnouncePort,
-                                           Constants::ClientAnnounceIntervalMs)
+    ListenerSocket::ListenerSocket(const SocketParams &p)
+        : ip(p.ip),
+          port(p.port)
+    {
+    }
+
+    void ListenerSocket::connect()
+    {
+        socket.beginMulticast(ip, port);
+    }
+
+    //==========================================================================
+
+    AudioClient::AudioClient(const SocketParams &p)
+        : ListenerSocket(p),
+          announcer(Constants::ClientAnnounceSocketParams),
+          rebootListener(Constants::RebootSocketParams)
     {
     }
 
@@ -48,7 +63,7 @@ namespace ananas
 
     void AudioClient::connect()
     {
-        socket.beginMulticast(Constants::AudioMulticastIP, Constants::AudioPort);
+        ListenerSocket::connect();
         announcer.connect();
         rebootListener.connect();
     }
@@ -99,11 +114,6 @@ namespace ananas
     void AudioClient::setModuleID(const uint16_t moduleID)
     {
         announcer.txPacket.moduleID = moduleID;
-    }
-
-    void AudioClient::setSerialNumber(const uint32_t serialNumber)
-    {
-        announcer.txPacket.serial = serialNumber;
     }
 
     void AudioClient::processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames)
@@ -175,6 +185,11 @@ namespace ananas
 
     //==========================================================================
 
+    AudioClient::RebootListener::RebootListener(const SocketParams &p)
+        : ListenerSocket(p)
+    {
+    }
+
     void AudioClient::RebootListener::beginImpl()
     {
     }
@@ -183,16 +198,8 @@ namespace ananas
     {
         if (const auto size{socket.parsePacket()}; size == 0) {
             Serial.println("Rebooting.");
-            SRC_GPR5 = 0x0BAD00F1;
-            SCB_AIRCR = 0x05FA0004;
-            while (true) {
-            }
+            SystemUtils::reboot();
         }
-    }
-
-    void AudioClient::RebootListener::connect()
-    {
-        socket.beginMulticast(Constants::RebootMulticastIP, Constants::RebootPort);
     }
 
     size_t AudioClient::RebootListener::printTo(Print &p) const

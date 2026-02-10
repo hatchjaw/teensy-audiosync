@@ -2,6 +2,7 @@
 #include <QNEthernet.h>
 #include <t41-ptp.h>
 #include <AnanasUtils.h>
+#include <SystemUtils.h>
 
 AudioSystemManager::AudioSystemManager(AudioSystemConfig &config)
     : config(config)
@@ -61,40 +62,48 @@ void AudioSystemManager::beginImpl()
     sai1ReceiveConfig5Register.begin();
     sai1ReceiveControlRegister.begin();
 
-    //==========================================================================
-    // Set mux modes for I2S pins.
-    //==========================================================================
-    // LRCLK1 on pin 20
-    pin20SwMuxControlRegister.setMuxMode(Pin20SwMuxControlRegister::MuxMode::Sai1RxSync);
-    // BCLK on pin 21
-    pin21SwMuxControlRegister.setMuxMode(Pin21SwMuxControlRegister::MuxMode::Sai1RxBclk);
-    // MCLK on pin 23
-    pin23SwMuxControlRegister.setMuxMode(Pin23SwMuxControlRegister::MuxMode::Sai1Mclk);
-    // Data on pin 7
-    pin7SwMuxControlRegister.setMuxMode(Pin7SwMuxControlRegister::MuxMode::Sai1TxData00);
+    if (
+        //==========================================================================
+        // Set mux modes for I2S pins.
+        //==========================================================================
+        // LRCLK1 on pin 20
+        !pin20SwMuxControlRegister.setMuxMode(Pin20SwMuxControlRegister::MuxMode::SAI1_RX_SYNC) ||
+        // BCLK on pin 21
+        !pin21SwMuxControlRegister.setMuxMode(Pin21SwMuxControlRegister::MuxMode::SAI1_RX_BCLK) ||
+        // MCLK on pin 23
+        !pin23SwMuxControlRegister.setMuxMode(Pin23SwMuxControlRegister::MuxMode::SAI1_MCLK) ||
+        // Data on pin 7
+        !pin7SwMuxControlRegister.setMuxMode(Pin7SwMuxControlRegister::MuxMode::SAI1_TX_DATA00)) {
+        Serial.println("AudioSystemManager failed to set up I2S pins. Rebooting.");
+        SystemUtils::reboot();
+    }
 
-    //==========================================================================
-    // Set audio PLL (PLL4) and SAI1 clock registers
-    //==========================================================================
-    // Enable SAI1 clock
-    clockGatingRegister5.enableSai1Clock();
+    if (
+        //==========================================================================
+        // Set audio PLL (PLL4) and SAI1 clock registers
+        //==========================================================================
+        // Enable SAI1 clock
+        !clockGatingRegister5.enableSai1Clock() ||
 
-    serialClockMultiplexerRegister1.setSai1ClkSel(SerialClockMultiplexerRegister1::Sai1ClkSel::DeriveClockFromPll4);
+        !serialClockMultiplexerRegister1.setSai1ClkSel(SerialClockMultiplexerRegister1::Sai1ClkSel::DeriveClockFromPll4) ||
 
-    // Set audio divider registers
-    miscellaneousRegister2.setAudioPostDiv(ClockDividers::kAudioPostDiv);
+        // Set audio divider registers
+        !miscellaneousRegister2.setAudioPostDiv(ClockDividers::kAudioPostDiv) ||
 
-    clockDividerRegister1.setSai1ClkPred(clockDividers.sai1Pre);
-    clockDividerRegister1.setSai1ClkPodf(clockDividers.sai1Post);
+        !clockDividerRegister1.setSai1ClkPred(clockDividers.sai1Pre) ||
+        !clockDividerRegister1.setSai1ClkPodf(clockDividers.sai1Post) ||
 
-    generalPurposeRegister1.setSai1MclkDirection(GeneralPurposeRegister1::SignalDirection::Output);
-    generalPurposeRegister1.setSai1MclkSource(GeneralPurposeRegister1::Sai1MclkSource::CcmSai1ClkRoot);
+        !generalPurposeRegister1.setSai1MclkDirection(GeneralPurposeRegister1::SignalDirection::Output) ||
+        !generalPurposeRegister1.setSai1MclkSource(GeneralPurposeRegister1::Sai1MclkSource::CcmSai1ClkRoot) ||
 
-    analogAudioPllControlRegister.setBypassClockSource(AnalogAudioPllControlRegister::BypassClockSource::RefClk24M);
-    analogAudioPllControlRegister.setPostDivSelect(ClockDividers::kPll4PostDiv);
-    analogAudioPllControlRegister.setDivSelect(clockDividers.pll4Div);
-    audioPllNumeratorRegister.set(clockDividers.pll4Num);
-    audioPllDenominatorRegister.set(clockDividers.pll4Denom);
+        !analogAudioPllControlRegister.setBypassClockSource(AnalogAudioPllControlRegister::BypassClockSource::RefClk24M) ||
+        !analogAudioPllControlRegister.setPostDivSelect(ClockDividers::kPll4PostDiv) ||
+        !analogAudioPllControlRegister.setDivSelect(clockDividers.pll4Div) ||
+        !audioPllNumeratorRegister.set(clockDividers.pll4Num) ||
+        !audioPllDenominatorRegister.set(clockDividers.pll4Denom)) {
+        Serial.println("AudioSystemManager failed to set up PLL4. Rebooting.");
+        SystemUtils::reboot();
+    }
 
     //==========================================================================
     // Configure SAI1 (I2S)
@@ -173,15 +182,17 @@ void AudioSystemManager::startClock()
     sFirstInterruptNS = 0;
     sAudioPTPOffset = 0;
 
-    analogAudioPllControlRegister.setPowerDown(false);
-    analogAudioPllControlRegister.setBypass(false);
-    analogAudioPllControlRegister.setEnable(true);
-
-    sai1TransmitControlRegister.setBitClockEnable(true);
-    sai1TransmitControlRegister.setFIFORequestDMAEnable(true);
-    sai1TransmitControlRegister.setTransmitterEnable(true);
-    sai1ReceiveControlRegister.setBitClockEnable(true);
-    sai1ReceiveControlRegister.setReceiverEnable(true);
+    if (!analogAudioPllControlRegister.setPowerDown(false) ||
+        !analogAudioPllControlRegister.setBypass(false) ||
+        !analogAudioPllControlRegister.setEnable(true) ||
+        !sai1TransmitControlRegister.setBitClockEnable(true) ||
+        !sai1TransmitControlRegister.setFIFORequestDMAEnable(true) ||
+        !sai1TransmitControlRegister.setTransmitterEnable(true) ||
+        !sai1ReceiveControlRegister.setBitClockEnable(true) ||
+        !sai1ReceiveControlRegister.setReceiverEnable(true)) {
+        Serial.println("Failed to start audio subsystem. Rebooting.");
+        SystemUtils::reboot();
+    }
 
     setupDMA();
 
@@ -193,15 +204,17 @@ void AudioSystemManager::stopClock()
 {
     audioShield.volume(0.f);
 
-    sai1TransmitControlRegister.setBitClockEnable(false);
-    sai1TransmitControlRegister.setFIFORequestDMAEnable(false);
-    sai1TransmitControlRegister.setTransmitterEnable(false);
-    sai1ReceiveControlRegister.setBitClockEnable(false);
-    sai1ReceiveControlRegister.setReceiverEnable(false);
-
-    analogAudioPllControlRegister.setEnable(false);
-    analogAudioPllControlRegister.setPowerDown(true);
-    analogAudioPllControlRegister.setBypass(true);
+    if (!sai1TransmitControlRegister.setBitClockEnable(false) ||
+        !sai1TransmitControlRegister.setFIFORequestDMAEnable(false) ||
+        !sai1TransmitControlRegister.setTransmitterEnable(false) ||
+        !sai1ReceiveControlRegister.setBitClockEnable(false) ||
+        !sai1ReceiveControlRegister.setReceiverEnable(false) ||
+        !analogAudioPllControlRegister.setEnable(false) ||
+        !analogAudioPllControlRegister.setPowerDown(true) ||
+        !analogAudioPllControlRegister.setBypass(true)) {
+        Serial.println("Failed to stop audio subsystem. Rebooting.");
+        SystemUtils::reboot();
+    }
 
     sDMA.detachInterrupt();
     sDMA.disable();
@@ -258,7 +271,10 @@ void AudioSystemManager::adjustClock(const double adjust)
 
     // Tends to take on the order of 28 ns.
     // const auto cycles{ARM_DWT_CYCCNT};
-    audioPllNumeratorRegister.set(clockDividers.pll4Num);
+    if (!audioPllNumeratorRegister.set(clockDividers.pll4Num)) {
+        Serial.println("Failed to set audio PLL numerator. Rebooting.");
+        SystemUtils::reboot();
+    }
     // Serial.printf("Fs update took %" PRIu32 " ns\n", ananas::Utils::cyclesToNs(ARM_DWT_CYCCNT - cycles));
 }
 
@@ -278,7 +294,7 @@ void AudioSystemManager::setupDMA()
     sDMA.TCD->BITER_ELINKNO = sizeof(sI2sTxBuffer) / 2;
     sDMA.TCD->CSR = DMA_TCD_CSR_INTHALF | DMA_TCD_CSR_INTMAJOR;
     // interrupts
-    sDMA.TCD->DADDR = (void *) ((uint32_t) &I2S1_TDR0 + 2); // I2S1 register DMA writes to
+    sDMA.TCD->DADDR = reinterpret_cast<void *>(reinterpret_cast<uint32_t>(&I2S1_TDR0) + 2); // I2S1 register DMA writes to
     sDMA.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI1_TX); // i2s channel that will trigger the DMA transfer when ready for data
     sDMA.enable();
     sDMA.attachInterrupt(isr);
@@ -316,7 +332,7 @@ void AudioSystemManager::isr()
     }
 
     int16_t *destination, *source;
-    const auto sourceAddress = (uint32_t) sDMA.TCD->SADDR;
+    const auto sourceAddress{reinterpret_cast<uint32_t>(sDMA.TCD->SADDR)};
     sDMA.clearInterrupt();
 
     if (sourceAddress < reinterpret_cast<uint32_t>(sI2sTxBuffer) + sizeof(sI2sTxBuffer) / 2) {
@@ -360,7 +376,7 @@ void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSam
 
     for (pll4Div = ClockConstants::Pll4DivMin; pll4Div <= ClockConstants::Pll4DivMax; ++pll4Div) {
         pll4Num = 0;
-        pll4Denom = (uint32_t) orderOfMagnitude;
+        pll4Denom = static_cast<uint32_t>(orderOfMagnitude);
         sai1Pre = 1;
         sai1Post = 1;
         auto divExact{-1.};
@@ -369,8 +385,8 @@ void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSam
             ++sai1Pre;
         }
 
-        while ((uint8_t) floor(divExact / orderOfMagnitude) != pll4Div) {
-            while ((uint32_t) getCurrentSamplingRate() > targetSamplingRate
+        while (static_cast<uint8_t>(floor(divExact / orderOfMagnitude)) != pll4Div) {
+            while (static_cast<uint32_t>(getCurrentSamplingRate()) > targetSamplingRate
                    && sai1Post < ClockConstants::Sai1PostMax) {
                 ++sai1Post;
             }
@@ -381,9 +397,9 @@ void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSam
                 continue;
             }
 
-            divExact = (double) targetSamplingRate * ClockConstants::AudioWordSize * sai1Pre * sai1Post / ClockConstants::OscMHz;
+            divExact = static_cast<double>(targetSamplingRate) * ClockConstants::AudioWordSize * sai1Pre * sai1Post / ClockConstants::OscMHz;
 
-            if ((uint8_t) floor(divExact / orderOfMagnitude) != pll4Div) {
+            if (static_cast<uint8_t>(floor(divExact / orderOfMagnitude)) != pll4Div) {
                 if (sai1Pre < ClockConstants::Sai1PreMax) {
                     ++sai1Pre;
                     sai1Post = 1;
@@ -393,7 +409,7 @@ void AudioSystemManager::ClockDividers::calculateCoarse(const uint32_t targetSam
                 }
             }
 
-            pll4Num = (int32_t) floor(divExact - orderOfMagnitude * pll4Div);
+            pll4Num = static_cast<int32_t>(floor(divExact - orderOfMagnitude * pll4Div));
 
             while (pll4Num * 10 < ClockConstants::Pll4NumMax && pll4Denom * 10 < ClockConstants::Pll4DenomMax) {
                 pll4Num *= 10;
@@ -417,11 +433,11 @@ bool AudioSystemManager::ClockDividers::calculateFine(const double targetSamplin
 {
     constexpr auto orderOfMagnitude{1e6};
 
-    const auto sai1WordOsc{(double) ClockConstants::AudioWordSize * sai1Pre * sai1Post / ClockConstants::OscMHz};
+    const auto sai1WordOsc{static_cast<double>(ClockConstants::AudioWordSize) * sai1Pre * sai1Post / ClockConstants::OscMHz};
     const auto num{targetSamplingRate * sai1WordOsc - orderOfMagnitude * pll4Div};
-    const auto numInt{(int32_t) round(num * (pll4Denom / orderOfMagnitude))};
+    const auto numInt{static_cast<int32_t>(round(num * (pll4Denom / orderOfMagnitude)))};
 
-    if (numInt < 0 || (uint32_t) numInt > pll4Denom) {
+    if (numInt < 0 || static_cast<uint32_t>(numInt) > pll4Denom) {
         Serial.printf("Invalid PLL4 numerator %" PRId32 " "
                       "for target sample rate %f "
                       "and denominator %" PRIu32 "\n",
@@ -458,7 +474,7 @@ bool AudioSystemManager::ClockDividers::isPll4FreqValid() const
 FLASHMEM
 bool AudioSystemManager::ClockDividers::isSai1PostFreqValid() const
 {
-    const auto sai1PostFreq{(uint32_t) ((double) getPll4Freq() / sai1Pre)};
+    const auto sai1PostFreq{static_cast<uint32_t>(static_cast<double>(getPll4Freq()) / sai1Pre)};
     return sai1PostFreq <= ClockConstants::Sai1PostMaxFreq;
 }
 
@@ -466,7 +482,7 @@ FLASHMEM
 uint32_t AudioSystemManager::ClockDividers::getPll4Freq() const
 {
     const auto result{ClockConstants::OscHz * getPLL4FractionalDivider()};
-    return (uint32_t) result;
+    return static_cast<uint32_t>(result);
 }
 
 FLASHMEM
@@ -478,19 +494,19 @@ double AudioSystemManager::ClockDividers::getCurrentSamplingRate() const
 FLASHMEM
 double AudioSystemManager::ClockDividers::getPLL4FractionalDivider() const
 {
-    return pll4Div + (double) pll4Num / pll4Denom;
+    return pll4Div + static_cast<double>(pll4Num) / pll4Denom;
 }
 
 FLASHMEM
 uint32_t AudioSystemManager::ClockDividers::getCurrentMaxPossibleSamplingRate() const
 {
     const auto result{ClockConstants::CyclesPerWord * (pll4Div + 1) / (sai1Pre * sai1Post)};
-    return (uint32_t) result;
+    return static_cast<uint32_t>(result);
 }
 
 FLASHMEM
 uint32_t AudioSystemManager::ClockDividers::getCurrentSai1ClkRootFreq() const
 {
     const auto result{(ClockConstants::OscHz * getPLL4FractionalDivider() / (sai1Pre * sai1Post))};
-    return (uint32_t) result;
+    return static_cast<uint32_t>(result);
 }

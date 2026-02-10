@@ -1,20 +1,19 @@
 #ifndef CONTROLDATALISTENER_H
 #define CONTROLDATALISTENER_H
 
+#include <AnanasClient.h>
+
 #include "ControlContext.h"
 #include <OSCBundle.h>
-#include <NetworkProcessor.h>
 #include <ProgramComponent.h>
 
 namespace ananas::WFS
 {
-    class ControlDataListener final : public NetworkProcessor,
+    class ControlDataListener final : public ListenerSocket,
                                       public ProgramComponent
     {
     public:
         explicit ControlDataListener(ControlContext &controlContext);
-
-        void connect() override;
 
     protected:
         void beginImpl() override;

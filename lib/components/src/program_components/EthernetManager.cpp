@@ -1,15 +1,15 @@
 #include "EthernetManager.h"
 #include <QNEthernet.h>
+#include <SystemUtils.h>
 
-EthernetManager::EthernetManager(const std::vector<NetworkProcessor *> &networkProcessors)
-    : networkProcessors(networkProcessors)
+EthernetManager::EthernetManager(const char *hostName, const std::vector<NetworkProcessor *> &networkProcessors)
+    : networkProcessors(networkProcessors),
+      hostName(hostName)
 {
 }
 
 void EthernetManager::beginImpl()
 {
-    computeSerialNumber();
-
     qindesign::network::Ethernet.setHostname("t41ptpsubscriber");
     qindesign::network::Ethernet.macAddress(mac);
     staticIP[2] = mac[4];
@@ -37,23 +37,11 @@ void EthernetManager::run()
 {
 }
 
-uint32_t EthernetManager::getSerialNumber() const
-{
-    return serialNumber;
-}
-
 size_t EthernetManager::printTo(Print &p) const
 {
     return p.print("IP: ") +
            p.print(qindesign::network::Ethernet.localIP()) +
            p.printf(" | MAC: %02X:%02X:%02X:%02X:%02X:%02X", mac[0], mac[1], mac[2], mac[3], mac[4], mac[5]) +
-           p.printf(" | SN: %" PRIu32, serialNumber) +
+           p.printf(" | SN: %" PRIu32, SystemUtils::computeSerialNumber()) +
            p.println();
-}
-
-void EthernetManager::computeSerialNumber()
-{
-    uint32_t num{HW_OCOTP_MAC0 & 0xFFFFFF};
-    if (num < 10000000) num *= 10;
-    serialNumber = num;
 }

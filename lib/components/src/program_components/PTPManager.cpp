@@ -1,8 +1,8 @@
 #include "PTPManager.h"
 #include <arm_math.h>
 #include <QNEthernet.h>
-
-#include <utility>
+#include <SystemUtils.h>
+#include <registers/SwMuxControlRegister.h>
 
 PTPManager::PTPManager(const ClockRole role) : ptp{role, DelayMode::E2E}
 {
@@ -11,17 +11,20 @@ PTPManager::PTPManager(const ClockRole role) : ptp{role, DelayMode::E2E}
 
 void PTPManager::beginImpl()
 {
-    pinMode(13, OUTPUT);
+    if (ptp.getClockRole() == ClockRole::Subscriber) {
+        pinMode(13, OUTPUT);
+    }
 
-    // PPS Out
-    // peripherial: ENET_1588_EVENT1_OUT
-    // IOMUX: ALT6
-    // teensy pin: 24
-    CORE_PIN24_CONFIG = 6;
-    qindesign::network::EthernetIEEE1588.setChannelCompareValue(1, NS_PER_S);
-    qindesign::network::EthernetIEEE1588.setChannelMode(1, qindesign::network::EthernetIEEE1588Class::TimerChannelModes::kPulseHighOnCompare);
-    qindesign::network::EthernetIEEE1588.setChannelOutputPulseWidth(1, 25);
-    qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(1, true);
+    pin24SwMuxControlRegister.begin();
+    // Set up ENET PPS out on pin 24
+    if (!pin24SwMuxControlRegister.setMuxMode(Pin24SwMuxControlRegister::MuxMode::ENET_1588_EVENT1_OUT) ||
+        !qindesign::network::EthernetIEEE1588.setChannelCompareValue(1, NS_PER_S) ||
+        !qindesign::network::EthernetIEEE1588.setChannelMode(1, qindesign::network::EthernetIEEE1588Class::TimerChannelModes::kPulseHighOnCompare) ||
+        !qindesign::network::EthernetIEEE1588.setChannelOutputPulseWidth(1, 25) ||
+        !qindesign::network::EthernetIEEE1588.setChannelInterruptEnable(1, true)) {
+        Serial.printf("Failed to set up Ethernet IEEE 1588 timer. Restarting.");
+        SystemUtils::reboot();
+    }
 
     attachInterruptVector(IRQ_ENET_TIMER, interrupt1588Timer); //Configure Interrupt Handler
     NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
@@ -29,28 +32,46 @@ void PTPManager::beginImpl()
     switch (ptp.getClockRole()) {
         case ClockRole::Authority:
             Serial.println("Clock Authority");
-        break;
+            break;
         case ClockRole::Subscriber:
             Serial.println("Clock Subscriber");
-        break;
+            break;
         default:
             Serial.println("Unknown clock role. Abandoning.");
-        while (true) {
-        }
+            while (true) {
+            }
     }
 }
 
 void PTPManager::run()
 {
+    if (ptp.getClockRole() == ClockRole::Authority) {
+        if (shouldSendAnnouncePacket) {
+            shouldSendAnnouncePacket = false;
+            ptp.announceMessage();
+        }
+        if (shouldSendSyncPacket) {
+            shouldSendSyncPacket = false;
+            ptp.syncMessage();
+        }
+    }
+
     ptp.update();
 
-    // Six consecutive offsets below 100 ns sets pin 13 high to switch on the LED
-    digitalWrite(13, ptp.getLockCount() > 5 ? HIGH : LOW);
+    if (ptp.getClockRole() == ClockRole::Subscriber) {
+        // Six consecutive offsets below 100 ns sets pin 13 high to switch on the LED
+        digitalWrite(13, ptp.getLockCount() > 5 ? HIGH : LOW);
+    }
 }
 
 void PTPManager::connect()
 {
     ptp.begin();
+
+    if (ptp.getClockRole() == ClockRole::Authority) {
+        ptpSyncTimer.begin(ptpSyncInterrupt, 1000000);
+        ptpAnnounceTimer.begin(ptpAnnounceInterrupt, 1000000);
+    }
 
     ptp.onControllerUpdated([this](const double adjust)
     {
@@ -76,10 +97,32 @@ void PTPManager::onPTPLock(std::function<void(bool isLocked, NanoTime compare, N
 
 size_t PTPManager::printTo(Print &print) const
 {
+    // TODO: print something
     return 0;
 }
 
-void PTPManager::handleInterrupt()
+void PTPManager::interrupt1588Timer()
+{
+    if (sInstance) {
+        sInstance->handle1588Interrupt();
+    }
+}
+
+void PTPManager::ptpSyncInterrupt()
+{
+    if (sInstance) {
+        sInstance->handleSyncInterrupt();
+    }
+}
+
+void PTPManager::ptpAnnounceInterrupt()
+{
+    if (sInstance) {
+        sInstance->handleAnnounceInterrupt();
+    }
+}
+
+void PTPManager::handle1588Interrupt()
 {
     uint32_t t;
     if (!qindesign::network::EthernetIEEE1588.getAndClearChannelStatus(1)) {
@@ -112,9 +155,9 @@ void PTPManager::handleInterrupt()
     interruptNS = t;
 
     // Start audio the first a PTP lock (offset < 100 ns) is reported.
-    if (ptpLockCallback != nullptr) {
+    if (ptp.getClockRole() == ClockRole::Subscriber && ptpLockCallback != nullptr) {
         const NanoTime enetCompareTime{interruptS * NS_PER_S + interruptNS},
-            now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
+                now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
         ptpLockCallback(ptp.getLockCount() > 0, enetCompareTime, now);
     }
 
@@ -122,9 +165,16 @@ void PTPManager::handleInterrupt()
     __DSB();
 }
 
-void PTPManager::interrupt1588Timer()
+void PTPManager::handleSyncInterrupt()
 {
-    if (sInstance) {
-        sInstance->handleInterrupt();
+    if (noPPSCount > 5) {
+        shouldSendSyncPacket = true;
+    } else {
+        noPPSCount++;
     }
+}
+
+void PTPManager::handleAnnounceInterrupt()
+{
+    shouldSendAnnouncePacket = true;
 }

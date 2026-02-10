@@ -17,7 +17,7 @@ AudioSystemConfig config{
 };
 AudioSystemManager audioSystemManager{config};
 PTPManager ptpManager{ClockRole::Subscriber};
-ananas::AudioClient ananasClient;
+ananas::AudioClient ananasClient{ananas::Constants::AudioSocketParams};
 ananas::WFS::ControlContext context;
 ananas::WFS::ControlDataListener controlDataListener{context};
 wfs wfs;
@@ -27,7 +27,7 @@ std::vector<NetworkProcessor *> networkProcessors{
     &ananasClient,
     &controlDataListener
 };
-EthernetManager ethernetManager{networkProcessors};
+EthernetManager ethernetManager{"t41wfsmodule", networkProcessors};
 std::vector<ProgramComponent *> programComponents{
     &ethernetManager,
     &ptpManager,
@@ -94,12 +94,12 @@ void setup()
         sprintf(path, "%d/x", i);
         context.sourcePositions.insert(ananas::WFS::SourcePositionsMap::value_type(
                 path,
-                ananas::SmoothedValue<float>{0., .9f})
+                ananas::SmoothedValue<float>{0., .975f})
         );
         sprintf(path, "%d/y", i);
         context.sourcePositions.insert(ananas::WFS::SourcePositionsMap::value_type(
                 path,
-                ananas::SmoothedValue<float>{0., .9f})
+                ananas::SmoothedValue<float>{0., .975f})
         );
     }
     for (auto &sp: context.sourcePositions) {
@@ -119,7 +119,6 @@ void setup()
         };
     }
 
-    ananasClient.setSerialNumber(ethernetManager.getSerialNumber());
     AudioSystemManager::setAudioProcessor(&wfsModule);
     componentManager.begin();
 }

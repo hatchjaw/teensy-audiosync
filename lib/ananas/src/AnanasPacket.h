@@ -3,6 +3,7 @@
 
 #include "AnanasUtils.h"
 #include <lwip_t41.h>
+#include <SystemUtils.h>
 #include <t41-ptp.h>
 
 namespace ananas
@@ -29,7 +30,7 @@ namespace ananas
 
     struct ClientAnnouncePacket : Packet
     {
-        uint32_t serial;
+        const uint32_t serial{SystemUtils::computeSerialNumber()};
         float samplingRate;
         float percentCPU;
         int32_t presentationOffsetFrame;
@@ -42,10 +43,8 @@ namespace ananas
 
     struct AuthorityAnnouncePacket : Packet
     {
-        uint32_t serial;
+        const uint32_t serial{SystemUtils::computeSerialNumber()};
         uint32_t usbFeedbackAccumulator;
-        int numClients;
-        int avgBufferFillPercent;
         int numUnderruns;
         int numOverflows;
     };

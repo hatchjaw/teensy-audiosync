@@ -10,15 +10,26 @@
 
 namespace ananas
 {
-    class AudioClient final : public AudioProcessor,
-                              public ProgramComponent,
-                              public NetworkProcessor
+    class ListenerSocket : public NetworkProcessor
+    {
+    public:
+        explicit ListenerSocket(const SocketParams &p);
+
+        void connect() override;
+    private:
+        IPAddress ip;
+        uint16_t port;
+    };
+
+    class AudioClient final : public ListenerSocket,
+                              public AudioProcessor,
+                              public ProgramComponent
     {
     protected:
         void beginImpl() override;
 
     public:
-        AudioClient();
+        explicit AudioClient(const SocketParams &p);
 
         void run() override;
 
@@ -44,22 +55,20 @@ namespace ananas
 
         void setModuleID(uint16_t moduleID);
 
-        void setSerialNumber(uint32_t serialNumber);
-
     protected:
         void processImpl(int16_t **inputBuffer, int16_t **outputBuffer, size_t numFrames) override;
 
     private:
-        class RebootListener final : public ProgramComponent,
-                                     public NetworkProcessor
+        class RebootListener final : public ListenerSocket,
+                                     public ProgramComponent
         {
         protected:
             void beginImpl() override;
 
         public:
-            void run() override;
+            explicit RebootListener(const SocketParams &p);
 
-            void connect() override;
+            void run() override;
 
             size_t printTo(Print &p) const override;
         };

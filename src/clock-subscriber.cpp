@@ -13,12 +13,12 @@ AudioSystemConfig config{
 };
 AudioSystemManager audioSystemManager{config};
 PTPManager ptpManager{ClockRole::Subscriber};
-ananas::AudioClient ananasClient;
+ananas::AudioClient ananasClient{ananas::Constants::AudioSocketParams};
 std::vector<NetworkProcessor *> networkProcessors{
     &ptpManager,
     &ananasClient
 };
-EthernetManager ethernetManager{networkProcessors};
+EthernetManager ethernetManager{"t41clocksubscriber", networkProcessors};
 std::vector<ProgramComponent *> programComponents{
     &ethernetManager,
     &ptpManager,

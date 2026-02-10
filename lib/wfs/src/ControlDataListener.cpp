@@ -6,17 +6,13 @@
 namespace ananas::WFS
 {
     ControlDataListener::ControlDataListener(ControlContext &controlContext)
-        : context(controlContext)
+        : ListenerSocket(Constants::WFSControlSocketParams),
+          context(controlContext)
     {
     }
 
     void ControlDataListener::beginImpl()
     {
-    }
-
-    void ControlDataListener::connect()
-    {
-        socket.beginMulticast(Constants::WFSControlMulticastIP, Constants::WFSControlPort);
     }
 
     void ControlDataListener::run()

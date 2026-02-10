@@ -20,6 +20,17 @@
 
 namespace ananas
 {
+    struct SocketParams
+    {
+        IPAddress ip;
+        uint16_t port{};
+    };
+
+    struct AnnounceSocketParams : SocketParams
+    {
+        uint intervalMs{};
+    };
+
     struct Constants
     {
         static constexpr size_t AudioBlockFrames{AUDIO_BLOCK_SAMPLES};
@@ -30,17 +41,36 @@ namespace ananas
         static constexpr int64_t NanosecondsPerSecond{1'000'000'000};
         static constexpr float NanosecondsPerCpuCycle{10.f / 6.f};
 
-        inline static const IPAddress AudioMulticastIP{224, 4, 224, 4};
-        inline static const IPAddress ControlMulticastIP{224, 4, 224, 5};
-        inline static const IPAddress ClientAnnounceMulticastIP{224, 4, 224, 6};
-        inline static const IPAddress AuthorityAnnounceMulticastIP{224, 4, 224, 7};
-        inline static const IPAddress RebootMulticastIP{224, 4, 224, 8};
-        inline static const IPAddress WFSControlMulticastIP{224, 4, 224, 10};
-        static constexpr uint16_t AudioPort{49152};
-        static constexpr uint16_t ClientAnnouncePort{49153};
-        static constexpr uint16_t AuthorityAnnouncePort{49154};
-        static constexpr uint16_t RebootPort{49155};
-        static constexpr uint16_t WFSControlPort{49160};
+        inline static const SocketParams AudioSocketParams{
+            {224, 4, 224, 4},
+            49152
+        };
+
+        inline static const SocketParams RebootSocketParams{
+            {224, 4, 224, 5},
+            49153
+        };
+
+        inline static const SocketParams WFSControlSocketParams{
+            {224, 4, 224, 6},
+            49154
+        };
+
+        inline static const AnnounceSocketParams ClientAnnounceSocketParams{
+            {
+                {224, 4, 224, 10},
+                49160
+            },
+            500
+        };
+
+        inline static const AnnounceSocketParams AuthorityAnnounceSocketParams{
+            {
+                {224, 4, 224, 11},
+                49161
+            },
+            500
+        };
 
         static constexpr size_t SampleSizeBytes{sizeof(int16_t)};
         static constexpr size_t PacketBufferCapacity{50};
@@ -48,10 +78,6 @@ namespace ananas
         static constexpr size_t FramesPerPacketExpected{32};
 
         static constexpr uint ClientReportThresholdPackets{10000};
-        static constexpr uint ClientAnnounceIntervalMs{500};
-
-        static constexpr uint AuthorityAnnounceIntervalMs{500};
-        static constexpr uint GroupEvaluationIntervalMs{1000};
     };
 
     class Utils
@@ -91,14 +117,18 @@ namespace ananas
     };
 
     template<typename T>
-    struct ListenableParameter {
+    struct ListenableParameter
+    {
         ListenableParameter() = default;
 
-        explicit ListenableParameter(T v) : value(v) {};
+        explicit ListenableParameter(T v) : value(v)
+        {
+        };
 
         std::function<void(T val)> onChange;
 
-        ListenableParameter &operator=(T newValue) {
+        ListenableParameter &operator=(T newValue)
+        {
             if (value != newValue) {
                 value = newValue;
                 if (onChange != nullptr) {
@@ -117,15 +147,19 @@ namespace ananas
      * @tparam T
      */
     template<typename T>
-    class SmoothedValue {
+    class SmoothedValue
+    {
     public:
-        explicit SmoothedValue(T initialValue, float smoothness, T threshold = 1e-6) :
-                x(initialValue),
-                yPrev(initialValue),
-                deltaThreshold(threshold),
-                s(Utils::clamp(smoothness, 0.f, 1.f)) {}
+        explicit SmoothedValue(T initialValue, const float smoothness, T threshold = 1e-4)
+            : x(initialValue),
+              yPrev(initialValue),
+              deltaThreshold(threshold),
+              s(Utils::clamp(smoothness, 0.f, 1.f))
+        {
+        }
 
-        void set(T targetValue) {
+        void set(T targetValue)
+        {
             x = targetValue;
 
             if (onSet != nullptr) {
@@ -133,7 +167,8 @@ namespace ananas
             }
         }
 
-        T getNext() {
+        T getNext()
+        {
             T y;
             if (abs(yPrev - x) < deltaThreshold) {
                 yPrev = x;
