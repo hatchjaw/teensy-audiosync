@@ -78,8 +78,8 @@ namespace ananas
     {
         return p.print("Ananas Client:     ") + AudioProcessor::printTo(p)
                + (nWrite < Constants::ClientReportThresholdPackets
-                      ? p.printf("\n  Packets received: %" PRIu32 "\n", nWrite)
-                      : p.printf("\n  Packets received: %" PRIu32 " Average reception interval: %e ns\n",
+                      ? p.printf("  Packets received: %" PRIu32 "\n", nWrite)
+                      : p.printf("  Packets received: %" PRIu32 " Average reception interval: %e ns\n",
                                  nWrite,
                                  static_cast<double>(totalTime) / (nWrite - Constants::ClientReportThresholdPackets)))
                + p.print(packetBuffer)

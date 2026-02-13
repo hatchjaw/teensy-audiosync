@@ -153,8 +153,8 @@ void AudioSystemManager::beginImpl()
     // Set up software interrupt to handle audio processing.
     //==========================================================================
     attachInterruptVector(IRQ_SOFTWARE, softwareISR);
-    NVIC_SET_PRIORITY(IRQ_SOFTWARE, 208);
     NVIC_ENABLE_IRQ(IRQ_SOFTWARE);
+    NVIC_SET_PRIORITY(IRQ_SOFTWARE, SystemUtils::IrqPriority::Priority208);
 
     cycPostStop = ARM_DWT_CYCCNT;
 
@@ -171,8 +171,10 @@ void AudioSystemManager::beginImpl()
 void AudioSystemManager::run()
 {
     if (sAudioPTPOffsetChanged && updateAudioPtpOffsetCallback != nullptr) {
+        __disable_irq()
         updateAudioPtpOffsetCallback(sAudioPTPOffset);
         sAudioPTPOffsetChanged = false;
+        __enable_irq()
     }
 }
 
@@ -297,7 +299,7 @@ void AudioSystemManager::setupDMA()
     sDMA.TCD->DADDR = reinterpret_cast<void *>(reinterpret_cast<uint32_t>(&I2S1_TDR0) + 2); // I2S1 register DMA writes to
     sDMA.triggerAtHardwareEvent(DMAMUX_SOURCE_SAI1_TX); // i2s channel that will trigger the DMA transfer when ready for data
     sDMA.enable();
-    sDMA.attachInterrupt(isr);
+    sDMA.attachInterrupt(isr, SystemUtils::IrqPriority::Priority16);
 }
 
 void AudioSystemManager::isr()
@@ -323,10 +325,9 @@ void AudioSystemManager::isr()
         }
 
         // Each second, compare the number of nanoseconds with the reference.
-        // TODO: check for zero-wraparound, e.g. if first NS is 999,999,999, and
-        //   a later timer read gives 1, this will break...
-        // TODO: sometimes settles into an oscillating pattern with an amplitude
-        //   of a couple a few hundred ns. Would a PI controller help?
+        if (ts.tv_nsec < 100'000'000 && sFirstInterruptNS > 900'000'000) {
+            ts.tv_nsec += ananas::Constants::NanosecondsPerSecond;
+        }
         sAudioPTPOffset = ts.tv_nsec - sFirstInterruptNS;
         sAudioPTPOffsetChanged = true;
     }

@@ -16,7 +16,7 @@ void AudioProcessor::processAudio(int16_t **inputBuffer, int16_t **outputBuffer,
 
 size_t AudioProcessor::printTo(Print &p) const
 {
-    return p.printf("%% CPU: %f (max %f)",
+    return p.printf("%% CPU: %f (max %f)\n",
                     CYCLES_TO_APPROX_PERCENT(currentCycles),
                     CYCLES_TO_APPROX_PERCENT(maxCycles)
     );

@@ -66,9 +66,9 @@ void setup()
     audioSystemManager.onAudioPtpOffsetChanged([](const long offset)
     {
         ananasClient.setAudioPtpOffsetNs(offset);
+        // TODO: update PLL4 NUM more frequently?
     });
 
-    ananasClient.setSerialNumber(ethernetManager.getSerialNumber());
     AudioSystemManager::setAudioProcessor(&ananasClient);
     componentManager.begin();
 }
@@ -79,13 +79,4 @@ static constexpr int reportInterval{1000};
 void loop()
 {
     componentManager.run();
-
-    if (elapsed > reportInterval) {
-        elapsed = 0;
-        Serial.print("\n"
-            "==============================================================================");
-        Serial.printf(external_psram_size ? " | PSRAM: %" PRIu8 " MB\n" : "\n", external_psram_size);
-        Serial.print(componentManager);
-        Serial.println("==============================================================================");
-    }
 }

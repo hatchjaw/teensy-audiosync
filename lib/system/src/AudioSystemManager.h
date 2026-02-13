@@ -130,8 +130,8 @@ private:
     inline static uint16_t sInterruptsPerSecond{0};
     inline static int16_t sNumInterrupts{-1};
     inline static long sFirstInterruptNS{0};
-    inline static long sAudioPTPOffset{0};
-    inline static bool sAudioPTPOffsetChanged{false};
+    inline static volatile long sAudioPTPOffset{0};
+    inline static volatile bool sAudioPTPOffsetChanged{false};
     inline static DMAChannel sDMA{false};
 
     DMAMEM inline static int16_t sInputBufferData[ananas::Constants::MaxChannels][ananas::Constants::AudioBlockFrames]{};

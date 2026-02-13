@@ -26,7 +26,7 @@ public:
 
     void onPTPLock(std::function<void(bool isLocked, NanoTime compare, NanoTime now)> callback);
 
-    size_t printTo(Print &print) const override;
+    size_t printTo(Print &p) const override;
 
 private:
     static void interrupt1588Timer();
@@ -44,10 +44,10 @@ private:
     static inline PTPManager *sInstance{nullptr};
 
     l3PTP ptp;
-    NanoTime interruptS;
-    NanoTime interruptNS;
-    NanoTime ppsS;
-    NanoTime ppsNS;
+    NanoTime interruptS{0};
+    NanoTime interruptNS{0};
+    NanoTime ppsS{0};
+    NanoTime ppsNS{0};
     IntervalTimer ptpSyncTimer;
     IntervalTimer ptpAnnounceTimer;
     int noPPSCount{0};

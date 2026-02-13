@@ -1,6 +1,7 @@
 #include <AudioSystemManager.h>
 #include <AnanasClient.h>
 #include <ControlDataListener.h>
+#include <smalloc.h>
 #include <wfs.h>
 #include <program_components/ComponentManager.h>
 #include <program_components/EthernetManager.h>
@@ -104,7 +105,7 @@ void setup()
     }
     for (auto &sp: context.sourcePositions) {
         // // If smoothing in Faust with si.smoo:
-        // sp.second.onSet = [sp](double value)
+        // sp.second.onSet = [sp](const float value)
         // {
         //     // Serial.printf("Updating %s: %f\n", sp.first.c_str(), value);
         //     wfs.setParamValue(sp.first, value);
@@ -113,7 +114,7 @@ void setup()
         // If smoothing outside of Faust:
         sp.second.onChange = [sp](float value)
         {
-            Serial.printf("%s changed: %.9f\n", sp.first.c_str(), value);
+            // Serial.printf("%s changed: %.9f\n", sp.first.c_str(), value);
             value = ananas::Utils::clamp(value, -1.f, 1.f);
             wfs.setParamValue(sp.first, value);
         };
@@ -123,25 +124,10 @@ void setup()
     componentManager.begin();
 }
 
-NanoTime interrupt_s = 0;
-NanoTime interrupt_ns = 0;
-
-elapsedMillis elapsed;
-static constexpr int reportInterval{1000};
-
 void loop()
 {
     componentManager.run();
 
     ananasClient.setPercentCPU(wfsModule.getCurrentPercentCPU());
     ananasClient.setModuleID(static_cast<uint16_t>(wfs.getParamValue("moduleID")));
-
-    if (elapsed > reportInterval) {
-        elapsed = 0;
-        Serial.print("\n"
-            "==============================================================================");
-        Serial.printf(external_psram_size ? " | PSRAM: %" PRIu8 " MB\n" : "\n", external_psram_size);
-        Serial.println(componentManager);
-        Serial.println("==============================================================================");
-    }
 }

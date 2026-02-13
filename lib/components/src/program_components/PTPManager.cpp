@@ -28,6 +28,7 @@ void PTPManager::beginImpl()
 
     attachInterruptVector(IRQ_ENET_TIMER, interrupt1588Timer); //Configure Interrupt Handler
     NVIC_ENABLE_IRQ(IRQ_ENET_TIMER); //Enable Interrupt Handling
+    NVIC_SET_PRIORITY(IRQ_ENET_TIMER, SystemUtils::IrqPriority::Priority64);
 
     switch (ptp.getClockRole()) {
         case ClockRole::Authority:
@@ -95,10 +96,9 @@ void PTPManager::onPTPLock(std::function<void(bool isLocked, NanoTime compare, N
     ptpLockCallback = std::move(callback);
 }
 
-size_t PTPManager::printTo(Print &print) const
+size_t PTPManager::printTo(Print &p) const
 {
-    // TODO: print something
-    return 0;
+    return p.print(ptp);
 }
 
 void PTPManager::interrupt1588Timer()
@@ -132,33 +132,59 @@ void PTPManager::handle1588Interrupt()
     }
     qindesign::network::EthernetIEEE1588.getChannelCompareValue(1, t);
 
-    t %= NS_PER_S;
-
     timespec ts{};
-    qindesign::network::EthernetIEEE1588.readTimer(ts);
 
-    // The channel compare value may be close to, but not exactly, 1e9.
-    // If it's just less than 1e9, the tv_sec part of the timespec read from the
-    // timer will be 1 second too great.
-    // What circumstances exist where t < 9e8 and tv_nsec > 1e8 I don't know;
-    // perhaps when using an external PPS source.
-    // The subscriber probably doesn't need to perform this check.
-    if (ts.tv_nsec < 100 * 1000 * 1000 && t > 900 * 1000 * 1000) {
-        interruptS = ts.tv_sec - 1;
-        // Serial.printf("t (channel compare): %" PRIu32 ", ts.tv_nsec: %" PRId32 "\n", t, ts.tv_nsec);
-        // Serial.printf("So interrupt_s = %" PRId64 " = %" PRId32 " - 1\n", interrupt_s, ts.tv_sec);
-    } else {
-        interruptS = ts.tv_sec;
-        // Serial.printf("t (channel compare): %" PRIu32 ", ts.tv_nsec: %" PRId32 "\n", t, ts.tv_nsec);
-    }
+    switch (ptp.getClockRole()) {
+        case ClockRole::Authority:
+            t = (static_cast<NanoTime>(t) + NS_PER_S - 60) % NS_PER_S;
 
-    interruptNS = t;
+            qindesign::network::EthernetIEEE1588.readTimer(ts);
 
-    // Start audio the first a PTP lock (offset < 100 ns) is reported.
-    if (ptp.getClockRole() == ClockRole::Subscriber && ptpLockCallback != nullptr) {
-        const NanoTime enetCompareTime{interruptS * NS_PER_S + interruptNS},
-                now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
-        ptpLockCallback(ptp.getLockCount() > 0, enetCompareTime, now);
+            if (ts.tv_nsec < 100'000'000 && t > 900'000'000) {
+                ppsS = ts.tv_sec;
+                interruptS = ts.tv_sec - 1;
+            } else {
+                interruptS = ts.tv_sec;
+                if (ts.tv_nsec < 500'000'000) {
+                    ppsS = ts.tv_sec;
+                } else {
+                    ppsS = ts.tv_sec + 1;
+                }
+            }
+
+            interruptNS = t;
+            ppsNS = 0;
+            break;
+        case ClockRole::Subscriber:
+            t %= NS_PER_S;
+
+            qindesign::network::EthernetIEEE1588.readTimer(ts);
+        // The channel compare value may be close to, but not exactly, 1e9.
+        // If it's just less than 1e9, the tv_sec part of the timespec read from the
+        // timer will be 1 second too great.
+        // What circumstances exist where t < 9e8 and tv_nsec > 1e8 I don't know;
+        // perhaps when using an external PPS source.
+        // The subscriber probably doesn't need to perform this check.
+            if (ts.tv_nsec < 100'000'000 && t > 900'000'000) {
+                interruptS = ts.tv_sec - 1;
+                // Serial.printf("t (channel compare): %" PRIu32 ", ts.tv_nsec: %" PRId32 "\n", t, ts.tv_nsec);
+                // Serial.printf("So interrupt_s = %" PRId64 " = %" PRId32 " - 1\n", interrupt_s, ts.tv_sec);
+            } else {
+                interruptS = ts.tv_sec;
+                // Serial.printf("t (channel compare): %" PRIu32 ", ts.tv_nsec: %" PRId32 "\n", t, ts.tv_nsec);
+            }
+
+            interruptNS = t;
+
+        // Start audio the first a PTP lock (offset < 100 ns) is reported.
+            if (ptpLockCallback != nullptr) {
+                const NanoTime enetCompareTime{interruptS * NS_PER_S + interruptNS},
+                        now{ts.tv_sec * NS_PER_S + ts.tv_nsec};
+                ptpLockCallback(ptp.getLockCount() > 0, enetCompareTime, now);
+            }
+            break;
+        default:
+            break;
     }
 
     // Allow write to complete so the interrupt doesn't fire twice

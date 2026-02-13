@@ -81,38 +81,6 @@ void setup()
     componentManager.begin();
 }
 
-// void interrupt_1588_timer()
-// {
-//     uint32_t t;
-//     if (!qindesign::network::EthernetIEEE1588.getAndClearChannelStatus(1)) {
-//         __DSB();
-//         return;
-//     }
-//     qindesign::network::EthernetIEEE1588.getChannelCompareValue(1, t);
-//
-//     t = ((NanoTime) t + NS_PER_S - 60) % NS_PER_S;
-//
-//     timespec ts;
-//     qindesign::network::EthernetIEEE1588.readTimer(ts);
-//
-//     if (ts.tv_nsec < 100 * 1000 * 1000 && t > 900 * 1000 * 1000) {
-//         pps_s = ts.tv_sec;
-//         interrupt_s = ts.tv_sec - 1;
-//     } else {
-//         interrupt_s = ts.tv_sec;
-//         if (ts.tv_nsec < 500 * 1000 * 1000) {
-//             pps_s = ts.tv_sec;
-//         } else {
-//             pps_s = ts.tv_sec + 1;
-//         }
-//     }
-//
-//     interrupt_ns = t;
-//     pps_ns = 0;
-//
-//     __DSB();
-// }
-
 void loop()
 {
     componentManager.run();

@@ -11799,11 +11799,10 @@ float wfs::getParamValue(const std::string &path) const
 size_t wfs::printTo(Print &p) const
 {
     return p.print("WFS:               ") +
-         AudioProcessor::printTo(p) + p.println() +
-         p.printf("  Module ID: %d, Speaker spacing: %.3f m",
+         AudioProcessor::printTo(p) +
+         p.printf("  Module ID: %d, Speaker spacing: %.3f m\n",
                   static_cast<int>(fUI->getParamValue("moduleID")),
-                  fUI->getParamValue("spacing")) +
-         p.println();
+                  fUI->getParamValue("spacing"));
 }
 
 size_t wfs::getNumInputs() const
